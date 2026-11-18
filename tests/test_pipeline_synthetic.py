@@ -158,10 +158,78 @@ try:
         nonuniform_rejected = "non-uniform slice spacing" in str(exc)
     check("nonuniform slice spacing is rejected", nonuniform_rejected)
 
+    # A CuPy step that fails mid-run must fall back to CPU for that step and
+    # disable the backend for the rest of the run. No GPU is needed: a stand-in
+    # reports backend "cupy" and its label kernel fails the way an NVRTC
+    # compile error does.
+    import subprocess
+    import gpu_backend as gb
+    import wood_track as wt
+    from scipy import ndimage as _ndi
+
+    class _FailingCupy:
+        backend = "cupy"
+
+        def __init__(self):
+            self.disabled_reason = None
+
+        def to_gpu(self, arr):
+            return np.asarray(arr)
+
+        def to_cpu(self, arr):
+            return np.asarray(arr)
+
+        def release(self):
+            pass
+
+        def label_slice(self, mask):
+            raise RuntimeError("nvrtc: synthetic compile failure")
+
+        def disable(self, reason):
+            self.backend = "cpu"
+            self.disabled_reason = reason
+
+    fallback_mask = np.zeros((40, 40), dtype=bool)
+    fallback_mask[4:12, 4:30] = True
+    fallback_mask[20:35, 20:24] = True
+    fake_gpu = _FailingCupy()
+    try:
+        cpu_parts = wt._components(fallback_mask, 1, gpu=None)
+        gpu_parts = wt._components(fallback_mask, 1, gpu=fake_gpu)
+        same = (len(cpu_parts) == len(gpu_parts) and all(
+            a[:5] == b[:5] and np.array_equal(a[5], b[5])
+            for a, b in zip(cpu_parts, gpu_parts)))
+        check("GPU label failure falls back to CPU with identical components",
+              same and len(cpu_parts) == 2,
+              f"cpu={len(cpu_parts)} fallback={len(gpu_parts)}")
+    except Exception as exc:
+        check("GPU label failure falls back to CPU with identical components",
+              False, f"raised {type(exc).__name__}: {exc}")
+    check("GPU failure is logged as the reason the backend was disabled",
+          fake_gpu.disabled_reason is not None
+          and "nvrtc" in str(fake_gpu.disabled_reason),
+          str(fake_gpu.disabled_reason))
+
+    # the startup probe must not flash a console window under the launcher
+    captured: dict = {}
+    real_run = gb.subprocess.run
+
+    def probe_run(*args, **kwargs):
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+
+    gb.subprocess.run = probe_run
+    try:
+        gb._cupy_candidate()
+    finally:
+        gb.subprocess.run = real_run
+    check("CuPy probe runs with CREATE_NO_WINDOW",
+          captured.get("creationflags") == getattr(subprocess, "CREATE_NO_WINDOW", 0),
+          repr(captured.get("creationflags")))
+
     cupy_backend = tg.get_backend(preference="cupy", verbose=False)
     if cupy_backend.backend != "cupy":
-        check("CuPy morphology iteration parity", True,
-              "skipped: no active CuPy device")
+        print("SKIP CuPy morphology iteration parity (needs an active CuPy device)")
     else:
         morph_mask = np.zeros((64, 64), dtype=bool)
         morph_mask[12:52, 12:52] = True
