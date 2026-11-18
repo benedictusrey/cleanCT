@@ -474,6 +474,50 @@ Open items and deliberate deviations:
   px to about 1,250 px. Tests: `tests/test_theme.py` (WCAG AA for every text pair
   in both themes), `tests/test_specimen_panel.py` (switch and saved choice).
 
+### 2.10 [2026-11-18] Probe-based UI and pipeline audit
+- **The probe** (`tests/ui_probe.py`). Qt Widgets has no DevTools protocol, so the
+  real window is driven with QTest, inspected through its widget tree, and
+  rendered at the sizes it can reach, in both themes. Pipelines (load, process,
+  export, checkpoint, a bad scan) run with a heartbeat that records any stall of
+  the UI thread. `--selftest` plants seven known defects and must find each one.
+  The first version was wrong in four ways (mislabelled sizes, buffered output,
+  a prompt that hung it, a scan too small to process); each is fixed and recorded
+  in the file header.
+- **Fixed, real defects:**
+  - Checkpoints could not be saved for real-size scans: the live preview is
+    8202 x 640 px and the limit is 2048 px. The checkpoint now stores a thumbnail
+    fitted to 1600 px; the limit is unchanged (`fit_preview`,
+    `tests/test_checkpoint_file.py`).
+  - A failed scan showed the engine's own words. The known failure now gets a plain
+    sentence; the original text stays under "Details" (`src/core/user_messages.py`,
+    `tests/test_user_messages.py`).
+  - The brand "CT" and the sidebar group headers used the old amber, which is 1.9:1
+    on the light panel. They take the theme accent and follow a theme switch.
+  - Colour keys beside the boundary controls had no ground of their own; they sit on
+    a dark chip now.
+  - Spin boxes and sliders had no accessible names (`ACCESSIBLE_NAMES`).
+  - Disabled controls gave no reason: the threshold presets and Reset before a scan
+    is loaded, and Load, Process and Save while a job runs (`BUSY_NOTE`).
+  - Glyphs stood in for icons (`↺`, `✓`, `✗`, `⚠`, `▶`); removed.
+  - Middle dots and em dashes in visible copy replaced; empty values say what is
+    missing ("not measured yet"); the preview-history item is elided to its box;
+    the 3-D caption is sentence case and has no dash; the sidebar subtitle wraps
+    instead of clipping.
+  - `tests/test_specimen_panel.py` checks glyphs, middle dots, disabled reasons and
+    accessible names on a fresh window and a loaded one.
+- **Decisions and limits, not changed:**
+  - Below 1280 px the Auto page scrolls sideways (about 850 px of content). It works;
+    it is graded P2. Whether 1024 px is a supported width is a decision for the user.
+  - Largest GUI stall during the probe's pipelines: 171 ms (bundle write, 384 px
+    scan). Nothing above 250 ms.
+  - Not probed: the About and Load dialogs' contents beyond their opening, the
+    Properties dialog, the light theme in dialogs, 150% display scaling, and a
+    manual walk-through of keyboard focus.
+  - The installed-app load failure from section 2.9 is still open.
+  - Release rebuilt after this pass: gate and launcher self-check PASS; portable ZIP
+    6,691 entries, SHA-256 `65a33ac9…50ae`; setup 208 MB, SHA-256 `a12dd987…4594`.
+    The setup has not been installed on this PC.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
