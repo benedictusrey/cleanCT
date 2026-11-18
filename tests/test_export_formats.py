@@ -178,8 +178,8 @@ check("BOTH: sidecar records the written DICOM tags",
       and str(side.get("dicom_tags", {}).get("SoftwareVersions", "")).startswith("cleanCT"),
       str(side.get("dicom_tags", {}))[:120])
 nii_sha_both = sha(st["nii"])
-check("BOTH: nifti canonical shape (14, 64, 64)",
-      tuple(nib.load(st["nii"]).shape) == (N_KEPT, 64, 64),
+check("BOTH: nifti (x, y, z) shape (64, 64, 14)",
+      tuple(nib.load(st["nii"]).shape) == (64, 64, N_KEPT),
       f"shape={nib.load(st['nii']).shape}")
 
 # ================================================================ 2) DICOM only
@@ -233,7 +233,7 @@ res_fb = be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
                           export_format="nifti")
 img_fb = nib.load(res_fb["nifti"])
 check("FALLBACK: volume rebuilt from DICOMs, atomic tmp rename",
-      tuple(img_fb.shape) == (N_KEPT, 64, 64)
+      tuple(img_fb.shape) == (64, 64, N_KEPT)
       and not (dest_fb / SPEC / (be.nifti_name(SPEC) + ".tmp")).exists(),
       f"shape={img_fb.shape}")
 # The disk-backed fallback must stay byte-identical to nib.save of the same
@@ -249,7 +249,9 @@ def _reference_plane(path):
             + float(getattr(dataset, "RescaleIntercept", 0.0)))
 
 
-_vol_ref = np.stack([_reference_plane(path) for path in _files_kept], axis=0)
+# stacking planes gives (z, y, x); NIfTI volumes are (x, y, z) like the affine
+_vol_ref = np.stack([_reference_plane(path) for path in _files_kept],
+                    axis=0).transpose(2, 1, 0).copy()
 _ref_img = nib.Nifti1Image(
     _vol_ref, be.nifti_affine(_files_kept[:N_KEPT],
                               (0, N_KEPT - 1, 0, 0, 0, 0)))

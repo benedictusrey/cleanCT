@@ -459,12 +459,9 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
             "mapping": mapping, "tags": tags}
 
 
-# Ultra-high-res NIfTI assembly bound: volumes whose kept-slice span
-# exceeds this many bytes are written block-wise (never fully resident).
-# At 24 um the kept volume is typically ~1.5-3 GB (RAM path); a 1 um-class
-# volume would be >6 GB and must stream.
-STREAM_VOL_MAX_BYTES = 4_000_000_000
-STREAM_BLOCK_SLICES = 8        # source slices held in RAM per streamed block
+# Source slices held in RAM per streamed NIfTI block. Every NIfTI export
+# streams, so peak extra RAM is one block regardless of volume size.
+STREAM_BLOCK_SLICES = 8
 
 
 def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
@@ -473,18 +470,14 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                               progress=None) -> dict:
     """Block-wise kept-slices NIfTI — sequential fd writes (audit 0M).
 
-    Each z-plane of the source (disk-ordered x, y, z) is written as one
-    contiguous chunk straight through a file handle: in the canonical
-    NIfTI (z, y, x) image the z axis is the FASTEST file axis, so the
-    file bytes are exactly the source planes back-to-back — no transpose,
-    no memmap.  (The previous memmap writer assigned strided views whose
-    innermost axis carried a 5.6 MB stride: ~11M scattered 4-byte writes
-    per block; measured 218-277 MB/s vs 1860 MB/s for sequential fd
-    writes on the real 2-21 volume — an 8.5x total-export speedup.)
+    The output is an (x, y, z) volume with x the FASTEST file axis, matching
+    the header shape (nx, ny, n_keep) and the affine from nifti_affine. Each
+    z-plane of the source is transposed to (y, x) and written as one
+    contiguous chunk through a file handle, with no memmap. (A memmap writer
+    assigned strided views and measured 218-277 MB/s; sequential fd writes
+    measured 1860 MB/s on the real 2-21 volume.)
 
     Peak extra RAM is one plane + one block regardless of volume size.
-    Produces a byte-identical file to nibabel's own RAM save (same
-    header, affine, dtype and layout — proven by build/test_export_stream).
 
     The output is staged as ``.nii.tmp`` and atomically renamed on
     completion — a killed export never leaves a half-written ``.nii``
@@ -494,8 +487,8 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
     drives) never stall the process.
     """
     import nibabel as nib
-    # disk order is (x, y, z): canonical (z, y, x) output therefore maps
-    # ny -> shape[1], nx -> shape[0], nz -> shape[2]
+    # stripped.nii is in disk order (x, y, z) and the export keeps that order:
+    # output shape (nx, ny, n_keep), so nx -> shape[0] and the kept z-window -> shape[2]
     nx_, ny_, nz_ = (int(proxy.shape[0]), int(proxy.shape[1]),
                      int(proxy.shape[2]))
     n_keep = int(cut_from)
@@ -517,7 +510,7 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
     img = nib.Nifti1Image(np.zeros((1, 1, 1), np.float32), affine)
     hdr = img.header
     hdr.set_xyzt_units("mm")
-    hdr.set_data_shape((n_keep, ny_, nx_))
+    hdr.set_data_shape((nx_, ny_, n_keep))
     hdr.set_data_dtype(np.float32)
     # deterministic single-file layout: 348-byte header + 4 zero extension
     # bytes, data at vox_offset=352 (the layout nibabel itself writes)
@@ -542,7 +535,8 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                 blk = np.asarray(proxy[:, :, keep_from + z0:keep_from + z1],
                                  dtype=np.float32)
                 for j in range(z1 - z0):
-                    f.write(np.ascontiguousarray(blk[:, :, j]).tobytes())
+                    # (x, y) plane -> (y, x) so x is the fastest file axis
+                    f.write(np.ascontiguousarray(blk[:, :, j].T).tobytes())
                 # Bound the destination's dirty-page cache: without a periodic
                 # physical flush a USB-class destination accumulates the whole
                 # multi-GB volume as pending writes and Windows throttles the
@@ -564,7 +558,7 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                f"dataset={dataset_key}; "
                f"voxel_um={float(meta_report['meta']['pixel_spacing_yx_mm'][0]) * 1000:.3f}; "
                f"slices={keep_from}..{keep_from + cut_from - 1}")[:79]
-    return {"nii": str(out), "shape": [n_keep, ny_, nx_], "descrip": describ}
+    return {"nii": str(out), "shape": [nx_, ny_, n_keep], "descrip": describ}
 
 
 def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
@@ -592,7 +586,7 @@ def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
     img = nib.Nifti1Image(np.zeros((1, 1, 1), np.float32), affine)
     hdr = img.header
     hdr.set_xyzt_units("mm")
-    hdr.set_data_shape((cut_from, rows, cols))
+    hdr.set_data_shape((cols, rows, cut_from))
     hdr.set_data_dtype(np.float32)
     hdr["scl_slope"] = 1.0
     hdr["scl_inter"] = 0.0
@@ -633,12 +627,12 @@ def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
             os.fsync(stream.fileno())
         mapped = np.memmap(
             tmp, dtype=np.float32, mode="r+", offset=len(prefix),
-            shape=(cut_from, rows, cols), order="F")
+            shape=(cols, rows, cut_from), order="F")
         with ThreadPoolExecutor(max_workers=workers) as executor:
             for start in range(0, cut_from, workers):
                 batch = source_files[start:min(cut_from, start + workers)]
                 for offset, plane in enumerate(executor.map(_read_plane, batch)):
-                    mapped[start + offset] = plane
+                    mapped[:, :, start + offset] = plane.T
                 if progress:
                     done = min(cut_from, start + len(batch))
                     progress(min(cut_from - 1,
@@ -670,7 +664,7 @@ def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
                f"dataset={dataset_key}; "
                f"voxel_um={float(meta_report['meta']['pixel_spacing_yx_mm'][0]) * 1000:.3f}; "
                f"slices={keep_from}..{keep_from + cut_from - 1}")[:79]
-    return {"nii": str(out), "shape": [cut_from, rows, cols],
+    return {"nii": str(out), "shape": [cols, rows, cut_from],
             "descrip": describ}
 
 
@@ -1111,7 +1105,7 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
                 problems.append(f"SliceThickness missing at kept slice {idx}")
     if want_nii:
         nii_shape = nii["shape"]
-        if not nii_shape or nii_shape[0] != cut_from:
+        if not nii_shape or nii_shape[2] != cut_from:
             problems.append("nifti z shape mismatch")
     if problems:
         raise BundleError("bundle verification failed: " + "; ".join(problems))

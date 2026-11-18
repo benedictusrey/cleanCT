@@ -1,8 +1,9 @@
-"""Proof: streamed NIfTI export == in-RAM NIfTI export (byte identical).
+"""Determinism: the NIfTI export writes identical bytes on every run.
 
-Builds a small synthetic stripped.nii, runs _write_kept_nifti through the
-normal RAM path and through the streamed path (threshold forced tiny),
-then byte-compares the two outputs.
+Builds a small synthetic stripped.nii, runs _write_kept_nifti into two
+separate folders, then byte-compares the outputs and checks an interrupted
+write leaves no partial file. Axis order and voxel values are checked by
+tests/test_nifti_roundtrip.py.
 """
 import hashlib
 import os
@@ -80,11 +81,8 @@ for i in range(N_KEEP):
 (work / "stream").mkdir(exist_ok=True)
 out_ram = bex._write_kept_nifti(stripped, work, "SYN", "syn", N_KEEP, files, meta)
 
-old_thr = be.STREAM_VOL_MAX_BYTES
-be.STREAM_VOL_MAX_BYTES = 1          # force the streamed path
 out_stream = bex._write_kept_nifti(stripped, work / "stream", "SYN", "syn",
                                   N_KEEP, files, meta)
-be.STREAM_VOL_MAX_BYTES = old_thr
 
 
 class BrokenProxy:

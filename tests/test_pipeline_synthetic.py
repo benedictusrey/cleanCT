@@ -263,7 +263,7 @@ try:
         check("bundle export produces complete DICOM + NIfTI delivery",
               bundle["cut_from"] == 25 and bundle["n_dicom"] == 25
               and len(exported_dcm) == 25
-              and tuple(exported_nii.shape) == (25, rows, cols)
+              and tuple(exported_nii.shape) == (cols, rows, 25)
               and Path(bundle["json"]).is_file()
               and Path(bundle["txt"]).is_file(),
               f"DICOM={len(exported_dcm)}, NIfTI={exported_nii.shape}")
