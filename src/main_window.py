@@ -2635,44 +2635,6 @@ class MainWindow(QMainWindow):
         for w in blocked:
             w.blockSignals(False)
 
-    def _auto_place_detected_lines(self, zb: dict,
-                                   allow_wood_top_fallback: bool = False
-                                   ) -> list[str]:
-        """Place the Keep/Cut lines exactly onto the detected z guides.
-
-        Cut ≡ the metal top (``zb.cut`` — the pipeline's detected halo
-        onset, else the quorum-anchored base top).  Keep ≡ the verified
-        air-top curtain line (``zb.keep``).  With
-        ``allow_wood_top_fallback`` (the Snap action), a fog-deferred
-        air top falls back to the DETECTED wood top (``zb.wood_top``) —
-        the same edge the dotted "wood top" guide draws — so Snap always
-        moves the top line onto real detection evidence instead of
-        leaving it wherever the previous state put it.  Load-time
-        auto-place keeps the strict behavior (deferred air top ⇒ whole
-        scan kept).  The keep-below-cut invariant is re-asserted and the
-        standard spin-signal chain syncs badges, margin range, summary
-        and preview.  Returns the placed labels for logging.
-        """
-        placed: list[str] = []
-        cut_g = zb.get("cut")
-        keep_g = zb.get("keep")
-        keep_fallback = None
-        if keep_g is None and allow_wood_top_fallback:
-            wood_top = zb.get("wood_top")
-            if wood_top is not None:
-                keep_fallback = int(wood_top)
-        if cut_g is not None:
-            self.spin_cut.setValue(int(cut_g))
-            placed.append(f"cut={int(cut_g)}")
-        keep_value = keep_g if keep_g is not None else keep_fallback
-        if keep_value is not None:
-            cap = self.spin_cut.value() - 1 if self.spin_cut.value() > 0 else 0
-            self.spin_keep.setValue(min(int(keep_value), max(0, cap)))
-            placed.append(f"keep={self.spin_keep.value()}"
-                          + (" (wood top; air top deferred)" if keep_fallback
-                             else ""))
-        return placed
-
     # ------------------------------------------------- auto snap (audit 0AG)
     def _note_manual_lines_edit(self, what: str = "lines"):
         """Suspend auto-snap after a manual line edit (audit 0AG).
@@ -2768,15 +2730,11 @@ class MainWindow(QMainWindow):
         evidence.  A no-op dialog appears only when the specimen has no
         detection evidence at all.
         """
-        b = self._wood_bounds_raw or {}
-        changed = self._auto_place_detected_lines(
-            b.get("zb") or {}, allow_wood_top_fallback=True)
+        # the auto-snap copy layer also re-arms itself: the lines now hold
+        # the detection, so no manual override is pending
+        changed = self._apply_auto_snap("snap")
         if changed:
-            # an explicit snap re-arms the auto copy layer (the lines now
-            # hold the detection, so no manual override is pending)
-            self._auto_snap_suspended = False
             self._log_action("snapped lines to detection: " + ", ".join(changed))
-            self._sync_kpi_effective()
         else:
             QMessageBox.information(
                 self, "Snap to detection",
@@ -3212,9 +3170,8 @@ class MainWindow(QMainWindow):
         detected = rep.get("detected_cut_from") or rep.get("cut_from")
         if detected is None:
             return
-        zb = ((self.payload or {}).get("bounds") or {}).get("zb") or {}
         self.spin_margin.setValue(0)
-        placed = self._auto_place_detected_lines(zb, allow_wood_top_fallback=True)
+        placed = self._apply_auto_snap("reset")
         if placed:
             self._log_action(
                 f"reset to detected: {', '.join(placed)} "
