@@ -87,6 +87,13 @@ def _natural_key(value: str) -> list:
 LATERAL_MIN_GAP_PCT = 4
 
 
+def key_swatch(name: str, text: str = "") -> str:
+    """A colour key: a swatch in the line's colour, then its label. The colour
+    comes from the active theme, so the key re-renders when the theme changes."""
+    swatch = f"<span style='color:{theme.color(f'key_{name}')};'>■</span>"
+    return f"{swatch} {text}" if text else swatch
+
+
 def _b64_to_pixmap(data_url: str) -> QPixmap:
     if not data_url:
         return QPixmap()
@@ -261,10 +268,29 @@ class MainWindow(QMainWindow):
             self._set_empty_state(True)
             self._set_job_gates(process_ready=False)
 
+    # the header's state chip: text and pill style for each state of a specimen
+    _STATE_CHIPS = {
+        "unprocessed": ("Not processed", "pill-warn"),
+        "processed": ("Processed", "pill-ok"),
+        "exported": ("Exported", "pill-accent"),
+    }
+
+    def _set_state_chip(self, kind: str | None) -> None:
+        """Show the specimen's state next to its name; None hides the chip."""
+        if kind is None:
+            self.lbl_state_chip.setVisible(False)
+            return
+        text, role = self._STATE_CHIPS[kind]
+        self.lbl_state_chip.setText(text)
+        theme.set_role(self.lbl_state_chip, role)
+        self.lbl_state_chip.setVisible(True)
+
     def _set_empty_state(self, empty: bool):
         """Show the production first-run prompt when no specimen is loaded."""
         if not hasattr(self, "empty_state"):
             return
+        if empty:
+            self._set_state_chip(None)
         snapshot = bool(getattr(self, "_checkpoint_snapshot_only", False))
         show_empty = bool(empty and not snapshot)
         self.empty_state.setVisible(show_empty)
@@ -368,13 +394,19 @@ class MainWindow(QMainWindow):
             self._select_sample(*nxt, _async=False)
 
     def _log_action(self, msg: str):
+        """Record one action: the activity drawer keeps every line; the sidebar
+        shows the latest one on a single line, elided to fit, with the full text
+        in its tooltip. Lines start with a capital, like the rest of the copy."""
         now_str = datetime.now().strftime("%H:%M:%S")
+        sentence = msg[:1].upper() + msg[1:]
         if hasattr(self, "log_view") and self.log_view:
-            self.log_view.append(f"[{now_str}] {msg}")
+            self.log_view.append(f"[{now_str}] {sentence}")
         if hasattr(self, "lbl_log_last") and self.lbl_log_last:
-            short = msg if len(msg) <= 90 else msg[:89].rstrip() + "…"
-            self.lbl_log_last.setText(f"{now_str}  {short}")
-            self.lbl_log_last.setToolTip(f"[{now_str}] {msg}")
+            line = f"{now_str}  {sentence}"
+            width = max(self.lbl_log_last.width(), 220)
+            self.lbl_log_last.setText(
+                self.lbl_log_last.fontMetrics().elidedText(line, Qt.ElideRight, width))
+            self.lbl_log_last.setToolTip(f"[{now_str}] {sentence}")
 
     def _set_log_open(self, opened: bool) -> None:
         self.log_view.setVisible(opened)
@@ -430,10 +462,12 @@ class MainWindow(QMainWindow):
                 self.lbl_sample_title.setText(sample)
                 ds_label = {"24um": "24 µm dataset",
                             "66um": "66.2 µm dataset"}.get(ds, "Custom specimen")
+                # the title already names the specimen; the subtitle says what it is
                 self.lbl_sample_sub.setText(
-                    f"{ds_label}: micro-CT reconstruction"
+                    f"{ds_label}, micro-CT reconstruction"
                     if ds != "custom"
-                    else f"{sample}: user-loaded specimen")
+                    else "User-loaded scan")
+                self._set_state_chip("processed")
                 self._log_action(f"Loaded specimen: {ds}/{sample}")
                 self._apply_payload_state(p)
             self._set_empty_state(False)
@@ -469,9 +503,8 @@ class MainWindow(QMainWindow):
         n = int(rep.get("n_slices") or 0)
         vox = float(rep.get("voxel_mm") or 0.0)
         # the title already names the specimen: the subtitle says only the state
-        self.lbl_sample_sub.setText(
-            "Loaded, not processed yet. Check the detection guides, "
-            "then run Process.")
+        self.lbl_sample_sub.setText("Check the detection guides, then run Process.")
+        self._set_state_chip("unprocessed")
         self._set_export_source_kind(
             str(p.get("source_kind") or rep.get("source_kind") or "dicom"))
         self.kpi_banner.updateMetrics({"empty": True})
@@ -674,7 +707,14 @@ class MainWindow(QMainWindow):
             self._update_range_summary()          # restores the enabled state
 
     # ---------------------------------------------------------------- UI Setup
+    def _keyed(self, label: QLabel, build) -> QLabel:
+        """A label whose text is a colour key; it is re-rendered on a theme change."""
+        label.setText(build())
+        self._key_rows.append((label, build))
+        return label
+
     def _init_ui(self):
+        self._key_rows: list = []      # (label, builder) for the colour keys
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         root_layout = QHBoxLayout(main_widget)
@@ -687,7 +727,7 @@ class MainWindow(QMainWindow):
         sidebar.setFixedWidth(280)
         side_layout = QVBoxLayout(sidebar)
         side_layout.setContentsMargins(14, 16, 14, 14)
-        side_layout.setSpacing(12)
+        side_layout.setSpacing(8)     # tight: the specimen list keeps four rows at 720 px
 
         # Brand Header (Vertically centered, elegant alignment)
         brand_card = QFrame()
@@ -897,30 +937,27 @@ class MainWindow(QMainWindow):
         self._job_box_hide_timer.setInterval(2500)
         self._job_box_hide_timer.timeout.connect(
             lambda: self.job_box.setVisible(False))
-        job_layout = QVBoxLayout(self.job_box)
-        job_layout.setContentsMargins(4, 4, 4, 4)
-        job_layout.setSpacing(6)
+        # one row, in the bottom status bar: phase, progress, time left
+        job_layout = QHBoxLayout(self.job_box)
+        job_layout.setContentsMargins(0, 0, 0, 0)
+        job_layout.setSpacing(12)
 
-        job_top_row = QHBoxLayout()
         self.lbl_job_phase = QLabel("Processing…")
         theme.set_role(self.lbl_job_phase, "accent")
-        self.lbl_job_eta = QLabel("~8s left")
-        theme.set_role(self.lbl_job_eta, "secondary")
-        job_top_row.addWidget(self.lbl_job_phase)
-        job_top_row.addStretch()
-        job_top_row.addWidget(self.lbl_job_eta)
-        job_layout.addLayout(job_top_row)
-
         self.job_progress = QProgressBar()
-        self.job_progress.setFixedHeight(10)
+        self.job_progress.setFixedSize(220, 8)
         self.job_progress.setRange(0, 100)
         self.job_progress.setValue(0)
-        job_layout.addWidget(self.job_progress)
-
-        self.lbl_job_sub = QLabel("initializing backend…")
+        self.lbl_job_eta = QLabel("~8s left")
+        theme.set_role(self.lbl_job_eta, "secondary")
+        # the detail line is kept for the tooltip; the row stays one line
+        self.lbl_job_sub = QLabel("Initializing backend…")
         theme.set_role(self.lbl_job_sub, "hint")
+        self.lbl_job_sub.setVisible(False)
+        job_layout.addWidget(self.lbl_job_phase)
+        job_layout.addWidget(self.job_progress)
+        job_layout.addWidget(self.lbl_job_eta)
         job_layout.addWidget(self.lbl_job_sub)
-        side_layout.addWidget(self.job_box)
 
         # Activity: the latest message stays visible; the full log opens on demand
         box_log = QFrame()
@@ -944,7 +981,7 @@ class MainWindow(QMainWindow):
         log_layout.addLayout(log_head)
         self.lbl_log_last = QLabel("")
         self.lbl_log_last.setObjectName("lbl_log_last")
-        self.lbl_log_last.setWordWrap(True)
+        self.lbl_log_last.setWordWrap(False)     # one line; _log_action elides it
         theme.set_role(self.lbl_log_last, "hint")
         log_layout.addWidget(self.lbl_log_last)
 
@@ -980,9 +1017,14 @@ class MainWindow(QMainWindow):
         title_row.setSpacing(12)
         self.lbl_sample_title = QLabel("Select a sample")
         theme.set_role(self.lbl_sample_title, "title")
+        # the state of this specimen at a glance: Not processed, Processed or Exported
+        self.lbl_state_chip = QLabel("")
+        self.lbl_state_chip.setObjectName("lbl_state_chip")
+        self.lbl_state_chip.setVisible(False)
         self.lbl_sample_sub = QLabel("Pick a dataset & sample from the sidebar")
         theme.set_role(self.lbl_sample_sub, "secondary")
-        title_row.addWidget(self.lbl_sample_title)
+        title_row.addWidget(self.lbl_sample_title, 0, Qt.AlignBaseline)
+        title_row.addWidget(self.lbl_state_chip, 0, Qt.AlignBaseline)
         title_row.addWidget(self.lbl_sample_sub, 1, Qt.AlignBaseline)
         top_bar.addLayout(title_row)
 
@@ -1061,6 +1103,7 @@ class MainWindow(QMainWindow):
         self.lbl_export_dest = QLabel()
         self.lbl_export_dest.setObjectName("lbl_export_dest")
         self.lbl_export_dest.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.lbl_export_dest.setProperty("nowrap", True)     # elided, never two lines
         export_row.addWidget(self.lbl_export_dest, 1)
         self.lbl_export_format = QLabel()
         self.lbl_export_format.setObjectName("lbl_export_format")
@@ -1078,14 +1121,24 @@ class MainWindow(QMainWindow):
         export_row.addWidget(self.btn_export)
         main_area_layout.addLayout(export_row)
 
-        self.lbl_export_status = QLabel("")
-        theme.set_role(self.lbl_export_status, "status-ok")
-        self.lbl_export_status.setWordWrap(True)
-        main_area_layout.addWidget(self.lbl_export_status)
+        # the outcome line lives in the bottom status bar, not in the header
+        self.lbl_export_status = QLabel("Ready")
+        theme.set_role(self.lbl_export_status, "hint")
+        self.lbl_export_status.setWordWrap(False)
 
         # ---------------- 3. Stacked Workspaces (Auto vs Preferences) ----------------
         self.stack = QStackedWidget()
         main_area_layout.addWidget(self.stack, 1)
+
+        # Bottom status bar: the one place for outcome messages and job progress
+        statusbar = QFrame()
+        statusbar.setObjectName("statusbar")
+        status_row = QHBoxLayout(statusbar)
+        status_row.setContentsMargins(4, 4, 4, 0)
+        status_row.setSpacing(12)
+        status_row.addWidget(self.lbl_export_status, 1)
+        status_row.addWidget(self.job_box)
+        main_area_layout.addWidget(statusbar)
 
         # Page 0: Auto Tab Workspace
         # Each page scrolls sideways when the window is narrower than the page
@@ -1107,6 +1160,12 @@ class MainWindow(QMainWindow):
         # Page 2: Settings (appearance, export, checkpoints, shortcuts)
         self.page_settings = self._build_settings_page()
         self.stack.addWidget(_scrollable(self.page_settings))
+
+        # every mode toggle is a segment: one size, one look, across the pages
+        for name in ("btn_plane_sag", "btn_plane_cor", "btn_plane_ax",
+                     "btn_guide_2l", "btn_guide_4l", "btn_long_sag", "btn_long_cor",
+                     "btn_3d_simple", "btn_3d_real"):
+            theme.set_role(getattr(self, name), "segment")
 
         root_layout.addWidget(main_area, 1)
         self._refresh_export_summary()
@@ -1136,10 +1195,14 @@ class MainWindow(QMainWindow):
         theme.set_role(lbl_ax_title, "section")
         ax_head.addWidget(lbl_ax_title)
         ax_head.addStretch()
-        lbl_legend = QLabel("<span style='background-color:#0b0d10; color:#f2b23c;'>■ wood ROI</span>  <span style='background-color:#0b0d10; color:#ff463c;'>■ metal</span>")
+        lbl_legend = self._keyed(QLabel(), lambda: (
+            f"{key_swatch('wood', 'wood ROI')}  {key_swatch('metal', 'metal')}"))
         lbl_legend.setTextFormat(Qt.RichText)
         lbl_legend.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # never squeezed
+        lbl_legend.setProperty("nowrap", True)                             # one line
         theme.set_role(lbl_legend, "hint")
+        # the layout may not squeeze the legend below the width its text needs
+        lbl_legend.setMinimumWidth(lbl_legend.sizeHint().width() + 4)
         ax_head.addWidget(lbl_legend)
         axial_box.addLayout(ax_head)
 
@@ -1525,7 +1588,7 @@ class MainWindow(QMainWindow):
         # Top Line: Keep From (Green)
         box_keep = QVBoxLayout()
         box_keep.setSpacing(2)
-        lbl_keep = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Top line: keep start")
+        lbl_keep = self._keyed(QLabel(), lambda: key_swatch("keep", "Top line: keep start"))
         lbl_keep.setTextFormat(Qt.RichText)
         theme.set_role(lbl_keep, "label")
         box_keep.addWidget(lbl_keep)
@@ -1544,7 +1607,7 @@ class MainWindow(QMainWindow):
         # Bottom Line: Cut Slice (Red)
         box_cut = QVBoxLayout()
         box_cut.setSpacing(2)
-        lbl_cut = QLabel("<span style='background-color:#0b0d10; color:#ff463c;'>■</span> Bottom line: platform cut")
+        lbl_cut = self._keyed(QLabel(), lambda: key_swatch("metal", "Bottom line: platform cut"))
         lbl_cut.setTextFormat(Qt.RichText)
         theme.set_role(lbl_cut, "label")
         box_cut.addWidget(lbl_cut)
@@ -1566,7 +1629,7 @@ class MainWindow(QMainWindow):
         # Margin (Safety Buffer)
         box_margin = QVBoxLayout()
         box_margin.setSpacing(2)
-        lbl_margin = QLabel("<span style='background-color:#0b0d10; color:#f2b23c;'>■</span> Margin above cut: slices kept")
+        lbl_margin = self._keyed(QLabel(), lambda: key_swatch("wood", "Margin above cut: slices kept"))
         lbl_margin.setTextFormat(Qt.RichText)
         theme.set_role(lbl_margin, "label")
         box_margin.addWidget(lbl_margin)
@@ -1588,7 +1651,7 @@ class MainWindow(QMainWindow):
         lat_layout = QVBoxLayout(self.box_lateral)
         lat_layout.setContentsMargins(4, 4, 4, 4)
         lat_layout.setSpacing(6)
-        lbl_lat = QLabel("<span style='background-color:#0b0d10; color:#4f8cff;'>■</span> Lateral ROI Boundary Lines (4-Lines Mode):")
+        lbl_lat = self._keyed(QLabel(), lambda: key_swatch("lateral", "Lateral ROI boundary lines (4-line mode)"))
         lbl_lat.setTextFormat(Qt.RichText)
         theme.set_role(lbl_lat, "info")
         lat_layout.addWidget(lbl_lat)
@@ -1629,7 +1692,7 @@ class MainWindow(QMainWindow):
         # only in the axial plane where the box has a vertical extent.
         self.row_lat_top = QVBoxLayout()
         self.row_lat_top.setSpacing(2)
-        self.lbl_top = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Top Y (axial box):")
+        self.lbl_top = self._keyed(QLabel(), lambda: key_swatch("keep", "Top Y (axial box)"))
         self.lbl_top.setTextFormat(Qt.RichText)
         theme.set_role(self.lbl_top, "label")
         self.row_lat_top.addWidget(self.lbl_top)
@@ -1650,7 +1713,7 @@ class MainWindow(QMainWindow):
 
         self.row_lat_bottom = QVBoxLayout()
         self.row_lat_bottom.setSpacing(2)
-        self.lbl_bottom = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Bottom Y (axial box):")
+        self.lbl_bottom = self._keyed(QLabel(), lambda: key_swatch("keep", "Bottom Y (axial box)"))
         self.lbl_bottom.setTextFormat(Qt.RichText)
         theme.set_role(self.lbl_bottom, "label")
         self.row_lat_bottom.addWidget(self.lbl_bottom)
@@ -1689,7 +1752,7 @@ class MainWindow(QMainWindow):
         lateral_layout.addStretch()
 
         # Live Range Summary: pinned under the segments, always visible
-        self.lbl_range_summary = QLabel("delivery: not calculated yet")
+        self.lbl_range_summary = QLabel("Delivery: not calculated yet")
         self.lbl_range_summary.setObjectName("range_summary")
         self.lbl_range_summary.setWordWrap(True)
         theme.set_role(self.lbl_range_summary, "secondary")
@@ -3394,7 +3457,7 @@ class MainWindow(QMainWindow):
             return
         if (self.payload or {}).get("unprocessed"):
             self.lbl_range_summary.setText(
-                "specimen not processed yet: run Process")
+                "Specimen not processed yet: run Process")
             theme.set_role(self.lbl_range_summary, "accent")
             self.btn_apply_prefs.setEnabled(False)
             return
@@ -3405,7 +3468,7 @@ class MainWindow(QMainWindow):
             self.btn_apply_prefs.setEnabled(False)
             return
         kept = self.pref_cut - self.pref_keep
-        base = f"delivery: slices {self.pref_keep}..{self.pref_cut - 1} ({kept} slices)"
+        base = f"Delivery: slices {self.pref_keep}–{self.pref_cut - 1}, {kept} slices"
         if self.pref_margin > 0:
             base += f", margin +{self.pref_margin}"
         self.lbl_range_summary.setText(base)
@@ -3946,6 +4009,7 @@ class MainWindow(QMainWindow):
         sample = exp.get("sample") or self.sample
         self.lbl_export_status.setText(f"Bundle exported: {sample}")
         theme.set_role(self.lbl_export_status, "status-ok")
+        self._set_state_chip("exported")
         fmt = exp.get("export_format", "both")
         _fmt_detail = ("DICOM + NIfTI" if fmt == "both"
                        else "DICOM series" if fmt == "dicom"
@@ -3969,10 +4033,10 @@ class MainWindow(QMainWindow):
             else "Export complete" if was_export else "Processing complete")
         self.lbl_job_eta.setText("done")
         self.lbl_job_sub.setText(
-            "payloads written; bundle exported & verified."
+            "Payloads written. Bundle exported and verified."
             if kind == "process_export"
-            else "delivery bundle verified and written."
-            if was_export else "payloads and montages successfully written.")
+            else "Delivery bundle verified and written."
+            if was_export else "Payloads and montages written.")
         self.btn_process.setEnabled(True)
         self.btn_process_export.setEnabled(True)
         self.btn_apply_prefs.setEnabled(True)
@@ -4040,6 +4104,8 @@ class MainWindow(QMainWindow):
         2,500 px, which is wider than most screens."""
         from PySide6.QtWidgets import QSizePolicy
         for lbl in self.findChildren(QLabel):
+            if lbl.property("nowrap"):          # a single-line element: legend, path, chip
+                continue
             if len(lbl.text()) > 28 and lbl.property("role") not in ("title", "section"):
                 lbl.setWordWrap(True)
         for box in self.findChildren(QCheckBox):
@@ -4065,6 +4131,8 @@ class MainWindow(QMainWindow):
         theme.apply(QApplication.instance())
         # colours written into rich text or built into rows must follow the theme too
         self.lbl_brand.setText(self._brand_html())
+        for label, build in self._key_rows:
+            label.setText(build())
         self._refresh_sidebar()
         self.update()
         try:

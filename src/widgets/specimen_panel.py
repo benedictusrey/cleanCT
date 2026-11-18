@@ -121,6 +121,15 @@ class BusySpinner(QWidget):
         p.end()
 
 
+def fit_meta(text: str, metrics: QFontMetrics, width: int) -> str:
+    """Fit a metadata line: drop the last details whole until it fits, so no
+    value is cut mid-number. Only a single over-long part is elided."""
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    while len(parts) > 1 and metrics.horizontalAdvance(", ".join(parts)) > width:
+        parts.pop()
+    return metrics.elidedText(", ".join(parts) or " ", Qt.ElideRight, width)
+
+
 class SpecimenDelegate(QStyledItemDelegate):
     """Two-line specimen row: name on top, muted metadata below.
 
@@ -177,8 +186,7 @@ class SpecimenDelegate(QStyledItemDelegate):
         p.setFont(f2)
         p.setPen(QColor(theme.color("text_2" if selected else "text_3")))
         # elide, so a long metadata line never runs past the row's edge
-        elided_meta = QFontMetrics(f2).elidedText(
-            meta or " ", Qt.ElideRight, meta_rect.width())
+        elided_meta = fit_meta(meta or " ", QFontMetrics(f2), meta_rect.width())
         p.drawText(meta_rect, Qt.AlignLeft | Qt.AlignVCenter, elided_meta)
 
         p.restore()

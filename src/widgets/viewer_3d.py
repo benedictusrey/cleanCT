@@ -11,6 +11,13 @@ from PySide6.QtWidgets import QWidget
 from core.viewer_core import _CMAP_STOPS as CMAP_STOPS  # noqa: E402
 
 
+def caption(visual_mode: str, color_map: str) -> str:
+    """The 3-D view's one-line legend, in plain words."""
+    if visual_mode == "real":
+        return f"Colour map: {color_map.capitalize()}"
+    return "Amber wood, silver metal"
+
+
 def sample_cmap(cmap_name: str, t_arr: np.ndarray, gamma: float = 0.85) -> np.ndarray:
     stops = CMAP_STOPS.get(cmap_name.lower(), CMAP_STOPS["spectral"])
     t_lifted = np.clip(t_arr, 0.0, 1.0) ** gamma
@@ -232,8 +239,7 @@ class Viewer3D(QWidget):
 
         # Mode watermark overlay
         painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
-        mode_text = (f"3D: {self._color_map} colour" if self._visual_mode == "real"
-                     else "3D: simple, amber and silver")
+        mode_text = caption(self._visual_mode, self._color_map)
         painter.setPen(QColor("#6f7c91"))
         painter.drawText(16, h - 14, mode_text)
 

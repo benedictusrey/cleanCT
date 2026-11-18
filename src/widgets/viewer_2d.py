@@ -316,7 +316,7 @@ class Viewer2D(QWidget):
             painter.setBrush(QColor(18, 22, 30, 230))
             painter.setPen(QPen(QColor("#4f8cff"), 1))
             painter.drawRoundedRect(badge_rect, 4, 4)
-            painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+            painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
             painter.setPen(QColor("#4f8cff"))
             painter.drawText(badge_rect, Qt.AlignCenter,
                              f"ROI X {int(self._x0*100)}..{int(self._x1*100)}%  ·  Y {int(self._y0*100)}..{int(self._y1*100)}%")
@@ -365,7 +365,7 @@ class Viewer2D(QWidget):
             painter.setBrush(QColor(18, 22, 30, 225))
             painter.setPen(QPen(QColor("#4f8cff"), 1))
             painter.drawRoundedRect(badge_l, 4, 4)
-            painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+            painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
             painter.setPen(QColor("#4f8cff"))
             painter.drawText(badge_l, Qt.AlignCenter, f"L {int(self._x0*100)}%")
 
@@ -385,7 +385,7 @@ class Viewer2D(QWidget):
             painter.setBrush(QColor(18, 22, 30, 225))
             painter.setPen(QPen(QColor("#4f8cff"), 1))
             painter.drawRoundedRect(badge_r, 4, 4)
-            painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+            painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
             painter.setPen(QColor("#4f8cff"))
             painter.drawText(badge_r, Qt.AlignCenter, f"R {int(self._x1*100)}%")
 
@@ -398,7 +398,7 @@ class Viewer2D(QWidget):
             zc = self._auto_z.get("cut")
             zw = (self._auto_z.get("wood_top")
                   if zk is None else None)
-            painter.setFont(QFont("Segoe UI", 7, QFont.Bold))
+            painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
             if zw is not None:
                 # air top deferred (foggy edge): still show the detected
                 # wood-top evidence so Snap's fallback target is visible
@@ -462,7 +462,7 @@ class Viewer2D(QWidget):
         painter.setBrush(QColor(18, 22, 30, 225))
         painter.setPen(QPen(QColor("#37d67a"), 1))
         painter.drawRoundedRect(badge_rect, 4, 4)
-        painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+        painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
         painter.setPen(QColor("#37d67a"))
         painter.drawText(badge_rect, Qt.AlignCenter, f"Keep: {self._keep}")
 
@@ -482,7 +482,7 @@ class Viewer2D(QWidget):
         painter.setBrush(QColor(18, 22, 30, 225))
         painter.setPen(QPen(QColor("#ff463c"), 1))
         painter.drawRoundedRect(badge_rect2, 4, 4)
-        painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+        painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
         painter.setPen(QColor("#ff463c"))
         painter.drawText(badge_rect2, Qt.AlignCenter, f"Cut: {self._cut}")
 

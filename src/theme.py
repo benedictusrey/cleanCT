@@ -33,6 +33,8 @@ DARK = {
     "warn": "#e9b44c",
     "error": "#ef7065",
     "info": "#8ab4f8",
+    # colour keys for the viewer lines: data colours, the same in both themes
+    "key_wood": "#f2b23c", "key_metal": "#ff463c", "key_keep": "#37d67a", "key_lateral": "#4f8cff",
 }
 
 LIGHT = {
@@ -52,6 +54,8 @@ LIGHT = {
     "warn": "#8f5e00",
     "error": "#b3261e",
     "info": "#1f5fbf",
+    # colour keys: darker on a light panel so each swatch reads at 3:1 (WCAG 1.4.11)
+    "key_wood": "#b07a00", "key_metal": "#b3261e", "key_keep": "#1d7a3c", "key_lateral": "#1f5fbf",
 }
 
 MODES = ("dark", "light")
@@ -95,6 +99,7 @@ QFrame#kpi_bar { background: transparent; border: none; }
 QFrame#divider { background: $line; border: none; min-height: 1px; max-height: 1px; }
 QFrame#vdivider { background: $line; border: none; min-width: 1px; max-width: 1px; }
 QFrame#tabbar { background: transparent; border: none; border-bottom: 1px solid $line; }
+QFrame#statusbar { background: transparent; border: none; border-top: 1px solid $line; }
 
 /* text roles */
 QLabel[role="title"] { font-family: $font_display; font-size: 19px; font-weight: 600; color: $text; }
@@ -112,6 +117,14 @@ QLabel[role="kpi-title"], QLabel[role="kpi-muted"] { color: $text_3; font-size: 
 QLabel[role="kpi-value"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $text; }
 QLabel[role="kpi-ok"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $ok; }
 QLabel[role="kpi-warn"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $warn; }
+QLabel[role="kpi-hero"] { font-family: $font_display; font-size: 22px; font-weight: 600; color: $accent; }
+/* state pills in the header: the outline carries the colour, the fill stays quiet */
+QLabel[role="pill-ok"], QLabel[role="pill-warn"], QLabel[role="pill-accent"] {
+    font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px;
+    border: 1px solid $line_strong; background: transparent; color: $text_2; }
+QLabel[role="pill-ok"] { color: $ok; border-color: $ok; }
+QLabel[role="pill-warn"] { color: $warn; border-color: $warn; }
+QLabel[role="pill-accent"] { color: $accent; border-color: $accent; }
 QLabel#range_summary { color: $text_2; font-size: 12px; }
 QLabel[role="key"] { font-family: $font_mono; font-size: 12px; color: $text;
     background: $raised; border: 1px solid $line_strong; border-radius: 4px; padding: 2px 6px; }

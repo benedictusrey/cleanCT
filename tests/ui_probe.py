@@ -369,6 +369,8 @@ def probe_interactions(window: QWidget, app) -> None:
         QTest.keySequence(window, seq)
         QApplication.processEvents()
     STAGE[0] = "interaction: keyboard"
+    # the sidebar is locked while a load or job runs: walk the Tab order once idle
+    cs.pump(app, lambda: not window._loading and window._active_worker is None, 240)
     reached, missed, focusable = tab_order(window)
     stats["keyboard_reached"] = len(reached)
     stats["keyboard_focusable"] = focusable

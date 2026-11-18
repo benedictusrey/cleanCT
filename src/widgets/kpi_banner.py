@@ -53,12 +53,18 @@ class KPIBanner(QFrame):
             self.cards[key] = (lbl_title, lbl_val)
 
         self.layout.addStretch()
+        self._settle_roles()
 
     def _settle_roles(self) -> None:
-        """A value not produced yet is muted; a real value is full strength."""
+        """A value not produced yet is muted; a real value is full strength, and
+        the cut slice, the result that matters most, is the accented hero."""
         for key, (_, val) in self.cards.items():
-            if key != "gt":
-                theme.set_role(val, "kpi-muted" if val.text() == PENDING else "kpi-value")
+            if key == "gt":
+                continue
+            if val.text() == PENDING:
+                theme.set_role(val, "kpi-muted")
+            else:
+                theme.set_role(val, "kpi-hero" if key == "cut" else "kpi-value")
 
     def updateMetrics(self, report: dict | None, override_range: tuple[int, int] | None = None,
                       effective: tuple[int, int] | None = None):

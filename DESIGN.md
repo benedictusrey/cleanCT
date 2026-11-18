@@ -64,6 +64,15 @@ the viewers draw them. They are data, not chrome.
   filled with the accent. `role="ghost"` is text only, for low-weight actions.
   `active="true"` marks the selected segment of a toggle group.
 - **Focus.** Every control gets an accent border on keyboard focus.
+- **State pill.** Beside the specimen name: `pill-warn` "Not processed", `pill-ok`
+  "Processed", `pill-accent` "Exported". Outline carries the colour; the fill stays quiet.
+- **Status bar.** One strip at the foot of the workspace: the outcome line on the
+  left ("Ready" when idle), job progress on the right. No status text lives in the
+  header or the sidebar.
+- **Colour keys.** Viewer line colours are theme tokens (`key_wood`, `key_metal`,
+  `key_keep`, `key_lateral`). The light palette darkens them so every swatch reads at
+  3:1 on the panel (WCAG 1.4.11). `main_window.key_swatch` builds them; `_keyed`
+  re-renders them on a theme change.
 - **Workspace tabs.** `role="tab"`: text tabs on one baseline. The active tab is
   `text` colour with a 2 px accent underline. Settings sits at the right end.
 - **Segments.** `role="segment"`: a compact group of choices inside a panel
