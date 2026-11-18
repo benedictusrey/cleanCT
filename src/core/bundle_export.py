@@ -372,6 +372,9 @@ def _delivery_tags(specimen: str, report: dict, provenance: str,
         "PixelSpacing": (list(getattr(ds0, "PixelSpacing", []) or [])
                          or ([float(spacing[0]), float(spacing[1])]
                              if spacing and spacing[0] else None)),
+        # derived image, not the scanner's original acquisition
+        "ImageType": ["DERIVED", "SECONDARY"],
+        "DerivationDescription": "cleanCT metal-base removal",
         **(acq_time or {}),
     }
 
@@ -398,6 +401,8 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
     import pydicom
     import warnings
     from concurrent.futures import ThreadPoolExecutor
+    from pydicom.dataset import Dataset
+    from pydicom.uid import generate_uid
 
     keep_from = int(report.get("platform", {}).get("keep_from") or 0)
     if isinstance(source_files_or_dir, (list, tuple)):
@@ -416,16 +421,28 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
     tmp.mkdir(parents=True)
     tags = _delivery_tags(specimen, report,
                           str(Path(kept[0]).parent), len(kept), cut_from, kept)
+    # one new series per export: a derived series must never share its
+    # SeriesInstanceUID with the scan it came from or with an earlier export
+    tags["SeriesInstanceUID"] = generate_uid()
     mapping = []
 
     def _write_one(item):
         i, src = item
         ds = pydicom.dcmread(src)
+        src_sop = str(ds.SOPInstanceUID)
         # identity + provenance tags are written on top of the preserved
         # source tags (pixels and geometry stay byte-identical)
         for key, value in tags.items():
             if value is not None:
                 setattr(ds, key, value)
+        # each slice gets its own SOP instance and references its source slice
+        new_sop = generate_uid()
+        ds.SOPInstanceUID = new_sop
+        ds.file_meta.MediaStorageSOPInstanceUID = new_sop
+        source_ref = Dataset()
+        source_ref.ReferencedSOPClassUID = str(ds.SOPClassUID)
+        source_ref.ReferencedSOPInstanceUID = src_sop
+        ds.SourceImageSequence = [source_ref]
         # clean filename: the ORIGINAL slice filename (no ``_rem_``);
         # a pathological duplicate falls back to an indexed clean name
         name = Path(src).name
@@ -439,7 +456,8 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
             pydicom.dcmwrite(outp, ds, enforce_file_format=True)
         _fsync_file(outp)
         return {"export_file": name, "source_file": src.name,
-                "source_index": keep_from + i - 1}
+                "source_index": keep_from + i - 1,
+                "source_sop_uid": src_sop, "sop_instance_uid": new_sop}
 
     try:
         # I/O-bound pydicom threads: beyond ~10 workers the GIL and the
@@ -1075,11 +1093,14 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
         if len(out_files) != cut_from:
             problems.append(f"file count {len(out_files)} != {cut_from}")
         # kept slices keep their ORIGINAL filenames, whose alphabetical
-        # order need not match physical slice order — verify by SOP UID
+        # order need not match physical slice order — match each output
+        # slice to its source through the SOP UID it references
         out_by_uid: dict[str, object] = {}
         for p in out_files:
             ds = pydicom.dcmread(p)
-            out_by_uid[str(ds.SOPInstanceUID)] = ds
+            refs = getattr(ds, "SourceImageSequence", None) or []
+            if refs:
+                out_by_uid[str(refs[0].ReferencedSOPInstanceUID)] = ds
         for idx in (0, cut_from // 2, cut_from - 1):        # spot checks
             src = pydicom.dcmread(source_files[idx])
             outp = out_by_uid.get(str(src.SOPInstanceUID))

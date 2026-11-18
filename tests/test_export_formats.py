@@ -162,6 +162,33 @@ check("BOTH: exported files keep ORIGINAL slice filenames",
       st["dcm"][0].name == _src_names[0].name
       and not any("_rem" in f.name for f in st["dcm"]),
       f"first={st['dcm'][0].name}")
+
+# DICOM identity: a derived series must not collide with the source scan
+_src_sops = {str(pydicom.dcmread(p, stop_before_pixels=True).SOPInstanceUID)
+             for p in _src_names}
+_src_head = pydicom.dcmread(_src_names[0], stop_before_pixels=True)
+_out_heads = [pydicom.dcmread(p, stop_before_pixels=True) for p in st["dcm"]]
+_out_series = {str(o.SeriesInstanceUID) for o in _out_heads}
+check("UID: derived series gets one new SeriesInstanceUID",
+      len(_out_series) == 1 and str(_src_head.SeriesInstanceUID) not in _out_series,
+      f"series={sorted(_out_series)}")
+check("UID: no exported slice reuses a source SOPInstanceUID",
+      not ({str(o.SOPInstanceUID) for o in _out_heads} & _src_sops))
+check("UID: every slice records its source SOP instance",
+      all("SourceImageSequence" in o
+          and str(o.SourceImageSequence[0].ReferencedSOPInstanceUID) in _src_sops
+          for o in _out_heads))
+check("UID: StudyInstanceUID is kept from the source",
+      all(str(o.StudyInstanceUID) == str(_src_head.StudyInstanceUID)
+          for o in _out_heads))
+_dest_again = tmp / "out_dcm_again"
+be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
+                 stripped, _dest_again, keep_from=4, export_format="dicom")
+_again = {str(pydicom.dcmread(p, stop_before_pixels=True).SeriesInstanceUID)
+          for p in bundle_state(_dest_again)["dcm"]}
+check("UID: a re-export of the same specimen gets a new SeriesInstanceUID",
+      len(_again) == 1 and _again.isdisjoint(_out_series),
+      f"first={sorted(_out_series)} again={sorted(_again)}")
 check("BOTH: full delivery metadata written and readable",
       str(_check0.PatientID) == SPEC
       and str(_check0.Modality) == "CT"
