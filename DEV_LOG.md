@@ -572,9 +572,12 @@ Open items and deliberate deviations:
 - **Arrows:** spin-box steppers and the combo chevron were blank because the field
   background switched off Qt's native arrows. They are now theme-coloured PNGs
   (`theme._arrow_files`). `tests/test_controls_paint.py` (new) checks them in both themes.
-- **Release (rebuilt with the arrows fix):** setup `cleanCT-1.0.0-setup.exe` SHA-256
-  `416c89aba6f5a692899e26d93d321f485ce845804171f0c5bc82a9fba6eb02a9`, portable
-  `cleanCT-1.0.0-portable.zip` SHA-256 `87a9c6587f2ce170ba3b980ecd5160d915aca7da3e3d565acfc30cc649fd9a2c`.
+- **Action names and tab (commit 75352b5):** "Process", "Process and export", "Export",
+  "Apply lines", and the "Results" tab. Ids are unchanged.
+- **Release (rebuilt with the renamed actions):** setup `cleanCT-1.0.0-setup.exe` SHA-256
+  `37c111fced206db68a77d35a78124fd7a7cc5a51c9207b71f07bf82d533d6f4c`, portable
+  `cleanCT-1.0.0-portable.zip` SHA-256 `75cf10628b3a85778619fa079d0c5fe3a9a2c4c21204030784fc0e906a19c6e4`.
+  Earlier builds: arrows fix `416c89ab…`, 1280 px minimum `dba1773d…`.
 
 ## 3. Current Known Bug (As of Now)
 
