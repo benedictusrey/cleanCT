@@ -119,7 +119,7 @@ class KPIBanner(QFrame):
                 self.cards["gt"][1].setText("MATCH")
                 self.cards["gt"][1].setStyleSheet("color: #37d67a; font-size: 15px; font-weight: 700;")
             else:
-                self.cards["gt"][1].setText(f"GT (Δ{d:+d})")
+                self.cards["gt"][1].setText(f"{d:+d} vs manual")
                 self.cards["gt"][1].setStyleSheet("color: #f2b23c; font-size: 15px; font-weight: 700;")
         else:
             self.cards["gt"][1].setText("—")

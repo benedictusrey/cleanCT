@@ -113,7 +113,7 @@ class LoadDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_row.addWidget(btn_cancel)
 
-        self.btn_confirm = QPushButton("Load & Register")
+        self.btn_confirm = QPushButton("Load && Register")
         self.btn_confirm.setObjectName("btn_load_confirm")
         self.btn_confirm.setProperty("class", "btn-primary")
         self.btn_confirm.clicked.connect(self._validate_and_accept)

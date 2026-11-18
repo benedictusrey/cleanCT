@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
         vox = float(rep.get("voxel_mm") or 0.0)
         self.lbl_sample_sub.setText(
             f"{sample} — user-loaded specimen · NOT PROCESSED YET — "
-            f"verify the detection guides, then run ▶ Process selected")
+            f"verify the detection guides, then run Process selected")
         self._set_export_source_kind(
             str(p.get("source_kind") or rep.get("source_kind") or "dicom"))
         self.kpi_banner.updateMetrics({"empty": True})
@@ -546,7 +546,7 @@ class MainWindow(QMainWindow):
         self._log_action(
             f"{sample} registered ({n} slices @ {vox:.1f} µm) — "
             "not processed yet; detection guides are live — verify them, "
-            "then run ▶ Process selected to detect and cut")
+            "then run Process selected to detect and cut")
 
     def _set_job_gates(self, process_ready: bool):
         """Apply action availability from payload, processing, and load state."""
@@ -648,7 +648,7 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(brand_card)
 
         # GPU Chip
-        self.lbl_gpu = QLabel("⚡ Checking GPU…")
+        self.lbl_gpu = QLabel("Checking GPU…")
         self.lbl_gpu.setStyleSheet("""
             background: rgba(79, 140, 255, 0.12);
             color: #82b1ff;
@@ -663,7 +663,7 @@ class MainWindow(QMainWindow):
         # Specimen panel: section header with live count and busy spinner
         spec_head = QHBoxLayout()
         spec_head.setSpacing(6)
-        lbl_specimens = QLabel("SPECIMENS")
+        lbl_specimens = QLabel("Specimens")
         lbl_specimens.setStyleSheet(
             "color: #6f7c91; font-size: 9px; font-weight: bold; "
             "letter-spacing: 0.4px;")
@@ -713,10 +713,10 @@ class MainWindow(QMainWindow):
         # Row actions: rename / duplicate / locate / remove
         action_row = QHBoxLayout()
         action_row.setSpacing(6)
-        self.btn_rename = QPushButton("✎ Rename")
-        self.btn_duplicate = QPushButton("⧉ Copy")
-        self.btn_locate = QPushButton("📂 Find")
-        self.btn_remove = QPushButton("🗑 Remove")
+        self.btn_rename = QPushButton("Rename")
+        self.btn_duplicate = QPushButton("Copy")
+        self.btn_locate = QPushButton("Find")
+        self.btn_remove = QPushButton("Remove")
         for _b in (self.btn_rename, self.btn_duplicate,
                    self.btn_locate, self.btn_remove):
             _b.setObjectName("btn_specimen_action")
@@ -742,7 +742,7 @@ class MainWindow(QMainWindow):
             "exports are kept. Built-in specimens are hidden until restart.")
 
         # Sidebar Actions
-        self.btn_load = QPushButton("📂 Load specimen folder…")
+        self.btn_load = QPushButton("Load scan…")
         self.btn_load.setObjectName("btn_load")
         self.btn_load.setToolTip(
             "Register a DICOM series folder, a multipage TIFF stack or\n"
@@ -753,13 +753,13 @@ class MainWindow(QMainWindow):
         # Checkpoint actions: stacked full-width so the labels are never
         # clipped by the 280 px sidebar (the side-by-side row squeezed
         # them into "ave checkpoint…").
-        self.btn_save_checkpoint = QPushButton("Save checkpoint…")
+        self.btn_save_checkpoint = QPushButton("Save checkpoint")
         self.btn_save_checkpoint.setObjectName("btn_save_checkpoint")
         self.btn_save_checkpoint.setToolTip(
             "Save the current preview and cut-line settings for a quick restore.")
         self.btn_save_checkpoint.clicked.connect(self._open_save_checkpoint)
         side_layout.addWidget(self.btn_save_checkpoint)
-        self.btn_load_checkpoint = QPushButton("Load checkpoint…")
+        self.btn_load_checkpoint = QPushButton("Open checkpoint")
         self.btn_load_checkpoint.setObjectName("btn_load_checkpoint")
         self.btn_load_checkpoint.setToolTip(
             "Restore a saved checkpoint (.ctcheckpoint.json): the preview,\n"
@@ -768,7 +768,7 @@ class MainWindow(QMainWindow):
         self.btn_load_checkpoint.clicked.connect(self._open_load_checkpoint)
         side_layout.addWidget(self.btn_load_checkpoint)
 
-        history_label = QLabel("PREVIEW HISTORY · THIS SESSION")
+        history_label = QLabel("Preview history · this session")
         history_label.setStyleSheet(
             "color: #6f7c91; font-size: 9px; font-weight: bold; letter-spacing: 0.4px;")
         side_layout.addWidget(history_label)
@@ -781,17 +781,17 @@ class MainWindow(QMainWindow):
             self._restore_session_history)
         side_layout.addWidget(self.combo_preview_history)
 
-        self.btn_process = QPushButton("▶ Process selected")
+        self.btn_process = QPushButton("Process selected")
         self.btn_process.setObjectName("btn_process")
         self.btn_process.setProperty("class", "btn-primary")
         self.btn_process.clicked.connect(self._process_selected)
         side_layout.addWidget(self.btn_process)
 
         # One-pass delivery (audit 0O): process then export in a single job.
-        self.btn_process_export = QPushButton("⏩ Process & Export selected")
+        self.btn_process_export = QPushButton("Process && Export selected")
         self.btn_process_export.setObjectName("btn_process_export")
         self.btn_process_export.setToolTip(
-            "One-pass delivery: detect & cut (same as ▶ Process selected),\n"
+            "One-pass delivery: detect & cut (same as Process selected),\n"
             "then export the bundle to the destination folder using the\n"
             "selected Format (DICOM only / DICOM + NIfTI / NIfTI only).")
         self.btn_process_export.clicked.connect(self._process_and_export)
@@ -849,7 +849,7 @@ class MainWindow(QMainWindow):
         log_layout.setSpacing(4)
 
         log_head = QHBoxLayout()
-        lbl_log_title = QLabel("ACTION LOG")
+        lbl_log_title = QLabel("Activity")
         lbl_log_title.setStyleSheet("color: #6f7c91; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         log_head.addWidget(lbl_log_title)
         log_head.addStretch()
@@ -879,7 +879,7 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(box_log)
 
         # About Button
-        btn_about = QPushButton("ℹ About")
+        btn_about = QPushButton("About")
         btn_about.setObjectName("btn_about")
         btn_about.clicked.connect(self._open_about_dialog)
         side_layout.addWidget(btn_about)
@@ -941,7 +941,7 @@ class MainWindow(QMainWindow):
         mode_row.setSpacing(12)
 
         # Mode Tabs: [ Auto | Preferences ]
-        self.btn_tab_auto = QPushButton("⚙ Auto")
+        self.btn_tab_auto = QPushButton("Auto")
         self.btn_tab_auto.setObjectName("tab_btn_auto")
         self.btn_tab_auto.setProperty("active", "true")
         self.btn_tab_auto.setCheckable(True)
@@ -949,7 +949,7 @@ class MainWindow(QMainWindow):
         self.btn_tab_auto.clicked.connect(lambda: self._switch_tab("auto"))
         mode_row.addWidget(self.btn_tab_auto)
 
-        self.btn_tab_prefs = QPushButton("✎ Preferences")
+        self.btn_tab_prefs = QPushButton("Boundaries")
         self.btn_tab_prefs.setObjectName("tab_btn_prefs")
         self.btn_tab_prefs.setProperty("active", "false")
         self.btn_tab_prefs.setCheckable(True)
@@ -959,7 +959,7 @@ class MainWindow(QMainWindow):
         mode_row.addSpacing(16)
 
         # Export Bundle Bar
-        mode_row.addWidget(QLabel("Bundle Dest:"))
+        mode_row.addWidget(QLabel("Export to:"))
         self.edit_save_root = QLineEdit(self.save_root)
         self.edit_save_root.setFixedWidth(320)
         self.edit_save_root.setToolTip(
@@ -994,7 +994,7 @@ class MainWindow(QMainWindow):
             self._on_export_format_changed)
         mode_row.addWidget(self.combo_export_format)
 
-        self.btn_export = QPushButton("⬇ Export bundle")
+        self.btn_export = QPushButton("Export bundle")
         self.btn_export.setObjectName("btn_export")
         self.btn_export.clicked.connect(self._export_bundle)
         mode_row.addWidget(self.btn_export)
@@ -1579,7 +1579,7 @@ class MainWindow(QMainWindow):
         btn_reset_detected.clicked.connect(self._reset_to_detected)
         btn_action_row.addWidget(btn_reset_detected)
 
-        self.btn_apply_prefs = QPushButton("Apply & process")
+        self.btn_apply_prefs = QPushButton("Apply && process")
         self.btn_apply_prefs.setObjectName("btn_apply_prefs")
         self.btn_apply_prefs.setProperty("class", "btn-primary")
         self.btn_apply_prefs.clicked.connect(self._apply_and_process)
@@ -1647,14 +1647,14 @@ class MainWindow(QMainWindow):
                 # 280 px sidebar; the tooltip carries the complete detail
                 short = (name.replace("NVIDIA GeForce ", "")
                          .replace("NVIDIA ", ""))
-                self.lbl_gpu.setText(f"⚡ {short} · CuPy CUDA")
+                self.lbl_gpu.setText(f"GPU: {short} · CuPy CUDA")
                 self.lbl_gpu.setToolTip(
                     f"GPU acceleration active: {name} via CuPy (CUDA 12.x)")
                 self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_ACTIVE)
                 self._log_action(f"GPU acceleration active: {name} via CuPy")
             else:
                 reason = str(res.get("reason") or "no usable CUDA framework")
-                self.lbl_gpu.setText("⚙ CPU processing (no CUDA GPU)")
+                self.lbl_gpu.setText("CPU processing (no CUDA GPU)")
                 self.lbl_gpu.setToolTip(
                     f"CPU processing — {reason}; no GPU required")
                 self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_FALLBACK)
@@ -1663,7 +1663,7 @@ class MainWindow(QMainWindow):
                     "used; no GPU required")
 
         def _err(msg: str):
-            self.lbl_gpu.setText("⚙ CPU processing (backend probe failed)")
+            self.lbl_gpu.setText("CPU processing (backend probe failed)")
             self.lbl_gpu.setToolTip("GPU probe failed; CPU processing in use")
             self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_FALLBACK)
             self._log_action(f"GPU probe exception: {msg}; using CPU")
@@ -1907,12 +1907,12 @@ class MainWindow(QMainWindow):
         if key:
             ds, sp = key
             is_custom = ds == "custom"
-            act_open = menu.addAction(f"↵ Open “{sp}”")
+            act_open = menu.addAction(f"Open “{sp}”")
             act_open.setToolTip("Load this specimen and show its views.")
             act_open.triggered.connect(
                 lambda _checked=False, k=key: self._select_sample(*k))
             menu.addSeparator()
-            act_rename = menu.addAction("✎ Rename…  (F2)")
+            act_rename = menu.addAction("Rename…  (F2)")
             act_rename.setEnabled(not busy and is_custom)
             act_rename.setToolTip(
                 "Rename the loaded specimen (registry ID and link).\n"
@@ -1920,24 +1920,24 @@ class MainWindow(QMainWindow):
                 if is_custom else
                 "Built-in dataset specimens are named by their "
                 "processed-output folder and cannot be renamed.")
-            act_dup = menu.addAction("⧉ Duplicate…")
+            act_dup = menu.addAction("Duplicate…")
             act_dup.setEnabled(not busy and is_custom)
             act_dup.setToolTip(
                 "Register the same scan again under a new ID — no data is "
                 "copied." if is_custom else
                 "Built-in dataset specimens cannot be duplicated.")
-            act_locate = menu.addAction("📂 Show in Explorer")
+            act_locate = menu.addAction("Show in Explorer")
             act_locate.setEnabled(not busy)
             act_locate.setToolTip(
                 "Show the specimen's source folder (loaded scans) or its "
                 "processed-output folder (built-in datasets).")
-            act_props = menu.addAction("ℹ Properties…")
+            act_props = menu.addAction("Properties…")
             act_props.setEnabled(not busy)
             act_props.setToolTip(
                 "Size, dimensions, slice count, voxel size, and the "
                 "source / processed-output folders.")
             menu.addSeparator()
-            act_remove = menu.addAction("🗑 Remove…  (Del)")
+            act_remove = menu.addAction("Remove…  (Del)")
             act_remove.setToolTip(
                 "Loaded scans: unregistered — source, processed results, "
                 "and exports are kept. Built-in specimens are hidden "
@@ -1950,13 +1950,13 @@ class MainWindow(QMainWindow):
             note.setEnabled(False)
             menu.addSeparator()
         if customs:
-            act_clear = menu.addAction("🧹 Clear loaded list…")
+            act_clear = menu.addAction("Clear loaded list…")
             act_clear.setToolTip(
                 "Unregister every loaded specimen. Sources are NOT "
                 "deleted; processed results and exports are kept.")
             act_clear.setEnabled(not busy)
             menu.addSeparator()
-        act_load = menu.addAction("📂 Load specimen folder…")
+        act_load = menu.addAction("Load scan…")
         act_load.setEnabled(not busy)
         act_load.setToolTip(
             "Register a DICOM series folder, a multipage TIFF stack or\n"
@@ -2035,7 +2035,7 @@ class MainWindow(QMainWindow):
             self.lbl_sample_title.setText(accepted)
         self._refresh_sidebar()
         self._select_row_for((ds, accepted))
-        self._log_action(f"✎ renamed specimen {sp} → {accepted} "
+        self._log_action(f"renamed specimen {sp} → {accepted} "
                          "(exports keep the old name)")
 
     def _duplicate_selected(self) -> None:
@@ -2065,7 +2065,7 @@ class MainWindow(QMainWindow):
             return
         self._refresh_sidebar()
         self._select_row_for(("custom", entry["specimen"]))
-        self._log_action(f"⧉ duplicated {sp} → {entry['specimen']} "
+        self._log_action(f"duplicated {sp} → {entry['specimen']} "
                          "(same source; no scan data copied)")
 
     def _remove_selected(self) -> None:
@@ -2093,7 +2093,7 @@ class MainWindow(QMainWindow):
                     not self._checkpoint_snapshot_only):
                 self._deselect_current()
             self._refresh_sidebar()
-            self._log_action(f"🗑 removed loaded specimen {sp} "
+            self._log_action(f"removed loaded specimen {sp} "
                              "(source and results kept)")
         else:
             answer = QMessageBox.question(
@@ -2109,7 +2109,7 @@ class MainWindow(QMainWindow):
                     not self._checkpoint_snapshot_only:
                 self._deselect_current()
             self._refresh_sidebar()
-            self._log_action(f"🗑 hid built-in specimen {sp} (session only)")
+            self._log_action(f"hid built-in specimen {sp} (session only)")
 
     def _locate_selected(self) -> None:
         key = self._selected_specimen_key()
@@ -2127,7 +2127,7 @@ class MainWindow(QMainWindow):
                 ["explorer", f"/select,{target}"], shell=False)
         except OSError:
             subprocess.Popen(["explorer", target], shell=False)
-        self._log_action(f"📂 opened location for {key[1]}: {target}")
+        self._log_action(f"opened location for {key[1]}: {target}")
 
     def _specimen_folder(self, ds: str, sp: str) -> str:
         """The folder a 'Show in Explorer' action should reveal: the
@@ -2215,7 +2215,7 @@ class MainWindow(QMainWindow):
                 and customs.get(self.sample)):
             self._deselect_current()
         self._refresh_sidebar()
-        self._log_action(f"🗑 cleared the loaded list ({removed} specimens)")
+        self._log_action(f"cleared the loaded list ({removed} specimens)")
 
     def _deselect_current(self) -> None:
         """Return the workspace to the no-selection state after a removal."""
@@ -2593,7 +2593,7 @@ class MainWindow(QMainWindow):
     def _set_pref_plane(self, plane: str):
         self.pref_plane = plane
         self.pref_viewer.setPlane(plane)
-        self._log_action(f"Preferences plane switched to: {plane}")
+        self._log_action(f"Boundaries plane switched to: {plane}")
         self._update_lateral_panel_for_plane()
         for p, b in [("sagittal", self.btn_plane_sag), ("coronal", self.btn_plane_cor), ("axial", self.btn_plane_ax)]:
             b.setProperty("active", "true" if p == plane else "false")
@@ -3037,7 +3037,7 @@ class MainWindow(QMainWindow):
             return
         if (self.payload or {}).get("unprocessed"):
             self.lbl_range_summary.setText(
-                "specimen not processed yet — run ▶ Process selected")
+                "specimen not processed yet — run Process selected")
             self.lbl_range_summary.setStyleSheet(
                 "color: #f2b23c; font-size: 12px; font-weight: 500;")
             self.btn_apply_prefs.setEnabled(False)
@@ -3208,7 +3208,7 @@ class MainWindow(QMainWindow):
                     "cut_margin_slices": self.pref_margin,
                 })
             except Exception as e:
-                QMessageBox.critical(self, "Preferences Error",
+                QMessageBox.critical(self, "Boundaries Error",
                                      f"Could not persist the preferences:\n{e}")
                 return
 
@@ -3462,7 +3462,7 @@ class MainWindow(QMainWindow):
         return 4.0 if self.dataset == "66um" else 15.0
 
     def _process_and_export(self):
-        """One-pass delivery (audit 0O): ▶ Process selected followed by the
+        """One-pass delivery (audit 0O): Process selected followed by the
         ⬇ Export bundle stage in a single job — same semantics, no second
         click.  The export stage reuses the exact bundle path (fresh
         on-disk report, session Keep/Cut lines, selected Format), so the
@@ -3497,7 +3497,7 @@ class MainWindow(QMainWindow):
             f"{dest_root} (format: {fmt_name})")
 
         def _task(job_progress=None):
-            # Stage 1 — process (identical to ▶ Process selected).
+            # Stage 1 — process (identical to Process selected).
             proc_res = self._run_pipeline_task(dataset=dataset,
                                                sample=sample) or {}
             # Stage 2 — export from the FRESH on-disk report (identical to
@@ -4312,6 +4312,6 @@ class MainWindow(QMainWindow):
         self._refresh_sidebar()
         self._select_sample("custom", entry["specimen"])
         self._log_action(
-            f"📂 registered {entry['specimen']} "
+            f"registered {entry['specimen']} "
             f"({entry.get('n_slices', '?')} slices @ "
             f"{float(entry.get('pixel_um') or 0):.4g} µm)")

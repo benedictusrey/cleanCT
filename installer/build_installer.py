@@ -407,18 +407,18 @@ def step_docs() -> None:
         f"  2. Open the {ZIP_ROOT} folder and double-click cleanCT.exe. No Python\n"
         "     install or administrator setup is needed. First launch may take longer.\n"
         "  3. The specimen list shows data already available on this PC. A\n"
-        "     fresh install may be empty; select 'Load specimen folder…' to add\n"
+        "     fresh install may be empty; select 'Load scan…' to add\n"
         "     a DICOM series, TIFF stack, or 3-D NIfTI file.\n"
-        "  4. Review the detected guide lines in Preferences. Select\n"
+        "  4. Review the detected guide lines in Boundaries. Select\n"
         "     'Apply & process' to process adjusted boundaries.\n"
-        "  5. Choose Bundle Dest and Format, then select 'Export bundle'\n"
+        "  5. Choose Export to and Format, then select 'Export bundle'\n"
         "     (or use 'Process & Export selected' for a one-step run).\n\n"
         "Open USER_GUIDE.md for the complete short walkthrough and help.\n\n"
         "GPU acceleration is automatic with a compatible NVIDIA driver;\n"
         "otherwise cleanCT uses the CPU. A CUDA Toolkit is not required.\n\n"
         "Processing results: %LOCALAPPDATA%\\cleanCT\\pipeline_output\n"
         "Default exported bundles: %LOCALAPPDATA%\\cleanCT\\export\n"
-        "Bundle Dest can be changed in the app and is remembered.\n\n"
+        "Export to can be changed in the app and is remembered.\n\n"
         "DICOM exports retain source metadata. Review metadata and follow\n"
         "your data-handling rules before sharing exported files.\n\n"
         "Optional health check (run from this folder):\n"
@@ -484,12 +484,12 @@ def step_installer_readme(pyinstaller_version: str,
         "",
         "First launch and workflow:",
         "  1. An empty specimen list is normal on a fresh installation.",
-        "     Select Load specimen folder... to register scan data.",
+        "     Select Load scan... to register scan data.",
         "  2. Load a DICOM series (.dcm), TIFF stack (.tif/.tiff), or 3-D",
         "     NIfTI file (.nii/.nii.gz), then review the preview and cut lines.",
         "  3. Select Apply & process, then choose the destination and export.",
         "  4. Preview history remains available until you exit cleanCT.",
-        "     Use Save checkpoint... and Load checkpoint... to save or restore a",
+        "     Use Save checkpoint and Open checkpoint to save or restore a",
         "     preview, cut lines, and view settings. The source scan stays",
         "     separate; reconnect it to process or export a snapshot checkpoint.",
         "",

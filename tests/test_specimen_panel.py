@@ -331,7 +331,7 @@ def main() -> int:
 
     def exec_returning_rename(self_menu, *_a, **_k):
         for action in self_menu._actions:
-            if action.text == "✎ Rename…  (F2)":
+            if action.text == "Rename…  (F2)":
                 return action
         return None
 
@@ -342,7 +342,7 @@ def main() -> int:
 
     def exec_returning_properties(self_menu, *_a, **_k):
         for action in self_menu._actions:
-            if action.text == "ℹ Properties…":
+            if action.text == "Properties…":
                 return action
         return None
 
@@ -406,7 +406,7 @@ def main() -> int:
     check("empty-state menu shows the hint + load",
           csx.registered_specimens() == {} and empty_actions
           and any("No specimens yet" in a for a in empty_actions)
-          and any("Load specimen folder" in a for a in empty_actions),
+          and any("Load scan" in a for a in empty_actions),
           str(empty_actions))
 
     # [9] spinner reacts to busy state -------------------------------------------------

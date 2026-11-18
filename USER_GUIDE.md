@@ -10,7 +10,7 @@ cleanCT reviews and processes micro-CT scans from DICOM, TIFF, or NIfTI sources,
 
 ## 2. Choose a scan
 
-The sidebar lists specimens already available on this computer. A new portable install may start with an empty list; this is normal. Select **Load specimen folder…** (or **Load scan…** in the empty-state card) and choose one source:
+The sidebar lists specimens already available on this computer. A new portable install may start with an empty list; this is normal. Select **Load scan…** and choose one source:
 
 - **DICOM:** the folder containing one `.dcm` series, or its immediate parent if it contains one series folder. Do not select a folder containing multiple series.
 - **TIFF:** one multipage grayscale `.tif`/`.tiff` stack, or a folder of grayscale TIFF slices with matching dimensions. Color TIFFs and mixed or mismatched stacks are rejected.
@@ -24,14 +24,14 @@ Select the registered specimen in the left-hand list to load it.
 
 ### Save and restore a preview checkpoint
 
-- **Save checkpoint…** saves the current preview image, cut lines, intensity window, viewing plane, and related preview settings to a compact .ctcheckpoint.json file.
-- **Load checkpoint…** restores the saved preview immediately. If the original registered source is still available at the same location, cleanCT reconnects it so you can continue processing. If it is missing or moved, the preview remains available as a snapshot; load and register the source again to process or export.
+- **Save checkpoint** saves the current preview image, cut lines, intensity window, viewing plane, and related preview settings to a compact .ctcheckpoint.json file.
+- **Open checkpoint** restores the saved preview immediately. If the original registered source is still available at the same location, cleanCT reconnects it so you can continue processing. If it is missing or moved, the preview remains available as a snapshot; load and register the source again to process or export.
 - A checkpoint stores a preview and settings, not the scan volume. Keep the original scan available separately.
 - **Preview history · this session** keeps applied preview states available in the sidebar until you exit cleanCT. Choose a history entry to restore it. This history is not written to disk unless you save a checkpoint.
 
 ## 3. Review the scan and boundaries
 
-The **Auto** tab shows the scan views. Open **Preferences** to inspect the reconstruction and its guide lines. cleanCT places the guides from its detection; review them against the scan before processing.
+The **Auto** tab shows the scan views. Open **Boundaries** to inspect the reconstruction and its guide lines. cleanCT places the guides from its detection; review them against the scan before processing.
 
 - The green **Top Line (Keep Start)** marks where the collected range begins.
 - The red **Bottom Line (Platform Cut)** marks the cut boundary.
@@ -47,12 +47,12 @@ The colorspace, density thresholds, and preview slice controls change the on-scr
 Choose one of these actions in the left sidebar:
 
 - **Process selected** runs processing for the selected specimen.
-- **Apply & process** (in Preferences) applies the adjusted boundaries and processes again.
+- **Apply & process** (in Boundaries) applies the adjusted boundaries and processes again.
 - **Process & Export selected** processes and exports in one job, using the current destination and format.
 
 To export a specimen that has already been processed:
 
-1. In **Bundle Dest**, enter a destination folder or select **Browse…**. The selected folder is remembered for later sessions.
+1. In **Export to**, enter a destination folder or select **Browse…**. The selected folder is remembered for later sessions.
 2. Choose a format for this export:
    - For DICOM sources: **DICOM + NIfTI** (default), **DICOM only**, or **NIfTI only**.
    - For TIFF/NIfTI sources: cleanCT uses **NIfTI only**, preserving source voxel values and physical affine where available.
@@ -64,7 +64,7 @@ The bundle is saved in a subfolder named for the specimen. It includes the reque
 
 - Processing results: `%LOCALAPPDATA%\cleanCT\pipeline_output`
 - Default exported bundles: `%LOCALAPPDATA%\cleanCT\export`
-- If you change **Bundle Dest**, exports go to that folder instead.
+- If you change **Export to**, exports go to that folder instead.
 
 The original scan remains at its source location. DICOM exports retain source metadata; review that metadata and follow your organization’s data-handling rules before sharing an export. TIFF/NIfTI bundles include source format, intensity, geometry, and threshold notes; missing TIFF spacing is identified as assumed.
 

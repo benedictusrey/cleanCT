@@ -55,7 +55,7 @@ The sibling engine lives at `H:\Treated Kyodai samples\metal_remover` (copied in
 - **Specimen Panel (left sidebar):** live search/filter, count chip, two-line rows with metadata (format · slices · dimensions · voxel · size on disk), right-click context menu (Open / Rename / Duplicate / Locate in Explorer / Remove), compact action row, confirmation dialogs, and a busy spinner during loads. Loaded specimens can be renamed, duplicated (same source, new ID — no data copied), and removed (registry + link only; sources, processed results, and exports are always kept). Built-in dataset specimens can be hidden for the session.
 - **Enhanced Visual Luminosity & Clarity:** perceptual gamma lift (`gamma = 0.85`) across 2D/3D colormaps (`Spectral`, `Thermal`, `Grayscale`, `Viridis`, `Plasma`).
 - **Asynchronous by design:** specimen loads, GPU probes, and preview renders run on workers — the window never blocks; latest-only scheduling discards stale previews.
-- **Checkpoint sessions:** Save/Load checkpoint (`.ctcheckpoint.json`) with reconnect-or-snapshot semantics; preview history persists until exit.
+- **Checkpoint sessions:** Save/Open checkpoint (`.ctcheckpoint.json`) with reconnect-or-snapshot semantics; preview history persists until exit.
 - **Torch-free GPU path:** CuPy (CUDA 12.x) with validated CPU fallback; the engine preloads the pinned NVRTC pair.
 
 ---
