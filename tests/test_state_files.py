@@ -132,6 +132,27 @@ try:
     # ---- Windows device names cannot be specimen folders ----
     reserved = [csx._sanitize_specimen(n) for n in ('CON', 'aux', 'NUL', 'com1', 'LPT9')]
     check('Windows device names are never used as a specimen folder name', all(s.upper().split('.')[0] not in {'CON','AUX','NUL','COM1','LPT9'} for s in reserved), str(reserved))
+    # ---- a long specimen id must keep its output paths under MAX_PATH (260) ----
+    long_id = csx._sanitize_specimen("x" * 300)
+    check("a long specimen id is capped at 48 characters",
+          0 < len(long_id) <= 48, str(len(long_id)))
+    # ---- a scan on a network share gets a clear message, not a raw junction error ----
+    check("a folder on this PC is recognised as local",
+          csx.is_local_folder(Path(tempfile.gettempdir())))
+    net_src = r"\\fileserver\scans\2-5\XY"
+    net_info = {"source_kind": "dicom", "source_folder": net_src,
+                "source_path": net_src, "n_slices": 2}
+    real_validate_net = csx.validate_input
+    csx.validate_input = lambda folder, **kw: dict(net_info)
+    try:
+        csx.register_series(Path(net_src), "net_probe")
+        net_msg = "no error"
+    except Exception as exc:
+        net_msg = f"{type(exc).__name__}: {exc}"
+    finally:
+        csx.validate_input = real_validate_net
+    check("a scan on a network share is refused with a copy-it-locally message",
+          net_msg.startswith("LoadError:") and "network share" in net_msg, net_msg[:180])
     # ---- a link that cannot be removed must not keep the ID registered ----
     stuck_src = jn / 'stuck_src'
     stuck_src.mkdir()
@@ -175,6 +196,14 @@ try:
     check("a failed cleanup does not hide the pipeline validation error",
           masked_msg.startswith("LoadError: series failed pipeline validation")
           and "448" not in masked_msg, masked_msg[:200])
+    # ---- a second cleanCT window must not start on the same state ----
+    from core import single_instance
+    mutex_name = f"Local\\cleanct-test-{os.getpid()}"
+    first_window = single_instance.acquire(mutex_name)
+    second_window = single_instance.acquire(mutex_name)
+    check("only the first cleanCT window starts",
+          first_window is True and second_window is False,
+          f"first={first_window} second={second_window}")
     # ---- user state never falls back into the install folder (Task 15) ----
     from core import paths as app_paths
     blocker = work / "not-a-folder"

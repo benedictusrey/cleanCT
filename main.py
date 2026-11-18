@@ -117,8 +117,9 @@ def main() -> int:
     icon_utils.set_windows_app_id()
 
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QMessageBox
 
+    from core import single_instance
     from main_window import MainWindow
     import theme
 
@@ -127,6 +128,11 @@ def main() -> int:
     )
 
     app = QApplication(sys.argv)
+    if not single_instance.acquire():
+        # two windows would rewrite the same registry and settings files
+        QMessageBox.information(
+            None, "cleanCT", "cleanCT is already open. Use its window instead.")
+        return 0
     app.setStyle("Fusion")
     app.setPalette(theme.palette())
     app.setApplicationName("cleanCT")

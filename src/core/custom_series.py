@@ -126,8 +126,15 @@ _WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL",
                          *(f"LPT{i}" for i in range(1, 10))}
 
 
+# A specimen id is a folder name under %LOCALAPPDATA% and in the output tree.
+# Output paths add about 70 characters, and Windows refuses paths over 260
+# characters unless long paths are enabled, which is not the default.
+MAX_SPECIMEN_LEN = 48
+
+
 def _sanitize_specimen(name: str) -> str:
-    s = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "specimen"
+    s = (re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")[:MAX_SPECIMEN_LEN]
+         .strip("_") or "specimen")
     # Windows reserves these names: a folder called CON or COM1 cannot be made
     if s.upper() in _WINDOWS_DEVICE_NAMES:
         s = f"{s}_scan"
@@ -244,6 +251,33 @@ def validate_input(path: Path, *, intensity: str = "auto",
         raise LoadError(str(exc)) from exc
 
 
+_DRIVE_REMOTE = 4          # GetDriveTypeW: a network drive, mapped or not
+
+
+def is_local_folder(path: Path) -> bool:
+    """True when the folder is on this PC rather than on a network share.
+
+    An NTFS junction can only point at a local folder, so a share cannot be
+    linked. A mapped network drive letter is not local either.
+    """
+    text = str(path)
+    if text.startswith("\\\\?\\"):          # extended-length prefix on a local path
+        text = text[4:]
+    if text.startswith("\\\\") or text.startswith("//"):
+        return False                        # UNC: \\server\share\...
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        drive = os.path.splitdrive(os.path.abspath(text))[0]
+        if not drive:
+            return True
+        kind = ctypes.windll.kernel32.GetDriveTypeW(drive + "\\")
+    except (AttributeError, OSError):
+        return True
+    return kind != _DRIVE_REMOTE
+
+
 def register_series(folder: Path, specimen: str | None = None,
                     progress=None, *, intensity: str = "auto") -> dict:
     """Validate and register any supported source; returns its registry entry.
@@ -307,6 +341,10 @@ def register_series(folder: Path, specimen: str | None = None,
         specimen = f"{base}_{k}"
         k += 1
 
+    if not is_local_folder(dcm_dir):
+        raise LoadError("This scan is on a network share. cleanCT links each scan "
+                        "with a junction, and a junction must point to a folder on "
+                        "this PC. Copy the scan folder to this PC, then load it.")
     if progress:
         progress(0, 1, "link")
     link = DATA_DIR / specimen / "XY"
