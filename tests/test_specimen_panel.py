@@ -255,6 +255,21 @@ def main() -> int:
           and not (out_custom / "panel_a").exists())
     check("selection follows rename",
           window._selected_specimen_key() == ("custom", "panel_a_renamed"))
+    # [3b] a rename whose processed folder already exists is refused up front
+    (out_custom / "panel_b").mkdir(parents=True, exist_ok=True)
+    (out_custom / "panel_b" / "report.json").write_text('{"report": {"source_kind": "dicom"}}', encoding="utf-8")
+    (out_custom / "panel_c_block").mkdir(parents=True, exist_ok=True)
+    window._select_row_for(("custom", "panel_b"))
+    _InputStub.text = "panel_c_block"
+    window._rename_selected()
+    after_refused = csx.registered_specimens()
+    check("rename into an ID with existing processed results is refused",
+          "panel_b" in after_refused and "panel_c_block" not in after_refused,
+          str(sorted(after_refused)))
+    check("refused rename leaves the processed folder where it was",
+          (out_custom / "panel_b" / "report.json").is_file())
+    shutil.rmtree(out_custom / "panel_c_block", ignore_errors=True)
+    shutil.rmtree(out_custom / "panel_b", ignore_errors=True)
 
     # [4] duplicate ------------------------------------------------------------
     _InputStub.text = "panel_a_clone"

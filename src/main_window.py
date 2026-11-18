@@ -1978,6 +1978,15 @@ class MainWindow(QMainWindow):
         new = new.strip()
         if not new or new == sp:
             return
+        # refuse before the registry changes: a processed folder that already
+        # carries the target ID would leave this specimen's results orphaned
+        target_id = csx.unique_specimen_id(new, ignore=sp)
+        out_dir = self._specimen_output_dir(ds, sp)
+        if out_dir is not None and out_dir.with_name(target_id).exists():
+            QMessageBox.warning(self, "Rename specimen",
+                                f"“{target_id}” already has processed results. "
+                                "Choose another ID.")
+            return
         try:
             accepted = csx.rename_specimen(sp, new)
         except csx.LoadError as e:
@@ -1985,7 +1994,6 @@ class MainWindow(QMainWindow):
             return
         viewer_core.forget_specimen(sp)     # the old ID's cached views are stale
         # keep the processed output folder aligned with the new ID
-        out_dir = self._specimen_output_dir(ds, sp)
         if out_dir is not None and out_dir.is_dir():
             try:
                 out_dir.rename(out_dir.with_name(accepted))

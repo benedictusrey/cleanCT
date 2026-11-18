@@ -121,9 +121,17 @@ def as_dataset(specimen: str):
 # --------------------------------------------------------------------------
 # validation + config guessing
 # --------------------------------------------------------------------------
+_WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL",
+                         *(f"COM{i}" for i in range(1, 10)),
+                         *(f"LPT{i}" for i in range(1, 10))}
+
+
 def _sanitize_specimen(name: str) -> str:
-    s = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")
-    return s or "specimen"
+    s = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "specimen"
+    # Windows reserves these names: a folder called CON or COM1 cannot be made
+    if s.upper() in _WINDOWS_DEVICE_NAMES:
+        s = f"{s}_scan"
+    return s
 
 
 def config_overrides_for_spacing(um: float) -> dict:

@@ -129,6 +129,9 @@ try:
                 lambda: csx.duplicate_specimen("orig", "copy_one")):
         check("re-register: the id resolves to the new source",
               (link1 / "s0000.dcm").is_file())
+    # ---- Windows device names cannot be specimen folders ----
+    reserved = [csx._sanitize_specimen(n) for n in ('CON', 'aux', 'NUL', 'com1', 'LPT9')]
+    check('Windows device names are never used as a specimen folder name', all(s.upper().split('.')[0] not in {'CON','AUX','NUL','COM1','LPT9'} for s in reserved), str(reserved))
     # ---- a link that cannot be removed must not keep the ID registered ----
     stuck_src = jn / 'stuck_src'
     stuck_src.mkdir()
