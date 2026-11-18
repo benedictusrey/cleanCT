@@ -1586,7 +1586,6 @@ class MainWindow(QMainWindow):
         btn_action_row.addWidget(self.btn_apply_prefs)
         ctrl_layout.addLayout(btn_action_row)
 
-        splitter.addWidget(prev_frame)             # viewer absorbs extra space
 
         ctrl_scroll = QScrollArea()
         ctrl_scroll.setWidgetResizable(True)
@@ -1835,12 +1834,6 @@ class MainWindow(QMainWindow):
     def _apply_specimen_filter(self, text: str):
         self._filter_text = text.strip().lower()
         self._refresh_specimen_filter()
-
-    def _update_spec_count(self, total: int, shown: int):
-        if self._filter_text and shown != total:
-            self.lbl_spec_count.setText(f"{shown} of {total}")
-        else:
-            self.lbl_spec_count.setText(f"{total}")
 
     def _refresh_specimen_filter(self):
         q = self._filter_text

@@ -337,11 +337,6 @@ def _delivery_tags(specimen: str, report: dict, provenance: str,
     preserved; missing essentials are filled from the processing report
     or the export itself (recorded in the sidecar's ``dicom_tags``).
     """
-    import pydicom
-
-    def _tag(ds, name):
-        return getattr(ds, name, None)
-
     ds0 = read_dicom(source_files[0], stop_before_pixels=True)
     meta = report.get("meta") or {}
     plat = report.get("platform") or {}

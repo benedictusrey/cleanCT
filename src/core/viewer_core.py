@@ -920,11 +920,6 @@ def _apply_cmap(u: np.ndarray, cmap: str = "spectral", gamma: float = 0.85) -> n
     return stops[i0] * (1 - f[..., None]) + stops[i0 + 1] * f[..., None]
 
 
-def _jet_rgb(u: np.ndarray) -> np.ndarray:
-    """Spectral colormap (backward compatibility alias)."""
-    return _apply_cmap(u, "spectral")
-
-
 # ---- per-sample preview source data (LRU, rebuilt from disk on demand) ----
 _PREV_MAX = 3
 _PREV_MAX_BYTES = 1024 * 1024 * 1024  # 1 GiB total preview arrays
@@ -1266,18 +1261,6 @@ def _prev_source(dataset: str, sample: str) -> dict:
     }
     _store_prev(key, src)
     return src
-
-
-def _ortho_lines_cached(ds, sample: str, sdir: Path
-                        ) -> tuple[np.ndarray, np.ndarray]:
-    """Original sag/cor mid-lines with a stable on-disk cache (mtime-keyed).
-
-    Shared by build_payload (metal-anchored wood bounds) and _prev_source
-    (ortho panels) so the threaded DICOM read happens at most once per
-    specimen.
-    """
-    sag, cor, _, _ = _ortho_columns_cached(ds, sample, sdir)
-    return sag, cor
 
 
 def _ortho_columns_cached(ds, sample: str, sdir: Path,
