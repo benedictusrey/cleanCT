@@ -32,7 +32,7 @@ Select the registered specimen in the left-hand list to load it.
 
 ## 3. Review the scan and boundaries
 
-The **Auto** tab shows the scan views. Open **Boundaries** to inspect the reconstruction and its guide lines. cleanCT places the guides from its detection; review them against the scan before processing.
+The **Results** tab shows the scan views. Open **Boundaries** to inspect the reconstruction and its guide lines. cleanCT places the guides from its detection; review them against the scan before processing.
 
 - The green **Top Line (Keep Start)** marks where the collected range begins.
 - The red **Bottom Line (Platform Cut)** marks the cut boundary.
@@ -41,15 +41,15 @@ The **Auto** tab shows the scan views. Open **Boundaries** to inspect the recons
 - **Snap to detection** and **Reset to detected** restore detected boundaries.
 - **Auto-crop to wood (air detection)** is enabled by default. It trims near-empty air margins when safe; the crop stays within the tracked region.
 
-The colorspace, density thresholds, and preview slice controls change the on-screen preview. They do not change the saved scan by themselves. After changing keep/cut or box bounds, select **Apply & process** to run processing with those settings.
+The colorspace, density thresholds, and preview slice controls change the on-screen preview. They do not change the saved scan by themselves. After changing keep/cut or box bounds, select **Apply lines** to apply them and process the scan again.
 
 ## 4. Process and export
 
 Choose one of these actions in the left sidebar:
 
-- **Process selected** runs processing for the selected specimen.
-- **Apply & process** (in Boundaries) applies the adjusted boundaries and processes again.
-- **Process & Export selected** processes and exports in one job, using the current destination and format.
+- **Process** runs processing for the selected specimen.
+- **Apply lines** (in Boundaries) applies the adjusted boundaries and processes again.
+- **Process and export** processes and exports in one job, using the current destination and format.
 
 To export a specimen that has already been processed:
 
@@ -57,7 +57,7 @@ To export a specimen that has already been processed:
 2. In the same section, choose a format for this export:
    - For DICOM sources: **DICOM + NIfTI** (default), **DICOM only**, or **NIfTI only**. The line under the format says what each one writes.
    - For TIFF/NIfTI sources: cleanCT uses **NIfTI only**, preserving source voxel values and physical affine where available.
-3. Select **Export bundle** in the export row and wait for the completion status.
+3. Select **Export** in the export row and wait for the completion status.
 
 The bundle is saved in a subfolder named for the specimen. It includes the requested output files and a summary with processing and source details. Exports are separate from the source scan. Re-exporting updates that specimen’s bundle only after the new export is complete. For DICOM sources, an existing unrequested format is retained. To prevent source mixing, a TIFF/NIfTI export stops if the destination already contains a DICOM bundle with the same specimen ID; choose a different ID or destination.
 
@@ -72,6 +72,6 @@ The original scan remains at its source location. DICOM exports retain source me
 ## 6. If something goes wrong
 
 - If a scan will not load, select one supported source at a time. For DICOM, choose the folder containing the series. For a TIFF folder, confirm it contains matching grayscale slices. For NIfTI, choose a single 3-D `.nii`/`.nii.gz` file and ensure the temp drive has enough free space.
-- If **Export bundle** reports that the scan has not been processed, run **Process selected** first or use **Process & Export selected**.
+- If **Export** reports that the scan has not been processed, run **Process** first or use **Process and export**.
 - Processing time depends on scan size and available hardware. The progress panel and action log show the current stage. CPU mode is supported when a compatible NVIDIA GPU is unavailable.
 - If an error appears, note its text and the specimen ID. Keep the source folder unchanged and include those details when asking for help.

@@ -25,8 +25,8 @@ First launch and workflow:
      Select Load scan... to register scan data.
   2. Load a DICOM series (.dcm), TIFF stack (.tif/.tiff), or 3-D
      NIfTI file (.nii/.nii.gz), then review the preview and cut lines.
-  3. Select Apply & process, then choose the destination on the Settings
-     tab (Export section) and select Export bundle.
+  3. Select Apply lines if you moved a line, then choose the destination
+     on the Settings tab (Export section) and select Export.
   4. Preview history remains available until you exit cleanCT.
      Use Save checkpoint and Open checkpoint to save or restore a
      preview, cut lines, and view settings. The source scan stays

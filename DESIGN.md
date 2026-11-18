@@ -40,10 +40,10 @@ the viewers draw them. They are data, not chrome.
   checkpoints, preview history, the primary process buttons, and the Activity
   drawer at the bottom.
 - Main area: title and subtitle, then the cut metrics strip, then the tab row
-  (Auto and Boundaries on the left, Settings on the right), then the export row,
-  then the two viewers (and the 3-D panel on Auto).
+  (Results and Boundaries on the left, Settings on the right), then the export row,
+  then the two viewers (and the 3-D panel on Results).
 - The export row shows where the bundle goes (the path is elided, its full text
-  in the tooltip), the format, a "Change in Settings" link and Export bundle. The
+  in the tooltip), the format, a "Change in Settings" link and Export. The
   folder and format are set on Settings, not in this row.
 - Every page fits a 1280x720 client without a vertical scroll bar
   (`tests/test_layout_fit.py`). The tab bar, the header and the KPI strip are

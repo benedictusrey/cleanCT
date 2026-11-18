@@ -518,7 +518,7 @@ def probe_pipeline(window: QWidget, app, beat_gaps: list) -> None:
         find("pipeline", "P0", "load", "scan never finished loading")
         return
     if not window.btn_process.isEnabled():
-        find("pipeline", "P1", "process", "Process selected stays disabled after a load")
+        find("pipeline", "P1", "process", "Process stays disabled after a load")
     else:
         run_job(window, app, "process", window._process_selected, 300, beat_gaps)
     export_dir = tmp / "probe_export"
@@ -533,7 +533,7 @@ def probe_pipeline(window: QWidget, app, beat_gaps: list) -> None:
         if not stats["bundle_files"]:
             find("pipeline", "P1", "export", "no bundle written to the export folder")
     else:
-        find("pipeline", "P2", "export", "Export bundle stays disabled after processing")
+        find("pipeline", "P2", "export", "Export stays disabled after processing")
 
     STAGE[0] = "pipeline: checkpoint"
     ckpt = tmp / "probe.cleanct.json"

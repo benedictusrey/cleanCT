@@ -510,8 +510,9 @@ def main() -> int:
                    if any(0x1F000 <= ord(c) <= 0x1FAFF or 0x2600 <= ord(c) <= 0x27BF
                           for c in b.text())]
     check("no button text uses a pictograph", not pictographs, str(pictographs))
-    check("the process-and-export button escapes its & mnemonic",
-          "&&" in window.btn_process_export.text(), window.btn_process_export.text())
+    check("the process-and-export button reads 'Process and export'",
+          window.btn_process_export.text() == "Process and export",
+          window.btn_process_export.text())
     import theme as _theme   # main.py applies the active theme's stylesheet
     app_sheet = _theme.qss()
     check("combo boxes and menus are styled by the application sheet",
@@ -536,7 +537,7 @@ def main() -> int:
           locked and window.spin_left.isEnabled())
     window._set_empty_text(True)
     check("empty text says a scan is loaded but not processed",
-          window.axial_viewer._empty_text.startswith("Run Process selected"))
+          window.axial_viewer._empty_text.startswith("Run Process"))
     window._set_empty_text(False)
     check("empty text says to load a scan when none is loaded",
           window.viewer_3d._empty_text == "Load a scan to see it here.")

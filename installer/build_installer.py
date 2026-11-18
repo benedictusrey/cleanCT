@@ -410,10 +410,10 @@ def step_docs() -> None:
         "     fresh install may be empty; select 'Load scan…' to add\n"
         "     a DICOM series, TIFF stack, or 3-D NIfTI file.\n"
         "  4. Review the detected guide lines in Boundaries. Select\n"
-        "     'Apply & process' to process adjusted boundaries.\n"
+        "     'Apply lines' to apply adjusted boundaries and process again.\n"
         "  5. On the Settings tab, Export section, choose the folder and\n"
-        "     format; then select 'Export bundle' in the export row\n"
-        "     (or use 'Process & Export selected' for a one-step run).\n\n"
+        "     format; then select 'Export' in the export row\n"
+        "     (or use 'Process and export' for a one-step run).\n\n"
         "Open USER_GUIDE.md for the complete short walkthrough and help.\n\n"
         "GPU acceleration is automatic with a compatible NVIDIA driver;\n"
         "otherwise cleanCT uses the CPU. A CUDA Toolkit is not required.\n\n"
@@ -488,8 +488,8 @@ def step_installer_readme(pyinstaller_version: str,
         "     Select Load scan... to register scan data.",
         "  2. Load a DICOM series (.dcm), TIFF stack (.tif/.tiff), or 3-D",
         "     NIfTI file (.nii/.nii.gz), then review the preview and cut lines.",
-        "  3. Select Apply & process, then choose the destination on the Settings",
-        "     tab (Export section) and select Export bundle.",
+        "  3. Select Apply lines if you moved a line, then choose the destination",
+        "     on the Settings tab (Export section) and select Export.",
         "  4. Preview history remains available until you exit cleanCT.",
         "     Use Save checkpoint and Open checkpoint to save or restore a",
         "     preview, cut lines, and view settings. The source scan stays",

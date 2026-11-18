@@ -408,7 +408,7 @@ class MainWindow(QMainWindow):
 
     def _set_empty_text(self, unprocessed: bool) -> None:
         """Say what is missing: no scan yet, or a scan not processed yet."""
-        text = ("Run Process selected to see the stripped result."
+        text = ("Run Process to see the stripped result."
                 if unprocessed else "Load a scan to see it here.")
         for viewer in (self.axial_viewer, self.long_viewer, self.viewer_3d):
             viewer.set_empty_text(text)
@@ -471,7 +471,7 @@ class MainWindow(QMainWindow):
         # the title already names the specimen: the subtitle says only the state
         self.lbl_sample_sub.setText(
             "Loaded, not processed yet. Check the detection guides, "
-            "then run Process selected.")
+            "then run Process.")
         self._set_export_source_kind(
             str(p.get("source_kind") or rep.get("source_kind") or "dicom"))
         self.kpi_banner.updateMetrics({"empty": True})
@@ -602,7 +602,7 @@ class MainWindow(QMainWindow):
         self._log_action(
             f"{sample} registered ({n} slices @ {vox:.1f} µm): "
             "not processed yet; detection guides are live: verify them, "
-            "then run Process selected to detect and cut")
+            "then run Process to detect and cut")
 
     def _boundary_widgets(self) -> list:
         names = ("spin_cut", "slider_cut", "spin_keep", "slider_keep",
@@ -654,8 +654,8 @@ class MainWindow(QMainWindow):
             BUSY_NOTE if busy else
             "" if process_ready and has_payload else
             ("Load a specimen before exporting." if not has_payload else
-             "This specimen has not been processed yet. Run Process selected "
-             "(or Apply & process) first."))
+             "This specimen has not been processed yet. Run Process "
+             "(or Apply lines) first."))
         self.btn_apply_prefs.setEnabled(bool(process_ready and has_payload and not busy))
         self.btn_apply_prefs.setToolTip(
             BUSY_NOTE if busy else
@@ -869,7 +869,7 @@ class MainWindow(QMainWindow):
             self._restore_session_history)
         side_layout.addWidget(self.combo_preview_history)
 
-        self.btn_process = QPushButton("Process selected")
+        self.btn_process = QPushButton("Process")
         self.btn_process.setObjectName("btn_process")
         self.btn_process.setProperty("class", "btn-primary")
         self.btn_process.clicked.connect(self._process_selected)
@@ -877,10 +877,10 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(self.btn_process)
 
         # One-pass delivery (audit 0O): process then export in a single job.
-        self.btn_process_export = QPushButton("Process && Export selected")
+        self.btn_process_export = QPushButton("Process and export")
         self.btn_process_export.setObjectName("btn_process_export")
         self.btn_process_export.setToolTip(
-            "One-pass delivery: detect & cut (same as Process selected),\n"
+            "One-pass delivery: detect & cut (same as Process),\n"
             "then export the bundle to the destination folder using the\n"
             "selected Format (DICOM only / DICOM + NIfTI / NIfTI only).")
         self.btn_process_export.clicked.connect(self._process_and_export)
@@ -1017,7 +1017,7 @@ class MainWindow(QMainWindow):
         mode_row.setSpacing(12)
 
         # Mode Tabs: [ Auto | Preferences ]
-        self.btn_tab_auto = QPushButton("Auto")
+        self.btn_tab_auto = QPushButton("Results")
         self.btn_tab_auto.setObjectName("tab_btn_auto")
         self.btn_tab_auto.setProperty("active", "true")
         self.btn_tab_auto.setCheckable(True)
@@ -1072,7 +1072,7 @@ class MainWindow(QMainWindow):
         btn_change_dest.clicked.connect(lambda: self._open_settings("export"))
         export_row.addWidget(btn_change_dest)
 
-        self.btn_export = QPushButton("Export bundle")
+        self.btn_export = QPushButton("Export")
         self.btn_export.setObjectName("btn_export")
         self.btn_export.clicked.connect(self._export_bundle)
         export_row.addWidget(self.btn_export)
@@ -1703,7 +1703,9 @@ class MainWindow(QMainWindow):
         btn_reset_detected.clicked.connect(self._reset_to_detected)
         btn_action_row.addWidget(btn_reset_detected)
 
-        self.btn_apply_prefs = QPushButton("Apply && process")
+        self.btn_apply_prefs = QPushButton("Apply lines")
+        self.btn_apply_prefs.setToolTip(
+            "Apply the lines shown here and process the scan again with them.")
         self.btn_apply_prefs.setObjectName("btn_apply_prefs")
         self.btn_apply_prefs.setProperty("class", "btn-primary")
         self.btn_apply_prefs.clicked.connect(self._apply_and_process)
@@ -1826,7 +1828,7 @@ class MainWindow(QMainWindow):
 
         # Export: the folder and the format of every bundle
         grid = card("Export",
-                    "Export bundle writes to this folder, and Process and Export "
+                    "Export writes to this folder, and Process and export "
                     "uses it too.")
         self.edit_save_root = QLineEdit(self.save_root)
         self.edit_save_root.setObjectName("edit_save_root")
@@ -3392,7 +3394,7 @@ class MainWindow(QMainWindow):
             return
         if (self.payload or {}).get("unprocessed"):
             self.lbl_range_summary.setText(
-                "specimen not processed yet: run Process selected")
+                "specimen not processed yet: run Process")
             theme.set_role(self.lbl_range_summary, "accent")
             self.btn_apply_prefs.setEnabled(False)
             return
@@ -3568,7 +3570,7 @@ class MainWindow(QMainWindow):
             f"Applying cut override: cut={self.pref_cut}, keep={self.pref_keep}, "
             f"margin={self.pref_margin}, "
             f"air-crop={'on' if self.chk_air_crop.isChecked() else 'off'}")
-        self._start_job("Apply & Process",
+        self._start_job("Apply lines",
                         lambda: self._run_pipeline_task(
                             overrides, dataset=dataset, sample=sample),
                         expected_duration=self._expected_process_s(), kind="process")
@@ -3848,7 +3850,7 @@ class MainWindow(QMainWindow):
         exp_s = self._expected_export_s()
         split = proc_s / max(proc_s + exp_s, 1e-6)
         self._log_action(
-            f"Process & Export queued for {dataset}/{sample} → "
+            f"Process and export queued for {dataset}/{sample} → "
             f"{dest_root} (format: {fmt_name})")
 
         def _task(job_progress=None):
@@ -3916,7 +3918,7 @@ class MainWindow(QMainWindow):
                     "export": exp_res, "sample": sample,
                     "dataset": dataset}
 
-        self._start_job(f"Process & Export {self.sample}", _task,
+        self._start_job(f"Process and export {self.sample}", _task,
                         expected_duration=proc_s + exp_s,
                         kind="process_export", progress_mode="combined",
                         combined_split=split, proc_duration=proc_s)
