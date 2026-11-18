@@ -127,6 +127,8 @@ def main() -> int:
     )
 
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setPalette(theme.palette())
     app.setApplicationName("cleanCT")
     # NOTE: no setApplicationDisplayName — Qt appends it to every window
     # title, which duplicated the title bar as "… Metal-Base Removal - cleanCT"

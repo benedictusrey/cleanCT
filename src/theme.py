@@ -11,7 +11,8 @@ BORDER_LIGHT = "#3d4963"
 
 TEXT_PRIMARY = "#f0f4fc"
 TEXT_SECONDARY = "#9daabf"
-TEXT_MUTED = "#6f7c91"
+TEXT_MUTED = "#7d8aa0"     # hints only (4.9:1 on BG_PANEL, WCAG AA)
+TEXT_LABEL = "#c0cbe0"
 
 ACCENT_AMBER = "#f2b23c"
 ACCENT_AMBER_HOVER = "#ffc55a"
@@ -19,6 +20,9 @@ ACCENT_BLUE = "#4f8cff"
 ACCENT_BLUE_HOVER = "#70a2ff"
 ACCENT_GREEN = "#37d67a"
 ACCENT_RED = "#ff463c"
+INFO = "#82b1ff"
+BG_SUNKEN = "#10131b"
+BG_JOB = "#141822"
 
 QSS = f"""
 QMainWindow, QDialog {{
@@ -332,4 +336,148 @@ QProgressBar::chunk {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {ACCENT_BLUE}, stop:1 {ACCENT_AMBER});
     border-radius: 4px;
 }}
+
+/* Roles: text colours and frames that used to be set inline per widget.
+   Set with theme.set_role(widget, "hint") and similar. */
+QLabel[role="hint"] {{
+    color: {TEXT_MUTED};
+    font-size: 12px;
+    font-weight: 500;
+}}
+QLabel[role="section"] {{
+    color: {TEXT_SECONDARY};
+    font-size: 12px;
+    font-weight: 700;
+}}
+QLabel[role="info"] {{
+    color: {INFO};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel[role="status-ok"] {{
+    color: {ACCENT_GREEN};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel[role="status-warn"] {{
+    color: {ACCENT_AMBER};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel[role="status-error"] {{
+    color: {ACCENT_RED};
+    font-size: 12px;
+    font-weight: 700;
+}}
+QWidget#main_area {{
+    background-color: {BG_MAIN};
+}}
+QFrame#job_box {{
+    background-color: {BG_JOB};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    padding: 10px;
+}}
+QTextEdit#log_view {{
+    background-color: {BG_SUNKEN};
+    color: {TEXT_LABEL};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    padding: 6px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 11px;
+}}
+
+/* Combo boxes, menus, message boxes and scroll areas were unstyled: they
+   showed black boxes with white borders on the dark theme. */
+QComboBox {{
+    background-color: {BG_PANEL2};
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    min-height: 22px;
+}}
+QComboBox:focus, QComboBox:on {{
+    border-color: {ACCENT_BLUE};
+}}
+QComboBox::drop-down {{
+    border: none;
+    width: 22px;
+}}
+QComboBox QAbstractItemView {{
+    background-color: {BG_PANEL2};
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER_LIGHT};
+    selection-background-color: rgba(242, 178, 60, 0.22);
+    selection-color: {ACCENT_AMBER};
+    outline: none;
+}}
+QMenu {{
+    background-color: {BG_PANEL2};
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER_LIGHT};
+    border-radius: 8px;
+    padding: 4px;
+}}
+QMenu::item {{
+    padding: 6px 18px;
+    border-radius: 6px;
+}}
+QMenu::item:selected {{
+    background-color: rgba(242, 178, 60, 0.16);
+    color: {ACCENT_AMBER};
+}}
+QMenu::item:disabled {{
+    color: {TEXT_MUTED};
+}}
+QMenu::separator {{
+    height: 1px;
+    background: {BORDER};
+    margin: 4px 8px;
+}}
+QMessageBox {{
+    background-color: {BG_PANEL};
+}}
+QMessageBox QLabel {{
+    color: {TEXT_PRIMARY};
+    font-size: 13px;
+}}
+QScrollArea {{
+    background: transparent;
+    border: none;
+}}
 """
+
+
+def palette():
+    """Application palette from the tokens, so dialogs and widgets without QSS
+    still follow the dark theme (the Fusion style is used with it)."""
+    from PySide6.QtGui import QColor, QPalette
+    colours = {
+        QPalette.Window: BG_MAIN,
+        QPalette.WindowText: TEXT_PRIMARY,
+        QPalette.Base: BG_PANEL2,
+        QPalette.AlternateBase: BG_PANEL,
+        QPalette.Text: TEXT_PRIMARY,
+        QPalette.Button: BG_PANEL2,
+        QPalette.ButtonText: TEXT_PRIMARY,
+        QPalette.Highlight: ACCENT_AMBER,
+        QPalette.HighlightedText: "#151106",
+        QPalette.ToolTipBase: BG_PANEL2,
+        QPalette.ToolTipText: TEXT_PRIMARY,
+        QPalette.PlaceholderText: TEXT_MUTED,
+        QPalette.Link: ACCENT_BLUE,
+    }
+    result = QPalette()
+    for role, colour in colours.items():
+        result.setColor(role, QColor(colour))
+    return result
+
+
+def set_role(widget, role: str) -> None:
+    """Give a widget a QSS role and re-apply the style (needed after a change)."""
+    widget.setProperty("role", role)
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
