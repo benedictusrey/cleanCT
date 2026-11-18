@@ -7,28 +7,8 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPainter, QColor, QFont, QImage
 from PySide6.QtWidgets import QWidget
 
-# Scientific colormap stops with high luminosity for micro-CT inspection
-CMAP_STOPS = {
-    # High-luminosity Spectral rainbow
-    "spectral": np.array([
-        [15, 60, 210], [0, 140, 255], [0, 235, 235], [60, 255, 110],
-        [255, 235, 20], [255, 75, 20], [225, 25, 25]], np.float32) / 255.0,
-    # Luminous Thermal flame
-    "thermal": np.array([
-        [15, 5, 25], [110, 15, 30], [215, 50, 10], [255, 130, 0],
-        [255, 215, 30], [255, 255, 160], [255, 255, 255]], np.float32) / 255.0,
-    # High-contrast Grayscale
-    "grayscale": np.array([
-        [25, 28, 35], [255, 255, 255]], np.float32) / 255.0,
-    # Viridis (perceptually uniform)
-    "viridis": np.array([
-        [68, 1, 84], [59, 82, 139], [33, 145, 140],
-        [94, 201, 98], [253, 231, 37]], np.float32) / 255.0,
-    # Plasma (dense tomographic)
-    "plasma": np.array([
-        [13, 8, 135], [126, 3, 168], [204, 71, 120],
-        [248, 149, 64], [240, 249, 33]], np.float32) / 255.0,
-}
+# One colormap table for the 2-D and 3-D viewers (core.viewer_core).
+from core.viewer_core import _CMAP_STOPS as CMAP_STOPS  # noqa: E402
 
 
 def sample_cmap(cmap_name: str, t_arr: np.ndarray, gamma: float = 0.85) -> np.ndarray:
