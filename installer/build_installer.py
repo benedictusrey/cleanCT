@@ -634,6 +634,35 @@ def rollback_package(backup: Path | None) -> None:
         os.replace(backup, PKG_FINAL)
 
 
+def _pid_alive(pid: int) -> bool:
+    """True when a process with this id exists (Windows)."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(0x00100000, False, pid)   # SYNCHRONIZE
+    if handle:
+        kernel32.CloseHandle(handle)
+        return True
+    return ctypes.get_last_error() == 5    # ERROR_ACCESS_DENIED: it exists
+
+
+def prune_stale_rollbacks(cache: Path) -> list[Path]:
+    """Remove package rollbacks left by builds that were killed before they
+    finished. A finished build removes its own rollback; a killed one cannot."""
+    removed: list[Path] = []
+    for old in cache.glob("_pkg_rollback-*"):
+        try:
+            pid = int(old.name.rsplit("-", 1)[1])
+        except ValueError:
+            continue
+        if pid == os.getpid() or _pid_alive(pid):
+            continue
+        shutil.rmtree(old, ignore_errors=True)
+        removed.append(old)
+    return removed
+
+
 def step_inno(iscc_path: Path) -> Path:
     """Generate the Inno script and compile a candidate setup executable."""
     total_mb = 0
@@ -885,6 +914,9 @@ def main() -> int:
         return 2
     inno_version = get_iscc_version(iscc_path) if iscc_path else "Not compiled"
     log(f"toolchain: PyInstaller {pyinstaller_version}; {inno_version}")
+
+    for gone in prune_stale_rollbacks(CACHE):
+        log(f"removed a package rollback left by an earlier build: {gone.name}")
 
     try:
         step_regressions()

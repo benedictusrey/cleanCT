@@ -55,10 +55,30 @@ def check_launch(label: str, entries: list[str]) -> None:
               "runasoriginaluser" in flags, flags.strip())
 
 
+def check_stale_rollbacks() -> None:
+    """A build that was killed leaves its previous package behind (about 700 MB).
+    The next build must remove those, and keep the rollback of its own run."""
+    import importlib.util
+    import tempfile
+    spec = importlib.util.spec_from_file_location("build_installer", BUILDER)
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+    cache = Path(tempfile.mkdtemp(prefix="cleanct_rollback_"))
+    dead = cache / "_pkg_rollback-4294967"       # no such process
+    live = cache / f"_pkg_rollback-{os.getpid()}"
+    for folder in (dead, live):
+        (folder / "runtime").mkdir(parents=True)
+        (folder / "runtime" / "payload.bin").write_bytes(b"x")
+    builder.prune_stale_rollbacks(cache)
+    check("a rollback from a build that is no longer running is removed", not dead.exists())
+    check("the rollback of this run is kept", live.exists())
+
+
 def main() -> int:
     text = SCRIPT.read_text(encoding="utf-8")
     check_launch("cleanct.iss", run_section(text, "Run"))
     check_launch("build_installer.py template", builder_run_entries())
+    check_stale_rollbacks()
     print("RESULT: " + ("ALL PASS" if not failures else f"{len(failures)} FAIL"))
     return 1 if failures else 0
 
