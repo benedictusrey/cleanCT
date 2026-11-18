@@ -102,3 +102,20 @@ def ensure_engine_on_path() -> Path:
     if root.is_dir() and str(root) not in sys.path:
         sys.path.insert(0, str(root))
     return root
+
+
+def ensure_output_root() -> Path | None:
+    """Give an installed run a per-user output root for the engine.
+
+    The engine's built-in output folder is a fixed path on the build
+    machine's H: drive. The launcher sets CLEANCT_OUTPUT_ROOT, but a run
+    started as runtime\\python.exe app\\main.py does not. Returns the root in
+    use, or None for a development checkout, which keeps the engine default.
+    """
+    if os.environ.get("CLEANCT_OUTPUT_ROOT"):
+        return Path(os.environ["CLEANCT_OUTPUT_ROOT"])
+    if not is_installed():
+        return None
+    root = state_root() / "pipeline_output"
+    os.environ["CLEANCT_OUTPUT_ROOT"] = str(root)
+    return root

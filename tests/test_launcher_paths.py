@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(os.environ.get("CLEANCT_APP_ROOT", Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(ROOT / "installer"))
+sys.path.insert(0, str(ROOT / "src"))
 
 import launcher_main as launcher
+from core import paths as app_paths
 
 failures: list[str] = []
 
@@ -75,7 +79,50 @@ def run_launcher(env_overrides: dict[str, str | None]) -> dict:
                 os.environ[name] = value
 
 
+def check_output_root_default() -> None:
+    """ensure_output_root() routes an installed run that was started without
+    the launcher (runtime\\python.exe app\\main.py) to per-user state, keeps an
+    explicit override, and leaves the development checkout on the engine
+    default."""
+    names = ("CLEANCT_ENGINE", "CLEANCT_DATA", "CLEANCT_OUTPUT_ROOT")
+    previous = {name: os.environ.get(name) for name in names}
+    data_dir = Path(tempfile.mkdtemp(prefix="cleanct_output_root_"))
+    ensure = getattr(app_paths, "ensure_output_root", None)
+    try:
+        os.environ.pop("CLEANCT_OUTPUT_ROOT", None)
+        os.environ["CLEANCT_ENGINE"] = str(ROOT)       # marks an installed run
+        os.environ["CLEANCT_DATA"] = str(data_dir)
+        got = ensure() if ensure else None
+        expected = data_dir / "pipeline_output"
+        check("installed run without launcher gets output root under CLEANCT_DATA",
+              got is not None and Path(got) == expected
+              and same_path(os.environ.get("CLEANCT_OUTPUT_ROOT"), expected),
+              str(got))
+
+        os.environ["CLEANCT_OUTPUT_ROOT"] = "D:/cleanCT-output"
+        got = ensure() if ensure else None
+        check("output root helper keeps an explicit override",
+              same_path(os.environ.get("CLEANCT_OUTPUT_ROOT"), Path("D:/cleanCT-output"))
+              and got is not None and Path(got) == Path("D:/cleanCT-output"),
+              str(got))
+
+        os.environ.pop("CLEANCT_OUTPUT_ROOT", None)
+        os.environ.pop("CLEANCT_ENGINE", None)
+        got = ensure() if ensure else "missing"
+        check("development checkout keeps the engine default",
+              got is None and "CLEANCT_OUTPUT_ROOT" not in os.environ,
+              str(got))
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+        shutil.rmtree(data_dir, ignore_errors=True)
+
+
 def main() -> int:
+    check_output_root_default()
     local = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"})
     check("launcher routes packaged outputs to per-user state",
           same_path(local["env"].get("CLEANCT_OUTPUT_ROOT"),

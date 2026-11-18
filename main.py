@@ -27,14 +27,16 @@ def _selfcheck() -> int:
     try:
         try:
             from core.paths import engine_root, state_root, is_installed, \
-                ensure_engine_on_path
+                ensure_engine_on_path, ensure_output_root
         except ImportError:
             from paths import engine_root, state_root, is_installed, \
-                ensure_engine_on_path
+                ensure_engine_on_path, ensure_output_root
         er, sr = engine_root(), state_root()
+        out = ensure_output_root()
         print(f"  engine   : {er} "
               f"({'found' if (er / 'tomograph.py').is_file() else 'MISSING'})")
         print(f"  state    : {sr}")
+        print(f"  output   : {out or 'engine default (development checkout)'}")
         print(f"  installed: {is_installed()}")
         if not (er / "tomograph.py").is_file():
             ok = False
@@ -101,6 +103,12 @@ def _selfcheck() -> int:
 
 
 def main() -> int:
+    try:
+        from core.paths import ensure_output_root
+    except ImportError:
+        from paths import ensure_output_root
+    # before any engine import: the engine reads CLEANCT_OUTPUT_ROOT at call time
+    ensure_output_root()
     if "--selfcheck" in sys.argv:
         return _selfcheck()
 
