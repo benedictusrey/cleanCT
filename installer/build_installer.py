@@ -679,9 +679,9 @@ Name: "@GROUP@\\{APP_NAME}"; Filename: "@APP@\\cleanCT.exe"
 Name: "@AUTODESKTOP@\\{APP_NAME}"; Filename: "@APP@\\cleanCT.exe"; \
     Tasks: desktopicon
 
+; start as the original user: an elevated cleanCT cannot traverse its junctions (WinError 448)
 [Run]
-Filename: "@APP@\\cleanCT.exe"; Description: "Launch {APP_NAME}"; \
-    Flags: nowait postinstall skipifsilent
+Filename: "@APP@\\cleanCT.exe"; Description: "Launch {APP_NAME}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallDelete]
 ; runtime logs/state live in %LOCALAPPDATA%\\cleanCT (left on purpose)
