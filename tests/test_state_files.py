@@ -30,7 +30,7 @@ def check(label: str, ok: bool, detail: str = "") -> None:
 
 
 TRUNCATED = '{"save_root": "D:/exports", '     # what a crash mid-write leaves
-saved_globals = (csx.CUSTOM_DIR, csx.REGISTRY)
+saved_globals = (csx.CUSTOM_DIR, csx.REGISTRY, csx.DATA_DIR)
 try:
     # ---- settings.json ----------------------------------------------------
     settings_root = work / "settings"
@@ -83,8 +83,54 @@ try:
     except KeyError as exc:
         skipped_ok, detail = False, f"KeyError {exc}"
     check("registry: entries without a specimen id are skipped", skipped_ok, detail)
+
+    # ---- directory junctions for DICOM sources (Task 9) -------------------
+    jn = work / "junctions"
+    jn.mkdir()
+    csx.CUSTOM_DIR = jn / "custom"
+    csx.DATA_DIR = csx.CUSTOM_DIR / "data"
+    csx.REGISTRY = csx.CUSTOM_DIR / "registry.json"
+    src = jn / "src&dir"                 # cmd.exe reads & as a command separator
+    src.mkdir()
+    (src / "s0000.dcm").write_bytes(b"x")
+
+    def register_orig(folder: Path) -> None:
+        csx._write_registry([{"specimen": "orig", "source_kind": "dicom",
+                              "source_folder": str(folder), "config_overrides": {}}])
+
+    def run_step(label: str, fn) -> bool:
+        try:
+            fn()
+            return True
+        except Exception as exc:
+            check(label, False, f"{type(exc).__name__}: {exc}")
+            return False
+
+    register_orig(src)
+    link1 = csx.DATA_DIR / "copy_one" / "XY"
+    if run_step("junction: link is created through a folder name containing &",
+                lambda: csx.duplicate_specimen("orig", "copy_one")):
+        check("junction: link resolves through a folder name containing &",
+              link1.is_dir() and (link1 / "s0000.dcm").is_file(), str(link1))
+
+    moved = jn / "src_moved"
+    src.rename(moved)                    # the source moves: the link now dangles
+    run_step("remove: a dangling junction can be removed",
+             lambda: csx.remove_specimen("copy_one"))
+    check("remove: the dangling link is gone", not os.path.lexists(link1))
+    check("remove: the source folder itself is untouched",
+          (moved / "s0000.dcm").is_file())
+
+    src2 = jn / "src2"
+    src2.mkdir()
+    (src2 / "s0000.dcm").write_bytes(b"x")
+    register_orig(src2)
+    if run_step("re-register: a moved source does not block the same id",
+                lambda: csx.duplicate_specimen("orig", "copy_one")):
+        check("re-register: the id resolves to the new source",
+              (link1 / "s0000.dcm").is_file())
 finally:
-    csx.CUSTOM_DIR, csx.REGISTRY = saved_globals
+    csx.CUSTOM_DIR, csx.REGISTRY, csx.DATA_DIR = saved_globals
     shutil.rmtree(work, ignore_errors=True)
 
 ok = all(results)

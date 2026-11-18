@@ -19,8 +19,8 @@ restarts; registered specimens appear in the sidebar under
 from __future__ import annotations
 
 import json
+import os
 import re
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -305,10 +305,7 @@ def register_series(folder: Path, specimen: str | None = None,
     try:
         if not link.parent.exists():
             link.parent.mkdir(parents=True)
-        if not link.exists():
-            _mklink_junction(link, dcm_dir)
-        else:
-            _retarget_junction(link, dcm_dir)
+        _link_source(link, dcm_dir)
     except OSError as e:
         raise LoadError(f"could not link the series folder: {e}") from e
 
@@ -374,7 +371,7 @@ def remove_specimen(specimen: str) -> bool:
     if len(keep) == len(entries):
         return False
     link = DATA_DIR / specimen / "XY"
-    if link.exists():
+    if os.path.lexists(link):             # also catches a junction whose source moved
         _rmdir_junction(link)
         try:
             link.parent.rmdir()
@@ -440,7 +437,7 @@ def duplicate_specimen(specimen: str, new_id: str | None = None) -> dict:
         link = DATA_DIR / new / "XY"
         try:
             link.parent.mkdir(parents=True, exist_ok=True)
-            _mklink_junction(link, dcm_dir)
+            _link_source(link, dcm_dir)
         except OSError as e:
             raise LoadError(f"could not link the series folder: {e}") from e
     entries = _read_registry()
@@ -453,15 +450,27 @@ def duplicate_specimen(specimen: str, new_id: str | None = None) -> dict:
 # junction helpers (mklink /J needs no admin rights)
 # --------------------------------------------------------------------------
 def _mklink_junction(link: Path, target: Path) -> None:
-    r = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
-                       capture_output=True, text=True)
-    if r.returncode != 0 or not link.exists():
-        raise OSError((r.stderr or r.stdout).strip())
+    # no shell: & | ^ % in folder names are plain characters
+    import _winapi
+    try:
+        _winapi.CreateJunction(str(target), str(link))
+    except OSError as exc:
+        raise OSError(f"could not create junction {link}: {exc}") from exc
+    if not link.is_dir():
+        raise OSError(f"junction {link} does not resolve to {target}")
+
+
+def _link_source(link: Path, target: Path) -> None:
+    """Point ``link`` at ``target``. A junction left behind by a moved source
+    reports exists() False, so it is repointed rather than re-created."""
+    if os.path.lexists(link):
+        _retarget_junction(link, target)
+    else:
+        _mklink_junction(link, target)
 
 
 def _retarget_junction(link: Path, target: Path) -> None:
     """Existing junction pointing elsewhere (moved folder) — repoint it."""
-    import os
     try:
         cur = Path(os.readlink(link))
     except OSError:
@@ -473,8 +482,5 @@ def _retarget_junction(link: Path, target: Path) -> None:
 
 
 def _rmdir_junction(link: Path) -> None:
-    # rmdir on a junction removes only the link, never the target contents
-    r = subprocess.run(["cmd", "/c", "rmdir", str(link)],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise OSError((r.stderr or r.stdout).strip())
+    # os.rmdir on a junction removes only the link, never the target contents
+    os.rmdir(link)
