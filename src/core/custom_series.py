@@ -365,19 +365,24 @@ def set_specimen_overrides(specimen: str, overrides: dict) -> dict:
 
 
 def remove_specimen(specimen: str) -> bool:
-    """Unregister (registry + junction); pipeline outputs are kept."""
+    """Unregister the ID, then remove its link (pipeline outputs are kept).
+
+    The registry is written first: a link that cannot be removed (for example
+    from an elevated process) must not keep the ID registered forever.
+    """
     entries = _read_registry()
     keep = [e for e in entries if e["specimen"] != specimen]
     if len(keep) == len(entries):
         return False
+    _write_registry(keep)
     link = DATA_DIR / specimen / "XY"
     if os.path.lexists(link):             # also catches a junction whose source moved
-        _rmdir_junction(link)
         try:
+            _rmdir_junction(link)
             link.parent.rmdir()
-        except OSError:
-            pass
-    _write_registry(keep)
+        except OSError as exc:
+            print(f"cleanCT: unregistered {specimen}; its link could not be removed: {exc}",
+                  file=sys.stderr)
     return True
 
 

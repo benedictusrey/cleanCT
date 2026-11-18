@@ -129,6 +129,27 @@ try:
                 lambda: csx.duplicate_specimen("orig", "copy_one")):
         check("re-register: the id resolves to the new source",
               (link1 / "s0000.dcm").is_file())
+    # ---- a link that cannot be removed must not keep the ID registered ----
+    stuck_src = jn / 'stuck_src'
+    stuck_src.mkdir()
+    (stuck_src / 's0000.dcm').write_bytes(b'x')
+    csx._write_registry([{'specimen': 'stuck', 'source_kind': 'dicom', 'source_folder': str(stuck_src), 'config_overrides': {}}])
+    (csx.DATA_DIR / 'stuck').mkdir(parents=True, exist_ok=True)
+    csx._mklink_junction(csx.DATA_DIR / 'stuck' / 'XY', stuck_src)
+    real_rmdir_junction = csx._rmdir_junction
+    def refused(link):
+        raise OSError(448, 'The path cannot be traversed because it contains an untrusted mount point', str(link))
+    csx._rmdir_junction = refused
+    try:
+        removed = csx.remove_specimen('stuck')
+        still_registered = 'stuck' in csx.registered_specimens()
+    except OSError as exc:
+        removed, still_registered = 'raised', 'stuck' in csx.registered_specimens()
+    finally:
+        csx._rmdir_junction = real_rmdir_junction
+        if os.path.lexists(csx.DATA_DIR / 'stuck' / 'XY'):
+            real_rmdir_junction(csx.DATA_DIR / 'stuck' / 'XY')
+    check('a link that cannot be removed still unregisters the ID', removed is True and still_registered is False, f'removed={removed} still={still_registered}')
     # ---- user state never falls back into the install folder (Task 15) ----
     from core import paths as app_paths
     blocker = work / "not-a-folder"

@@ -64,11 +64,11 @@ try:
     cache_dir.mkdir()
     vc.CACHE_DIR = cache_dir
     old_payload = cache_dir / "custom_x_aaaa_v19.npz"
-    older_payload = cache_dir / "custom_x_bbbb_v20.npz"
-    newest = cache_dir / "custom_x_cccc_v20.npz"
-    other_specimen = cache_dir / "custom_x2_dddd_v20.npz"
-    ortho = cache_dir / "custom_x_eeee_src_orig_v3.npz"
-    stray = cache_dir / "custom_x_ffff_v20.tmp.npz"
+    older_payload = cache_dir / "custom~x~bbbb_v21.npz"
+    newest = cache_dir / "custom~x~cccc_v21.npz"
+    other_specimen = cache_dir / "custom~x2~dddd_v21.npz"
+    ortho = cache_dir / "custom~x~eeee_src_orig_v3.npz"
+    stray = cache_dir / "custom~x~ffff_v21.tmp.npz"
     for path in (old_payload, older_payload, newest, other_specimen, ortho, stray):
         path.write_bytes(b"cache")
     two_hours_ago = time.time() - 7200
@@ -78,12 +78,14 @@ try:
     if prune is None:
         check("pruning keeps only the newest payload for a specimen", False, "missing")
     else:
+        sibling = cache_dir / "custom~x_y~bbbb_v21.npz"  # specimen "x_y" must not be pruned with "x"
+        sibling.write_bytes(b"cache")
         prune("custom", "x", "payload", newest)
         check("pruning keeps only the newest payload for a specimen",
               newest.exists() and not old_payload.exists()
               and not older_payload.exists())
         check("pruning leaves other specimens and cache kinds alone",
-              other_specimen.exists() and ortho.exists())
+              other_specimen.exists() and ortho.exists() and sibling.exists())
         check("pruning removes temp files older than an hour", not stray.exists())
 
     forget = getattr(vc, "forget_specimen", None)

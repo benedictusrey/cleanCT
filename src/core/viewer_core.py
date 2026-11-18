@@ -47,7 +47,7 @@ except ImportError:                     # pragma: no cover
     from wood_bounds import wood_bounds
 
 _CACHE: dict[str, dict] = {}
-CACHE_VERSION = 20   # v20: keys carry the registered source identity
+CACHE_VERSION = 21   # v21: cache file names use ~ between key parts (no ambiguity)
 ORTHO_CACHE_VERSION = 3
 # Generated viewer caches always live in the writable per-user state root:
 # %LOCALAPPDATA%\cleanCT\cache for installed builds, <checkout>\data\cache
@@ -136,7 +136,7 @@ def _prune_disk_cache(dataset: str, sample: str, kind: str, keep: Path) -> None:
     Without this, the cache folder grows by one file per source change and
     per cache-version bump, and nothing removes the superseded ones.
     """
-    stem = f"{dataset}_{sample}_"
+    stem = f"{dataset}~{sample}~"
     cutoff = time.time() - 3600
     try:
         entries = list(CACHE_DIR.iterdir())
@@ -148,6 +148,9 @@ def _prune_disk_cache(dataset: str, sample: str, kind: str, keep: Path) -> None:
             if name.endswith(".tmp.npz"):
                 if path.stat().st_mtime < cutoff:
                     path.unlink()
+                continue
+            if name.endswith(".npz") and "~" not in name:
+                path.unlink()             # older naming: regenerable, never reused
                 continue
             if (path == keep or not name.startswith(stem)
                     or not name.endswith(".npz")):
@@ -692,9 +695,15 @@ def _report_summary(r: dict) -> dict:
 # --------------------------------------------------------------------------
 # public API
 # --------------------------------------------------------------------------
+def _cache_stem(key: str) -> str:
+    """File-name form of a cache key. "~" separates the parts because sample
+    IDs may contain "_" (a "_" separator made specimen "x" match "x_y")."""
+    return key.replace("/", "~").replace(":", "~")
+
+
 def _disk_path(key: str) -> Path:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    safe = key.replace("/", "_").replace(":", "_")
+    safe = _cache_stem(key)
     return CACHE_DIR / (safe + ".npz")
 
 
@@ -1339,7 +1348,7 @@ def _ortho_columns_cached(ds, sample: str, sdir: Path,
     """
     key = (f"{ds.key}/{sample}:{_mtime_key(sdir)}:src{_source_cache_token(ds)}"
            f":id{source_identity(ds, sample)}")
-    disk = CACHE_DIR / (key.replace("/", "_").replace(":", "_")
+    disk = CACHE_DIR / (_cache_stem(key)
                         + f"_orig_v{ORTHO_CACHE_VERSION}.npz")
     if disk.exists():
         try:
