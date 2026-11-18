@@ -1727,8 +1727,13 @@ class MainWindow(QMainWindow):
             return tg.output_root(spec) / specimen
         return self._builtin_specimen_dir(ds, specimen)
 
-    def _custom_source_dir(self, specimen: str) -> Path | None:
-        entry = csx.registered_specimens().get(specimen) or {}
+    def _custom_source_path(self, specimen: str,
+                            entry: dict | None = None) -> Path | None:
+        """Where a loaded specimen's scan lives: the registered source
+        folder or file, or the DATA_DIR junction for a DICOM folder that was
+        registered without one."""
+        if entry is None:
+            entry = csx.registered_specimens().get(specimen) or {}
         kind = str(entry.get("source_kind") or "dicom")
         source = (entry.get("source_path") if kind != "dicom"
                   else entry.get("source_folder"))
@@ -1790,13 +1795,9 @@ class MainWindow(QMainWindow):
         customs = csx.registered_specimens()
         available_customs = {}
         for specimen, entry in customs.items():
-            source_kind = str(entry.get("source_kind") or "dicom")
-            source = (entry.get("source_path") if source_kind != "dicom"
-                      else entry.get("source_folder"))
-            if not source and source_kind == "dicom":
-                source = str(csx.DATA_DIR / specimen / "XY")
             try:
-                if source and Path(source).exists():
+                source = self._custom_source_path(specimen, entry)
+                if source and source.exists():
                     available_customs[specimen] = entry
             except (OSError, TypeError, ValueError):
                 continue
@@ -2131,13 +2132,7 @@ class MainWindow(QMainWindow):
         scan source for loaded specimens, the processed output for
         built-in datasets."""
         if ds == "custom":
-            entry = csx.registered_specimens().get(sp) or {}
-            kind = str(entry.get("source_kind") or "dicom")
-            folder = (entry.get("source_path") if kind != "dicom"
-                      else entry.get("source_folder"))
-            if not folder and kind == "dicom":
-                folder = str(csx.DATA_DIR / sp / "XY")
-            return str(folder or "")
+            return str(self._custom_source_path(sp) or "")
         return str(self._builtin_specimen_dir(ds, sp) or "")
 
     def _properties_selected(self) -> None:
@@ -2255,7 +2250,7 @@ class MainWindow(QMainWindow):
                 continue
             ds, sp = key
             if ds == "custom":
-                folder = self._custom_source_dir(sp)
+                folder = self._custom_source_path(sp)
             else:
                 folder = self._builtin_specimen_dir(ds, sp)
             if folder is not None:
