@@ -1,0 +1,41 @@
+# cleanCT — project layout (structured checkout, see README §Structure)
+# -------------------------------------------------------------------
+# Versioned: main.py, src/, assets/, installer/*.py|*.iss, tests/*.py|.ps1,
+# docs (*.md). Everything regenerable or user-owned is ignored below.
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Logs (runtime log lives in data/logs/, rotated)
+*.log
+data/logs/
+
+# Per-user / user-owned data (dev state root is data\)
+data/
+
+# Reference standalone build (regenerable dev build)
+dist/
+
+# Generated viewer caches
+cache/
+data/cache/
+
+# Debug overlay artifacts (regenerable via tests/debug_lines_overlay.py)
+debug/
+
+# Installer build artifacts (regenerable via installer/build_installer.py)
+installer/_pkg/
+installer/_cache/
+installer/_launcher_dist/
+installer/_launcher_build/
+installer/out/
+
+# Audit-pass additions: local backups, the test venv, scratch overlays,
+# the packaged release folder and captured screenshots
+0BACKUP/
+tests/venv_notorch/
+debug_roi_fix/
+debug_snap/
+version/
+tests/screenshots/
