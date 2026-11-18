@@ -443,6 +443,60 @@ def main() -> int:
           hide_timer is not None and hide_timer.isSingleShot()
           and hide_timer.interval() == 2500)
 
+    # [11] Task 16 polish: labels, boundary lock, empty text, shortcuts, replace prompt
+    from PySide6.QtGui import QShortcut
+    from PySide6.QtWidgets import QPushButton
+    pictographs = [b.text() for b in window.findChildren(QPushButton)
+                   if any(0x1F000 <= ord(c) <= 0x1FAFF or 0x2600 <= ord(c) <= 0x27BF
+                          for c in b.text())]
+    check("no button text uses a pictograph", not pictographs, str(pictographs))
+    check("the process-and-export button escapes its & mnemonic",
+          "&&" in window.btn_process_export.text(), window.btn_process_export.text())
+    import theme as _theme   # main.py applies theme.QSS to the application
+    app_sheet = _theme.QSS
+    check("combo boxes and menus are styled by the application sheet",
+          "QComboBox" in app_sheet and "QMenu" in app_sheet)
+    window._set_boundary_enabled(False)
+    locked = (not window.spin_left.isEnabled() and not window.slider_right.isEnabled()
+              and not window.btn_snap_lines.isEnabled())
+    window._set_boundary_enabled(True)
+    check("boundary controls are locked while a job runs",
+          locked and window.spin_left.isEnabled())
+    window._set_empty_text(True)
+    check("empty text says a scan is loaded but not processed",
+          window.axial_viewer._empty_text.startswith("Run Process selected"))
+    window._set_empty_text(False)
+    check("empty text says to load a scan when none is loaded",
+          window.viewer_3d._empty_text == "Load a scan to see it here.")
+    shortcut_keys = {s.key().toString() for s in window.findChildren(QShortcut)}
+    check("the main actions have keyboard shortcuts",
+          {"Ctrl+O", "Ctrl+R", "Ctrl+E", "Ctrl+S"} <= shortcut_keys, str(shortcut_keys))
+    asked: list[str] = []
+
+    class _DeclineStub:
+        Yes = RealMessageBox.Yes
+        No = RealMessageBox.No
+
+        @staticmethod
+        def question(*args, **kwargs):
+            asked.append(str(args[2]))
+            return RealMessageBox.No
+
+    real_message_box = mw.QMessageBox
+    mw.QMessageBox = _DeclineStub
+    try:
+        existing = TEST_TMP / "replace-check"
+        (existing / "panel_a").mkdir(parents=True, exist_ok=True)
+        declined = window._confirm_replace_export(existing, "panel_a")
+        absent = window._confirm_replace_export(TEST_TMP / "no-such-folder", "panel_a")
+    finally:
+        mw.QMessageBox = real_message_box
+    check("re-export asks before replacing and keeps the bundle when declined",
+          declined is False and len(asked) == 1 and "Replace the existing export" in asked[0],
+          str(asked))
+    check("a first export does not ask", absent is True and len(asked) == 1)
+    shutil.rmtree(TEST_TMP / "replace-check", ignore_errors=True)
+
     window.close()
     window2.close()
     app.processEvents()

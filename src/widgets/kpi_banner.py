@@ -15,12 +15,12 @@ class KPIBanner(QFrame):
 
         self.cards: dict[str, tuple[QLabel, QLabel]] = {}
         for key, title in [
-            ("cut", "CUT SLICE"),
-            ("range", "COLLECTED"),
-            ("removed", "REMOVED"),
-            ("roi", "ROI SLICES"),
-            ("voxel", "VOXEL"),
-            ("gt", "BENCHMARK"),
+            ("cut", "Cut slice"),
+            ("range", "Kept range"),
+            ("removed", "Removed"),
+            ("roi", "ROI slices"),
+            ("voxel", "Voxel"),
+            ("gt", "Benchmark"),
         ]:
             card = QVBoxLayout()
             card.setSpacing(1)
@@ -116,7 +116,7 @@ class KPIBanner(QFrame):
             except (TypeError, ValueError):
                 d = 0
             if d == 0:
-                self.cards["gt"][1].setText("MATCH")
+                self.cards["gt"][1].setText("Match")
                 theme.set_role(self.cards["gt"][1], "kpi-ok")
             else:
                 self.cards["gt"][1].setText(f"{d:+d} vs manual")

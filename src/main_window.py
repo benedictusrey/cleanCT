@@ -360,12 +360,20 @@ class MainWindow(QMainWindow):
         y = avail.y() + max(0, (avail.height() - min(fh, avail.height())) // 2)
         self.move(x, y)
 
+    def _set_empty_text(self, unprocessed: bool) -> None:
+        """Say what is missing: no scan yet, or a scan not processed yet."""
+        text = ("Run Process selected to see the stripped result."
+                if unprocessed else "Load a scan to see it here.")
+        for viewer in (self.axial_viewer, self.long_viewer, self.viewer_3d):
+            viewer.set_empty_text(text)
+
     def _apply_sample_payload(self, ds: str, sample: str, p: dict):
         """GUI-thread application of a finished specimen payload: header,
         viewers, preferences state and detection alignment (see
         _select_sample for the async dispatch).  An unprocessed specimen
         (fresh custom series) takes the graceful not-processed path."""
         self._loading = False
+        self._set_empty_text(bool(p.get("unprocessed")))
         try:
             if p.get("unprocessed"):
                 self._apply_unprocessed_payload(ds, sample, p)
@@ -549,6 +557,19 @@ class MainWindow(QMainWindow):
             "not processed yet; detection guides are live — verify them, "
             "then run Process selected to detect and cut")
 
+    def _boundary_widgets(self) -> list:
+        names = ("spin_cut", "slider_cut", "spin_keep", "slider_keep",
+                 "spin_left", "slider_left", "spin_right", "slider_right",
+                 "spin_top", "slider_top", "spin_bottom", "slider_bottom",
+                 "spin_margin", "slider_margin", "btn_snap_lines",
+                 "chk_auto_snap", "btn_th_reset", "btn_th_full",
+                 "btn_th_wood", "btn_th_contrast", "btn_th_metal")
+        return [getattr(self, name) for name in names if hasattr(self, name)]
+
+    def _set_boundary_enabled(self, enabled: bool) -> None:
+        for widget in self._boundary_widgets():
+            widget.setEnabled(enabled)
+
     def _set_job_gates(self, process_ready: bool):
         """Apply action availability from payload, processing, and load state."""
         has_payload = self.payload is not None
@@ -586,6 +607,7 @@ class MainWindow(QMainWindow):
             ("Load a specimen before applying cut lines." if not has_payload else
              "Process the specimen first — the detection needs the pipeline "
              "outputs (report.json + stripped volume)."))
+        self._set_boundary_enabled(not busy)
         if process_ready:
             self._update_range_summary()          # restores the enabled state
 
@@ -637,6 +659,11 @@ class MainWindow(QMainWindow):
         brand_text.addWidget(lbl_sub)
         brand_layout.addLayout(brand_text)
         brand_layout.addStretch()
+        btn_about = QPushButton("About")
+        btn_about.setObjectName("btn_about")
+        theme.set_role(btn_about, "link")
+        btn_about.clicked.connect(self._open_about_dialog)
+        brand_layout.addWidget(btn_about, 0, Qt.AlignTop)
         side_layout.addWidget(brand_card)
 
         # GPU Chip
@@ -691,6 +718,11 @@ class MainWindow(QMainWindow):
         self._del_shortcut = QShortcut(QKeySequence.Delete, self.sample_list)
         self._del_shortcut.setContext(Qt.WidgetShortcut)
         self._del_shortcut.activated.connect(self._remove_selected)
+        for sequence, slot in (("Ctrl+O", self._open_load_dialog),
+                               ("Ctrl+R", self._process_selected),
+                               ("Ctrl+E", self._export_bundle),
+                               ("Ctrl+S", self._open_save_checkpoint)):
+            QShortcut(QKeySequence(sequence), self).activated.connect(slot)
 
         # Row actions: rename / duplicate / locate / remove
         action_row = QHBoxLayout()
@@ -730,6 +762,7 @@ class MainWindow(QMainWindow):
             "Register a DICOM series folder, a multipage TIFF stack or\n"
             "slice folder, or one 3-D NIfTI volume (.nii / .nii.gz).")
         self.btn_load.clicked.connect(self._open_load_dialog)
+        self.btn_load.setToolTip(self.btn_load.toolTip() + "\nShortcut: Ctrl+O")
         side_layout.addWidget(self.btn_load)
 
         # Checkpoint actions: stacked full-width so the labels are never
@@ -737,18 +770,26 @@ class MainWindow(QMainWindow):
         # them into "ave checkpoint…").
         self.btn_save_checkpoint = QPushButton("Save checkpoint")
         self.btn_save_checkpoint.setObjectName("btn_save_checkpoint")
+        theme.set_role(self.btn_save_checkpoint, "compact")
         self.btn_save_checkpoint.setToolTip(
             "Save the current preview and cut-line settings for a quick restore.")
         self.btn_save_checkpoint.clicked.connect(self._open_save_checkpoint)
-        side_layout.addWidget(self.btn_save_checkpoint)
+        self.btn_save_checkpoint.setToolTip(
+            "Save the current preview and cut-line settings for a quick restore.\n"
+            "Shortcut: Ctrl+S")
         self.btn_load_checkpoint = QPushButton("Open checkpoint")
         self.btn_load_checkpoint.setObjectName("btn_load_checkpoint")
+        theme.set_role(self.btn_load_checkpoint, "compact")
         self.btn_load_checkpoint.setToolTip(
             "Restore a saved checkpoint (.ctcheckpoint.json): the preview,\n"
             "cut lines and view settings come back instantly; the source\n"
             "reconnects when it is still registered at the same location.")
         self.btn_load_checkpoint.clicked.connect(self._open_load_checkpoint)
-        side_layout.addWidget(self.btn_load_checkpoint)
+        checkpoint_row = QHBoxLayout()
+        checkpoint_row.setSpacing(6)
+        checkpoint_row.addWidget(self.btn_save_checkpoint, 1)
+        checkpoint_row.addWidget(self.btn_load_checkpoint, 1)
+        side_layout.addLayout(checkpoint_row)
 
         history_label = QLabel("Preview history · this session")
         theme.set_role(history_label, "hint")
@@ -766,6 +807,7 @@ class MainWindow(QMainWindow):
         self.btn_process.setObjectName("btn_process")
         self.btn_process.setProperty("class", "btn-primary")
         self.btn_process.clicked.connect(self._process_selected)
+        self.btn_process.setToolTip("Shortcut: Ctrl+R")
         side_layout.addWidget(self.btn_process)
 
         # One-pass delivery (audit 0O): process then export in a single job.
@@ -835,7 +877,7 @@ class MainWindow(QMainWindow):
 
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
-        self.log_view.setFixedHeight(95)
+        self.log_view.setMinimumHeight(110)
         # wrap at word boundaries — mid-word breaks ("sagitta / l") read badly
         from PySide6.QtGui import QTextOption
         self.log_view.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
@@ -844,15 +886,12 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(box_log)
 
         # About Button
-        btn_about = QPushButton("About")
-        btn_about.setObjectName("btn_about")
-        btn_about.clicked.connect(self._open_about_dialog)
-        side_layout.addWidget(btn_about)
 
         root_layout.addWidget(sidebar)
 
         # ---------------- 2. Main Area ----------------
         main_area = QFrame()
+        main_area.setObjectName("main_area")
         main_area_layout = QVBoxLayout(main_area)
         main_area_layout.setContentsMargins(20, 16, 20, 16)
         main_area_layout.setSpacing(12)
@@ -922,12 +961,12 @@ class MainWindow(QMainWindow):
         # Export Bundle Bar
         mode_row.addWidget(QLabel("Export to:"))
         self.edit_save_root = QLineEdit(self.save_root)
-        self.edit_save_root.setFixedWidth(320)
+        self.edit_save_root.setMinimumWidth(200)
         self.edit_save_root.setToolTip(
             f"Default folder for exported extraction bundles.\n"
             f"Remembered across sessions.\n\n{self.save_root}")
         self.edit_save_root.editingFinished.connect(self._on_save_root_edited)
-        mode_row.addWidget(self.edit_save_root)
+        mode_row.addWidget(self.edit_save_root, 1)
 
         btn_browse_root = QPushButton("Browse…")
         btn_browse_root.clicked.connect(self._browse_save_root)
@@ -962,10 +1001,11 @@ class MainWindow(QMainWindow):
 
         self.lbl_export_status = QLabel("")
         theme.set_role(self.lbl_export_status, "status-ok")
-        mode_row.addWidget(self.lbl_export_status)
 
         mode_row.addStretch()
         main_area_layout.addLayout(mode_row)
+        self.lbl_export_status.setWordWrap(True)
+        main_area_layout.addWidget(self.lbl_export_status)
 
         # ---------------- 3. Stacked Workspaces (Auto vs Preferences) ----------------
         self.stack = QStackedWidget()
@@ -3252,6 +3292,7 @@ class MainWindow(QMainWindow):
             worker.with_progress = True
             worker.progress.connect(self._on_job_progress)
         self._active_worker = worker
+        self._set_boundary_enabled(False)
         worker.start()
 
     def _on_active_worker_finished(self):
@@ -3395,6 +3436,8 @@ class MainWindow(QMainWindow):
         dataset, sample = self.dataset, self.sample
         dest_root = self._validated_dest_root()
         if dest_root is None:
+            return
+        if not self._confirm_replace_export(dest_root, sample):
             return
         srcs = self._resolve_sources()
         if srcs is None:
@@ -3547,6 +3590,7 @@ class MainWindow(QMainWindow):
         self.btn_empty_load.setEnabled(True)
         self._job_combined = False
         self._job_stage = ""
+        self._set_boundary_enabled(True)
         if kind == "process_export":
             self._log_process_result(res.get("report", {}) or {})
             self._log_export_result(res.get("export", {}) or {})
@@ -3582,6 +3626,7 @@ class MainWindow(QMainWindow):
             process_ready=bool(self.payload and not self.payload.get("unprocessed")))
         self._job_combined = False
         self._job_stage = ""
+        self._set_boundary_enabled(True)
         if self._job_kind in ("export", "process_export"):
             self.lbl_export_status.setText("✗ Export failed")
             theme.set_role(self.lbl_export_status, "status-error")
@@ -3742,6 +3787,18 @@ class MainWindow(QMainWindow):
         out_dir = tg.output_root(ds) / self.sample
         return ds, src_dir, src_over, out_dir
 
+    def _confirm_replace_export(self, dest_root: Path, sample: str) -> bool:
+        """Ask before a re-export replaces the bundle already in that folder."""
+        target = dest_root / sample
+        if not target.exists():
+            return True
+        answer = QMessageBox.question(
+            self, "Replace export",
+            f"Replace the existing export for {sample}?\n\n{target}\n\n"
+            "The new bundle replaces it only after it is written and verified.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return answer == QMessageBox.Yes
+
     def _export_bundle(self):
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load and process a specimen before exporting.")
@@ -3751,6 +3808,8 @@ class MainWindow(QMainWindow):
         dataset, sample = self.dataset, self.sample
         dest_root = self._validated_dest_root()
         if dest_root is None:
+            return
+        if not self._confirm_replace_export(dest_root, sample):
             return
         srcs = self._resolve_sources()
         if srcs is None:

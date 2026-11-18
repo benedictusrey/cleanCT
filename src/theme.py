@@ -265,7 +265,7 @@ QPushButton#btn_specimen_action {{
     border-radius: 7px;
     padding: 4px 2px;
     font-weight: 600;
-    font-size: 10px;
+    font-size: 11px;
 }}
 
 QPushButton#btn_specimen_action:hover {{
@@ -328,7 +328,7 @@ QProgressBar {{
     border-radius: 5px;
     text-align: center;
     color: {TEXT_PRIMARY};
-    font-size: 10px;
+    font-size: 11px;
     height: 10px;
 }}
 
@@ -436,7 +436,11 @@ QFrame#box_card, QFrame#box_action_log {{
 }}
 QFrame#box_action_log {{
     background-color: {BG_SUNKEN};
-    padding: 6px;
+    padding: 0px;
+}}
+QPushButton[role="compact"] {{
+    padding: 7px 6px;
+    font-size: 11px;
 }}
 QFrame#box_lateral {{
     background-color: rgba(79, 140, 255, 0.08);

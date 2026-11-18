@@ -25,6 +25,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 
 
 def payload_dirs() -> tuple[str, str, str] | None:
@@ -51,6 +52,7 @@ def _rotate(log_path: str, max_bytes: int = 5 * 1024 * 1024) -> None:
 
 
 def open_log(app_dir: str):
+    """Open the rotating log. Returns (file or None, log path)."""
     base = os.environ.get("LOCALAPPDATA") or app_dir
     log_dir = os.path.join(base, "cleanCT", "logs")
     try:
@@ -64,9 +66,9 @@ def open_log(app_dir: str):
     log_path = os.path.join(log_dir, "cleanCT.log")
     _rotate(log_path)
     try:
-        return open(log_path, "a", buffering=1, encoding="utf-8")
+        return open(log_path, "a", buffering=1, encoding="utf-8"), log_path
     except OSError:
-        return None
+        return None, log_path
 
 
 def fail_box(msg: str) -> None:
@@ -119,7 +121,8 @@ def main() -> int:
         args += list(sys.argv[1:])
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    log = open_log(app_dir)
+    log, log_path = open_log(app_dir)
+    started = time.monotonic()
     try:
         proc = subprocess.Popen(
             args, cwd=app_dir,
@@ -128,7 +131,12 @@ def main() -> int:
             creationflags=creationflags,
             env=os.environ,
         )
-        return proc.wait()
+        code = proc.wait()
+        # a non-zero exit within seconds of starting is a start-up failure:
+        # say where the details are (the windowless launcher shows nothing)
+        if code != 0 and time.monotonic() - started < 20:
+            fail_box(f"cleanCT closed unexpectedly. Details are in:\n{log_path}")
+        return code
     except KeyboardInterrupt:
         return 0
     finally:

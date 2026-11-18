@@ -27,6 +27,7 @@ class Viewer3D(QWidget):
         super().__init__(parent)
         self.setMinimumSize(280, 260)
         self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        self._empty_text = "Load a scan to see it here."
 
         # Camera
         self._yaw: float = 0.7
@@ -163,6 +164,11 @@ class Viewer3D(QWidget):
         return self._n_wood + self._n_metal
 
     # ---------------------------------------------------------------- Rendering
+    def set_empty_text(self, text: str) -> None:
+        """Text shown while there are no points (depends on the load state)."""
+        self._empty_text = text
+        self.update()
+
     def paintEvent(self, event):
         w, h = self.width(), self.height()
         painter = QPainter(self)
@@ -173,7 +179,7 @@ class Viewer3D(QWidget):
 
         if len(self._pts_all) == 0:
             painter.setPen(QColor("#6f7c91"))
-            painter.drawText(self.rect(), Qt.AlignCenter, "No 3D points loaded")
+            painter.drawText(self.rect(), Qt.AlignCenter, self._empty_text)
             return
 
         # Pre-allocate buffer if window resized

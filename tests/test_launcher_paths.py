@@ -33,11 +33,13 @@ class FakeLog:
 
 
 class FakeProcess:
+    exit_code = 0
+
     def wait(self):
-        return 0
+        return self.exit_code
 
 
-def run_launcher(env_overrides: dict[str, str | None]) -> dict:
+def run_launcher(env_overrides: dict[str, str | None], exit_code: int = 0) -> dict:
     env_names = ("LOCALAPPDATA", "CLEANCT_DATA", "CLEANCT_OUTPUT_ROOT",
                  "CLEANCT_ENGINE")
     previous = {name: os.environ.get(name) for name in env_names}
@@ -46,13 +48,16 @@ def run_launcher(env_overrides: dict[str, str | None]) -> dict:
         "open_log": launcher.open_log,
         "popen": launcher.subprocess.Popen,
         "argv": sys.argv,
+        "fail_box": launcher.fail_box,
     }
-    captured: dict = {}
+    captured: dict = {"boxes": []}
 
     def fake_popen(args, **kwargs):
         captured["args"] = list(args)
         captured["env"] = dict(kwargs["env"])
-        return FakeProcess()
+        process = FakeProcess()
+        process.exit_code = exit_code
+        return process
 
     try:
         for name in env_names:
@@ -62,7 +67,8 @@ def run_launcher(env_overrides: dict[str, str | None]) -> dict:
                 os.environ[name] = value
         launcher.payload_dirs = lambda: ("C:/cleanCT/app", "C:/cleanCT/engine",
                                          "C:/cleanCT/runtime/python.exe")
-        launcher.open_log = lambda _app_dir: FakeLog()
+        launcher.open_log = lambda _app_dir: (FakeLog(), "C:/state/logs/cleanCT.log")
+        launcher.fail_box = captured["boxes"].append
         launcher.subprocess.Popen = fake_popen
         sys.argv = ["cleanCT.exe", "--selfcheck"]
         captured["return_code"] = launcher.main()
@@ -71,6 +77,7 @@ def run_launcher(env_overrides: dict[str, str | None]) -> dict:
         launcher.payload_dirs = original["payload_dirs"]
         launcher.open_log = original["open_log"]
         launcher.subprocess.Popen = original["popen"]
+        launcher.fail_box = original["fail_box"]
         sys.argv = original["argv"]
         for name, value in previous.items():
             if value is None:
@@ -150,6 +157,31 @@ def main() -> int:
           same_path(explicit_output["env"].get("CLEANCT_OUTPUT_ROOT"),
                     Path("D:/cleanCT-output")),
           str(explicit_output["env"].get("CLEANCT_OUTPUT_ROOT")))
+
+    crashed = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"}, exit_code=3)
+    check("launcher names the log when the app exits badly at start-up",
+          crashed["return_code"] == 3 and len(crashed["boxes"]) == 1
+          and "cleanCT.log" in crashed["boxes"][0], str(crashed["boxes"]))
+    healthy = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"})
+    check("launcher stays quiet on a clean exit", healthy["boxes"] == [],
+          str(healthy["boxes"]))
+    local_root = Path(tempfile.mkdtemp(prefix="cleanct_launcher_log_"))
+    previous_local = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(local_root)
+    try:
+        handle, log_path = launcher.open_log(str(ROOT))
+        check("open_log returns the open log file and its path",
+              handle is not None
+              and str(log_path).endswith(os.path.join("cleanCT", "logs", "cleanCT.log")),
+              str(log_path))
+        if handle is not None:
+            handle.close()
+    finally:
+        if previous_local is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = previous_local
+        shutil.rmtree(local_root, ignore_errors=True)
 
     print("RESULT: ALL PASS" if not failures
           else f"RESULT: {len(failures)} failed", flush=True)

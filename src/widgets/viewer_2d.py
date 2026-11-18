@@ -21,6 +21,7 @@ class Viewer2D(QWidget):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setMinimumSize(320, 240)
+        self._empty_text = "Load a scan to see it here."
         # Paint hardening: the widget paints every pixel of itself in
         # paintEvent (background fill first), so Qt can skip the implicit
         # erase — removes the white/black flash on resize and image swaps.
@@ -230,6 +231,11 @@ class Viewer2D(QWidget):
         return int(round(frac * (self._n_slices - 1)))
 
     # ---------------------------------------------------------------- Painting
+    def set_empty_text(self, text: str) -> None:
+        """Text shown while there is no image (depends on the load state)."""
+        self._empty_text = text
+        self.update()
+
     def paintEvent(self, event):
         painter = QPainter(self)
         # WA_OpaquePaintEvent promises full coverage even during a transient
@@ -246,7 +252,7 @@ class Viewer2D(QWidget):
             painter.drawPixmap(img_rect.toRect(), self._pixmap)
         else:
             painter.setPen(QColor("#6f7c91"))
-            painter.drawText(self.rect(), Qt.AlignCenter, "No image loaded")
+            painter.drawText(self.rect(), Qt.AlignCenter, self._empty_text)
             return
 
         if not self._guide_enabled:
