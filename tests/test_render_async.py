@@ -472,6 +472,55 @@ def main() -> int:
         mw.viewer_core.CACHE_DIR = old_cache_dir
         mw.viewer_core._CACHE = old_payload_cache
 
+    # keep >= cut: every export-type action refuses before any job or export starts
+    keepcut = NoStartupIOWindow()
+    keepcut_tmp = Path(tempfile.mkdtemp(prefix="cleanct_keepcut_", dir=TEST_TMP))
+    (keepcut_tmp / "report.json").write_text(json.dumps({
+        "platform": {"cut_from": 18, "keep_from": 0},
+        "meta": {"pixel_spacing_yx_mm": [0.033, 0.033]},
+    }), encoding="utf-8")
+    try:
+        keepcut.payload = {"unprocessed": False}
+        keepcut.dataset, keepcut.sample = "synthetic", "slow"
+        keepcut.spin_cut.setValue(18)
+        keepcut.spin_keep.setValue(20)            # keep >= cut, via the spin
+        starts: list[str] = []
+        exports: list[str] = []
+
+        class _QuietBox:
+            @staticmethod
+            def _quiet(*args, **kwargs):
+                return None
+
+            warning = critical = information = _quiet
+
+        real_message_box = mw.QMessageBox
+        real_export = mw.bundle_export.export_bundle
+        keepcut._validated_dest_root = lambda: keepcut_tmp
+        _NoSource = type("_NoSource", (), {"source_kind": "dicom", "source_path": None})
+        keepcut._resolve_sources = lambda: (_NoSource(), keepcut_tmp, None, keepcut_tmp)
+        keepcut._start_job = lambda label, *a, **k: starts.append(label)
+        mw.QMessageBox = _QuietBox
+        mw.bundle_export.export_bundle = lambda *a, **k: exports.append("export") or {}
+        try:
+            for action in (keepcut._export_bundle, keepcut._process_and_export,
+                           keepcut._apply_and_process):
+                try:
+                    action()
+                except Exception as exc:
+                    starts.append(f"raised {type(exc).__name__}: {exc}")
+        finally:
+            mw.QMessageBox = real_message_box
+            mw.bundle_export.export_bundle = real_export
+        check("keep>=cut: export, process-and-export and apply start nothing",
+              exports == [] and starts == [], f"exports={exports} starts={starts}")
+        status = keepcut.lbl_export_status.text()
+        check("keep>=cut: the refusal is shown in the export status",
+              "Keep line" in status and "Cut line" in status, status)
+    finally:
+        keepcut.close()
+        app.processEvents()
+
     # closing while a job finishes or fails: no new load, no modal box
     closing = NoStartupIOWindow()
     try:

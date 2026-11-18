@@ -3033,6 +3033,22 @@ class MainWindow(QMainWindow):
         self._pref_z_explicit = z
         self._schedule_prefs_preview()
 
+    def _valid_keep_cut(self) -> str | None:
+        """Why the current Keep/Cut lines cannot be exported, or None."""
+        if self.pref_keep >= self.pref_cut:
+            return "Keep line must be above the Cut line (keep < cut)."
+        return None
+
+    def _block_on_keep_cut(self) -> bool:
+        """Show a Keep/Cut error in the export status; True when blocked."""
+        err = self._valid_keep_cut()
+        if err is None:
+            return False
+        self.lbl_export_status.setText(f"✗ {err}")
+        self.lbl_export_status.setStyleSheet(
+            "color: #ff463c; font-size: 11px; font-weight: 600;")
+        return True
+
     def _update_range_summary(self):
         if not self.payload:
             self.lbl_range_summary.setText("Load a specimen to adjust cut lines.")
@@ -3047,9 +3063,9 @@ class MainWindow(QMainWindow):
                 "color: #f2b23c; font-size: 12px; font-weight: 500;")
             self.btn_apply_prefs.setEnabled(False)
             return
-        if self.pref_keep >= self.pref_cut:
-            self.lbl_range_summary.setText(
-                f"✗ Start ({self.pref_keep}) must be below cut slice ({self.pref_cut})")
+        err = self._valid_keep_cut()
+        if err:
+            self.lbl_range_summary.setText(f"✗ {err}")
             self.lbl_range_summary.setStyleSheet(
                 "color: #ff463c; font-size: 12px; font-weight: bold;")
             self.btn_apply_prefs.setEnabled(False)
@@ -3196,6 +3212,8 @@ class MainWindow(QMainWindow):
         # Override and re-process with cut / keep / margin
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load a specimen before applying cut lines.")
+            return
+        if self._block_on_keep_cut():
             return
         dataset, sample = self.dataset, self.sample
         overrides = {
@@ -3474,6 +3492,8 @@ class MainWindow(QMainWindow):
         exported."""
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load a specimen before processing and export.")
+            return
+        if self._block_on_keep_cut():
             return
         dataset, sample = self.dataset, self.sample
         dest_root = self._validated_dest_root()
@@ -3830,6 +3850,8 @@ class MainWindow(QMainWindow):
     def _export_bundle(self):
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load and process a specimen before exporting.")
+            return
+        if self._block_on_keep_cut():
             return
         dataset, sample = self.dataset, self.sample
         dest_root = self._validated_dest_root()
