@@ -229,3 +229,26 @@ changelog of what changed and why.
 - **Release:** rebuilt ZIP/setup.exe (launcher selfcheck PASS; snapshot
   `cleanCT_v1.0.0\installer\` mirrored); backup
   `0BACKUP/audit_20260925_auto_snap_r14`.
+
+## 2026-11-18 — Audit fix plan for cleanCT 1.0.0
+
+- **Export correctness:** DICOM-sourced NIfTI now opens with (x, y, z) voxels;
+  derived DICOM series get their own UIDs; verification no longer loads every
+  slice's pixels.
+- **State safety:** a damaged settings or registry file is kept as
+  `<name>.corrupt-<stamp>`; a re-registered specimen ID no longer reuses old
+  views; cache folders are pruned; user state never falls back into the install
+  folder.
+- **Keep, Cut and Snap:** Keep >= Cut is refused by all three export-type
+  actions; Snap and Reset now also place the lateral boundaries from the
+  detection.
+- **Engine:** a failing CuPy step falls back to the CPU for that step, and the
+  probe no longer flashes a console window.
+- **Release:** the builder publishes `version\cleanCT_v1.0.0\`, and the portable
+  ZIP's top folder is `cleanCT-1.0.0`.
+- **UI:** the main area renders dark (the palette and Fusion style are applied),
+  labels have no pictographs, the audit renames are in (Boundaries, Load scan,
+  Export to, Open checkpoint), boundary controls lock during jobs, a re-export
+  asks before it replaces a bundle, and Ctrl+O, Ctrl+R, Ctrl+E and Ctrl+S are
+  available. The launcher reports start-up failures with the log location.
+- Details, files and open items: `DEV_LOG.md` section 2.8.

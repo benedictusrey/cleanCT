@@ -274,6 +274,115 @@ cleanCT/
 
 ---
 
+### 2.8 [2026-11-18] Audit fix plan (cleanCT 1.0.0 audit + UI polish)
+The audit and the fix plan are applied in order from the baseline commit
+`e34ed17`. The focused gate (`tests/run_cleanct_regressions.ps1`) was run after
+every task and passed each time. The engine (`metal_remover`) is versioned in
+its own repository, with its baseline at `fc8dbae`.
+
+- **T1 NIfTI axis order (DICOM sources).** Problem: a DICOM-sourced NIfTI opened
+  scrambled. Root cause: the streamed and legacy writers declared `(n_keep, ny,
+  nx)` and wrote planes with y fastest; the affine and the TIFF writer use
+  `(x, y, z)`. Fix: header `(nx, ny, n_keep)`, planes transposed; verification
+  reads z at `shape[2]`. Files: `src/core/bundle_export.py`,
+  `tests/test_nifti_roundtrip.py` (new), `tests/test_export_formats.py`,
+  `tests/test_pipeline_synthetic.py`, `tests/test_export_stream.py`.
+- **T2 Output root.** Problem: a run started as `runtime\python.exe app\main.py`
+  wrote to the build machine's H: drive. Fix: `paths.ensure_output_root()` for
+  installed runs; `main.py` calls it, and `--selfcheck` prints the output root.
+  Test: `tests/test_launcher_paths.py`.
+- **T3 DICOM UIDs.** Problem: a derived series shared the scan's UIDs, and
+  re-exports shared one series UID. Fix: a new SeriesInstanceUID per export and a
+  new SOPInstanceUID per slice, with `SourceImageSequence` pointing at the source
+  slice; verification matches through that reference. Test:
+  `tests/test_export_formats.py` (UID checks).
+- **T4 Verification memory.** Problem: verification loaded every output slice
+  with pixels (about 16 GB for 2,000 slices of 2k x 2k). Fix: header-only reads;
+  pixels for the three spot checks, one at a time. Test: a `dcmread` spy in
+  `tests/test_export_formats.py`.
+- **T5 Properties.** Problem: `NameError: human_size`. Fix: import it. Test:
+  `tests/test_specimen_panel.py` runs the real handler.
+- **T6 Settings and registry.** Problem: a damaged file was read as empty and the
+  next save overwrote it. Fix: damaged files are kept as
+  `<name>.corrupt-<stamp>`, settings saves are atomic, odd JSON shapes and
+  entries without a specimen ID are handled. Test: `tests/test_state_files.py`
+  (new).
+- **T7 Closing during a job.** Problem: a job that finished during close started a
+  loader, a failed job opened a box on the hidden window, and the GPU probe
+  reference was dropped while its thread ran. Fix: early returns while closing;
+  the GPU reference is cleared from the thread's `finished` signal. Test:
+  `tests/test_render_async.py`.
+- **T8 Keep >= Cut.** Problem: Export and Process & Export accepted an empty
+  range. Fix: `_valid_keep_cut()` guards all three actions and drives the range
+  label. Test: `tests/test_render_async.py`.
+- **T9 Junctions.** Problem: `cmd /c mklink` split paths at `&`; a moved source
+  left a junction that `exists()` cannot see, so the id could not be registered
+  again. Fix: `_winapi.CreateJunction`, `os.rmdir` for removal (it deletes only
+  the link), and a moved junction is repointed. Test: `tests/test_state_files.py`.
+- **T10 GPU fallback (engine).** Problem: a CuPy kernel compile error or out-of-
+  memory failed the whole specimen; the probe flashed a console window. Fix:
+  `run_gpu_or_cpu()` in `metal_remover/gpu_backend.py`, used by
+  `metal_remover/wood_track.py`. A failing step disables CUDA for the rest of the
+  run and is recomputed on the CPU; the probe runs with `CREATE_NO_WINDOW`.
+  Test: `tests/test_pipeline_synthetic.py` (stand-in backend; no GPU needed).
+- **T11 Checkpoint restore.** Problem: a preview still in flight for the previous
+  specimen could be filed under the restored name. Fix: the restore bumps the
+  preview generation first. Test: `tests/test_render_async.py`.
+- **T12 Test hygiene.** Every test puts `src/` on the path, so the tests run
+  directly. The gate suites use `ensure_engine_on_path()`, not the live engine
+  folder. The three real-data scripts exit 0 with SKIP unless
+  `CLEANCT_REAL_DATA=1`; the two that write output also refuse unless
+  `CLEANCT_DATA` and `CLEANCT_OUTPUT_ROOT` are temp folders. `test_nometal_e2e`
+  cleans up under `CLEANCT_OUTPUT_ROOT`. `test_fleet_adaptive` is read-only
+  against the real outputs, so it does not require temp folders; it fails when
+  no report is found.
+- **T13 Small fixes.** Natural sort (`_natural_key`; the old regex had matched a
+  literal backslash). The Left and Right boundaries share one helper and stay
+  **4 points** apart, the band the viewer already enforces, so the spin, the
+  slider and the viewer agree (the plan's example of 1 point was changed to
+  match the viewer). The job box hides on one timer that a new job stops. The
+  `report.json` reads use UTF-8.
+- **T14 Release layout.** The builder publishes `version\cleanCT_v1.0.0\`: the
+  portable ZIP and its sidecar, the setup installer when built,
+  `README_INSTALLER.txt`, `USER_GUIDE.md`, `THIRD_PARTY_NOTICES.md` and
+  `RELEASE_NOTES.md`. The copies go through `.tmp` files and the copied ZIP is
+  hashed again. The portable ZIP's top folder is `cleanCT-1.0.0` (was `_pkg`).
+  `setup_env.ps1` checks each `pip` exit code. The backup script no longer
+  collects `dist\cleanCT-app`, `metal_remover\build` or `scripts`, and skips
+  `version\`. `RELEASE_NOTES.md` is the old sibling README with its `H:` paths
+  made relative; the `version\` folder is git-ignored, so keep that file safe.
+- **T15 Cleanup and state.** Duplicate and dead code removed; one custom-source
+  lookup (`_custom_source_path`); the 3-D viewer uses the 2-D colormap table
+  (the grayscale start moves from (25, 28, 35) to (18, 20, 26), so the 3-D view is
+  slightly darker). **Behaviour change:** Snap and Reset now use the auto-snap
+  copy layer (`_apply_auto_snap`), so they also place the lateral X/Y bounds from
+  the detection and clear the preview dirty flag. Viewer cache keys carry the
+  registered source identity (`CACHE_VERSION` 20); superseded cache files are
+  pruned after each write (data\cache had reached 300 files, 371 MB); removing or
+  renaming a specimen drops its in-memory views. An unwritable user state folder
+  falls back to `<temp>\cleanCT`, not the install folder.
+- **T16 UI polish.** Theme tokens and roles (`theme.set_role`), a Qt palette and
+  the Fusion style (without them the main area rendered white on this PC), no
+  inline colour styles left in `src/`, no pictographs in labels, `&&`
+  mnemonics, and the renames: Boundaries, Load scan, Export to, Open checkpoint,
+  "+3 vs manual"; KPI titles in sentence case; sidebar grouping (About in the
+  brand header, one checkpoint row); contextual empty text; boundary controls
+  locked during a job; a re-export asks before it replaces a bundle (default
+  No); Ctrl+O, Ctrl+R, Ctrl+E, Ctrl+S. Launcher: a non-zero exit within 20 s of
+  start shows the log location. Tests: `tests/test_specimen_panel.py`,
+  `tests/test_launcher_paths.py`.
+
+Open items and deliberate deviations:
+- **Setup installer not built.** `ISCC.exe` (Inno Setup 6) is not installed on
+  this PC, so `cleanCT-1.0.0-setup.exe` is missing from the release folder.
+- **Sibling mirror `H:\Treated Kyodai samples\cleanCT_v1.0.0`** (about 1.3 GB)
+  is still present. It is removed only on explicit confirmation.
+- Painted image overlays (7 to 8 pt, drawn over the scan) were left as they are.
+- The plan's backlog (about 25 smaller findings and the structural splits) is not
+  done in this pass.
+- The interactive checks in plan section D.7 were not run by hand. The same
+  behaviour is covered offscreen by the gate and by `tests/capture_screens.py`.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
