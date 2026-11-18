@@ -518,6 +518,9 @@ Open items and deliberate deviations:
   - Release rebuilt after this pass: gate and launcher self-check PASS; portable ZIP
     6,691 entries, SHA-256 `65a33ac9…50ae`; setup 208 MB, SHA-256 `a12dd987…4594`.
     The setup has not been installed on this PC.
+  - Release rebuilt with the 1280 px minimum: gate and launcher self-check PASS;
+    portable ZIP 6,691 entries, SHA-256 `dba1773d…0e82`; setup 208 MB, SHA-256
+    `b4ededf3…c45`. Not installed on this PC.
 
 ## 3. Current Known Bug (As of Now)
 
