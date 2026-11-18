@@ -22,12 +22,12 @@ Portable package: cleanCT-1.0.0-portable.zip
 
 First launch and workflow:
   1. An empty specimen list is normal on a fresh installation.
-     Select Load specimen folder... to register scan data.
+     Select Load scan... to register scan data.
   2. Load a DICOM series (.dcm), TIFF stack (.tif/.tiff), or 3-D
      NIfTI file (.nii/.nii.gz), then review the preview and cut lines.
   3. Select Apply & process, then choose the destination and export.
   4. Preview history remains available until you exit cleanCT.
-     Use Save checkpoint... and Load checkpoint... to save or restore a
+     Use Save checkpoint and Open checkpoint to save or restore a
      preview, cut lines, and view settings. The source scan stays
      separate; reconnect it to process or export a snapshot checkpoint.
 

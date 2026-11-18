@@ -372,6 +372,14 @@ its own repository, with its baseline at `fc8dbae`.
   start shows the log location. Tests: `tests/test_specimen_panel.py`,
   `tests/test_launcher_paths.py`.
 
+Verification (final build, 2026-11-18): the full builder ran with the gate (PASS
+inside the builder), a fresh PyInstaller launcher (self-check PASS), the
+portable ZIP (6,689 entries, top folder cleanCT-1.0.0, CRC clean, SHA-256 equal
+to its sidecar) and the release folder version\cleanCT_v1.0.0 (ZIP, sidecar,
+README_INSTALLER.txt, USER_GUIDE.md, THIRD_PARTY_NOTICES.md, RELEASE_NOTES.md).
+Extracted ZIP: cleanCT.exe --selfcheck exit 0, and the log reports the output
+root under %LOCALAPPDATA%\cleanCT\pipeline_output. Packaged GUI smoke PASS.
+
 Open items and deliberate deviations:
 - **Setup installer not built.** `ISCC.exe` (Inno Setup 6) is not installed on
   this PC, so `cleanCT-1.0.0-setup.exe` is missing from the release folder.
