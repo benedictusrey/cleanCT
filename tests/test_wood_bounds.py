@@ -23,7 +23,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, r"H:\Treated Kyodai samples\metal_remover")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from core.paths import ensure_engine_on_path  # noqa: E402
+
+ensure_engine_on_path()     # the isolated engine copy (CLEANCT_ENGINE) when set
 
 import tomograph as tg
 from core.wood_bounds import wood_bounds

@@ -11,14 +11,34 @@ Also reports the wall-clock speedup and the new timings_s breakdown.
 """
 import filecmp
 import json
+import os
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, r"H:\Treated Kyodai samples\metal_remover")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import tomograph as tg
+# Real-data gate: this script re-processes a real specimen and replaces the
+# output folder it reads, so it runs only when asked and only into scratch
+# folders under the temp directory.
+if os.environ.get("CLEANCT_REAL_DATA") != "1":
+    print("SKIP: needs real specimen data (set CLEANCT_REAL_DATA=1)")
+    sys.exit(0)
+for _var in ("CLEANCT_DATA", "CLEANCT_OUTPUT_ROOT"):
+    _value = os.environ.get(_var, "")
+    if not _value or not Path(_value).resolve().is_relative_to(
+            Path(tempfile.gettempdir()).resolve()):
+        print(f"FAIL: {_var} must point at a scratch folder under the temp directory")
+        sys.exit(1)
+
+from core.paths import ensure_engine_on_path  # noqa: E402
+
+ensure_engine_on_path()
+
+import tomograph as tg  # noqa: E402
 
 OUT = Path(r"H:\Treated Kyodai samples\metal_remover\output\custom\2-21")
 REF = OUT.parent / "2-21_ref0n"

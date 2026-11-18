@@ -23,6 +23,7 @@ if (not os.environ.get("CLEANCT_ENGINE") or not os.environ.get("CLEANCT_DATA")
 APP = os.environ.get("CLEANCT_APP_ROOT", str(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, str(APP))
+sys.path.insert(0, os.path.join(APP, "src"))
 
 from PySide6.QtWidgets import QApplication
 

@@ -14,11 +14,21 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from core import viewer_core as vc
+import os  # noqa: E402
+
+# Reads the real specimens' outputs, so it runs only when asked. It only
+# reads, so it does not need a scratch folder.
+if os.environ.get("CLEANCT_REAL_DATA") != "1":
+    print("SKIP: needs real specimen data (set CLEANCT_REAL_DATA=1)")
+    sys.exit(0)
+
+from core import viewer_core as vc  # noqa: E402
 
 flags: list[str] = []
 rows: list[str] = []
+checked = 0
 
 
 def load_report(dkey: str, sample: str) -> dict | None:
@@ -37,6 +47,7 @@ for dkey in ("24um", "66um"):
         rep = load_report(dkey, sample)
         if not rep:
             continue
+        checked += 1
         try:
             src = vc._prev_source(dkey, sample)
         except Exception as e:
@@ -90,10 +101,14 @@ for dkey in ("24um", "66um"):
             if not (int(t["z0"]) - 10 <= zk <= int(t.get("z1", 10**9))):
                 flags.append(f"{dkey}/{sample}: keep outside tracked range ({zk})")
 
+        vox_txt = f"{vox:.1f}um" if vox is not None else "n/a"
         rows.append(f"{dkey}/{sample}: xy=({b['x0']},{b['y0']})-({b['x1']},{b['y1']}) "
-                    f"voxel={vox:.1f}um anchor={a_ok} keep={k_ok} "
+                    f"voxel={vox_txt} anchor={a_ok} keep={k_ok} "
                     f"zb={b.get('zb', {}).get('keep')}/{b.get('zb', {}).get('cut')}")
 
+if checked == 0:
+    print("FAIL: no reports found")
+    sys.exit(1)
 print("\n".join(rows))
 print()
 if flags:

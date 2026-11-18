@@ -13,6 +13,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+import os  # noqa: E402
+
+# Not a gate test: it runs the real engine, so it runs only when asked, and
+# only into scratch folders under the temp directory.
+if os.environ.get("CLEANCT_REAL_DATA") != "1":
+    print("SKIP: needs real specimen data (set CLEANCT_REAL_DATA=1)")
+    sys.exit(0)
+for _var in ("CLEANCT_DATA", "CLEANCT_OUTPUT_ROOT"):
+    _value = os.environ.get(_var, "")
+    if not _value or not Path(_value).resolve().is_relative_to(
+            Path(tempfile.gettempdir()).resolve()):
+        print(f"FAIL: {_var} must point at a scratch folder under the temp directory")
+        sys.exit(1)
 
 import numpy as np
 import pydicom
@@ -75,10 +90,9 @@ import time as _time
 # unique per run: re-registering the same name would inherit the previous
 # run's pipeline outputs (report.json poisons the preview cache)
 NAME = f"ZZ_nometal_{_time.strftime('%H%M%S')}"
-OUT_DIR = Path(r"H:\Treated Kyodai samples\metal_remover\output\custom") / NAME
-PIPELINE = Path(r"H:\Treated Kyodai samples\metal_remover")
-if str(PIPELINE) not in _sys.path:
-    _sys.path.insert(0, str(PIPELINE))
+OUT_DIR = Path(os.environ["CLEANCT_OUTPUT_ROOT"]) / "custom" / NAME
+from core.paths import ensure_engine_on_path  # noqa: E402
+ensure_engine_on_path()
 import tomograph as tg
 
 csx.remove_specimen(NAME)                     # idempotent

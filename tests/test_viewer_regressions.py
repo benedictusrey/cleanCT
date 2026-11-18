@@ -17,6 +17,7 @@ TMP_ROOT = Path(os.environ.get("CLEANCT_TEST_TMP_DIR", Path(__file__).resolve().
 APP.mkdir(parents=True, exist_ok=True)
 TMP_ROOT.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(APP))
+sys.path.insert(0, str(APP / "src"))
 
 import numpy as np
 import pydicom

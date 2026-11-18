@@ -20,6 +20,7 @@ if not all(os.environ.get(name) for name in
 
 ROOT = Path(os.environ.get("CLEANCT_APP_ROOT", Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
 import nibabel as nib
 import numpy as np

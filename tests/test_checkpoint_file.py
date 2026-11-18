@@ -11,6 +11,7 @@ TEST_TMP = Path(os.environ["CLEANCT_TEST_TMP_DIR"])
 TEST_TMP.mkdir(parents=True, exist_ok=True)
 APP = Path(os.environ.get("CLEANCT_APP_ROOT", Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(APP))
+sys.path.insert(0, str(APP / "src"))
 
 from PIL import Image
 from core import checkpoint_file as cp
