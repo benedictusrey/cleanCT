@@ -45,7 +45,7 @@ from widgets.viewer_2d import Viewer2D
 from widgets.viewer_3d import Viewer3D
 from widgets.kpi_banner import KPIBanner
 from widgets.specimen_panel import (BusySpinner, SpecimenDelegate,
-                                    folder_size_bytes)
+                                    folder_size_bytes, human_size)
 from dialogs.about_dialog import AboutDialog
 from dialogs.load_dialog import LoadDialog
 from dialogs.properties_dialog import SpecimenPropertiesDialog

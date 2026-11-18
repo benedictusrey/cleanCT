@@ -353,6 +353,38 @@ def main() -> int:
     check("context menu dispatches Properties", called == ["properties"],
           str(called))
 
+    # the real Properties handler must reach the dialog (human_size was unimported)
+    del window._properties_selected          # drop the dispatch stub
+    props: dict = {}
+
+    class _PropertiesStub:
+        def __init__(self, _parent, info):
+            props["info"] = info
+
+        def exec(self):
+            return 0
+
+    real_dialog = mw.SpecimenPropertiesDialog
+    mw.SpecimenPropertiesDialog = _PropertiesStub
+    try:
+        for row in range(window.sample_list.count()):
+            item = window.sample_list.item(row)
+            if item.data(Qt.UserRole) and item.data(Qt.UserRole)[0] == csx.CUSTOM_KEY:
+                window.sample_list.setCurrentRow(row)
+                break
+        window._properties_selected()
+    except Exception as exc:
+        props["error"] = f"{type(exc).__name__}: {exc}"
+    finally:
+        mw.SpecimenPropertiesDialog = real_dialog
+    info = props.get("info", {})
+    check("Properties opens the dialog for the selected specimen",
+          "error" not in props and bool(info.get("name")),
+          props.get("error", str(sorted(info))))
+    check("Properties reports an on-disk size label",
+          isinstance(info.get("size_label"), str) and bool(info.get("size_label")),
+          repr(info.get("size_label")))
+
     # keyboard shortcuts exist and are wired to the list
     check("F2/Del shortcuts wired to the list",
           getattr(window, "_f2_shortcut", None) is not None
