@@ -137,6 +137,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("cleanCT: wood CT metal-base removal")
+        # the supported minimum: at 1280 px the Auto page fits without scrolling
+        self.setMinimumWidth(1280)
         self.resize(1540, 960)
 
         # Set Window Icon (Native Multi-Res with all explicit pixel mipmaps)

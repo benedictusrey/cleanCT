@@ -594,6 +594,10 @@ def main() -> int:
                if not w.accessibleName()]
     check("every spin box and slider has an accessible name", not unnamed, str(unnamed[:5]))
 
+    # the supported minimum: below 1280 px the window must not shrink further
+    check("the window cannot shrink below 1280 px", window.minimumWidth() >= 1280,
+          str(window.minimumWidth()))
+
     window.close()
     window2.close()
     app.processEvents()

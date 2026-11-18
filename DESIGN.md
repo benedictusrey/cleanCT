@@ -41,8 +41,8 @@ the viewers draw them. They are data, not chrome.
   Boundaries tabs, then the export row, then the two viewers (and the 3-D panel
   on Auto).
 - The Boundaries page keeps its controls on the right at 468 px.
-- Minimum window width is about 1250 px. Each page scrolls sideways if the window
-  is narrower than the page needs.
+- Minimum window width is 1280 px, the supported width. Each page still scrolls
+  sideways if a window is narrower than the page needs.
 
 ## Components
 

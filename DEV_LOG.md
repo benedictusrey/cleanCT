@@ -506,8 +506,9 @@ Open items and deliberate deviations:
   - `tests/test_specimen_panel.py` checks glyphs, middle dots, disabled reasons and
     accessible names on a fresh window and a loaded one.
 - **Decisions and limits, not changed:**
-  - Below 1280 px the Auto page scrolls sideways (about 850 px of content). It works;
-    it is graded P2. Whether 1024 px is a supported width is a decision for the user.
+  - Below 1280 px the Auto page scrolls sideways (about 850 px of content). The
+    window's minimum width is now 1280 px, the user's decision, so the window cannot
+    go narrower and the page does not need to scroll.
   - Largest GUI stall during the probe's pipelines: 171 ms (bundle write, 384 px
     scan). Nothing above 250 ms.
   - Not probed: the About and Load dialogs' contents beyond their opening, the
