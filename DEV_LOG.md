@@ -569,6 +569,12 @@ Open items and deliberate deviations:
 - **Tests:** `tests/test_layout_fit.py` (new) checks scroll ranges, segment fit, apply row
   visibility, the tab role and the header and sidebar rules. `tests/ui_probe.py` adds
   1280x720 and reports any page that needs a vertical scroll bar.
+- **Arrows:** spin-box steppers and the combo chevron were blank because the field
+  background switched off Qt's native arrows. They are now theme-coloured PNGs
+  (`theme._arrow_files`). `tests/test_controls_paint.py` (new) checks them in both themes.
+- **Release (rebuilt with the arrows fix):** setup `cleanCT-1.0.0-setup.exe` SHA-256
+  `416c89aba6f5a692899e26d93d321f485ce845804171f0c5bc82a9fba6eb02a9`, portable
+  `cleanCT-1.0.0-portable.zip` SHA-256 `87a9c6587f2ce170ba3b980ecd5160d915aca7da3e3d565acfc30cc649fd9a2c`.
 
 ## 3. Current Known Bug (As of Now)
 
