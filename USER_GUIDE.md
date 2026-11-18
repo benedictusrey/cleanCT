@@ -4,8 +4,8 @@ cleanCT reviews and processes micro-CT scans from DICOM, TIFF, or NIfTI sources,
 
 ## 1. Start the app
 
-1. Extract the complete portable ZIP to a folder on your PC. Keep the files together inside the `_pkg` folder.
-2. Open `_pkg` and double-click `cleanCT.exe`. The first launch may take a little longer while the app prepares its runtime. No Python installation or administrator setup is needed.
+1. Extract the complete portable ZIP to a folder on your PC. Keep the files together inside the `cleanCT-1.0.0` folder.
+2. Open the `cleanCT-1.0.0` folder and double-click `cleanCT.exe`. The first launch may take a little longer while the app prepares its runtime. No Python installation or administrator setup is needed.
 3. Use a local drive with enough free space for processing results and exports. An NVIDIA GPU is used automatically when a compatible driver is available; otherwise cleanCT uses the CPU, which may take longer.
 
 ## 2. Choose a scan

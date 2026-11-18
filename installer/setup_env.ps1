@@ -24,6 +24,7 @@ if (-not (Get-Command $PY -ErrorAction SilentlyContinue) -and -not (Test-Path $P
 
 Write-Host "== cleanCT pinned dependencies -> $PY =="
 & $PY -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "pip failed: upgrading pip" }
 
 # Core scientific + imaging stack (audited versions, zero drift)
 & $PY -m pip install `
@@ -36,6 +37,7 @@ Write-Host "== cleanCT pinned dependencies -> $PY =="
     "Pillow==12.3.0" `
     "matplotlib==3.9.2" `
     "scikit-image==0.26.0"
+if ($LASTEXITCODE -ne 0) { throw "pip failed: core scientific and imaging stack" }
 
 # GPU stack: CuPy for CUDA 12.x + the NVRTC wheel it JITs with.
 # The NVRTC/runtime DLL payload is substantial but self-contained; no

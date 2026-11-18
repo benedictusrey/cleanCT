@@ -21,6 +21,7 @@ UNCOMPRESSED_SUFFIXES = {".zip", ".exe", ".png", ".jpg", ".jpeg", ".ico"}
 EXCLUDED_BUILD_DIRS = {
     "__pycache__", "venv_notorch", "cache", "cleanCT", "custom",
     "native_shots", "bounds_shots", "_export_stream_work",
+    "version",   # release folders hold 500+ MB of binaries; not re-zipped per round
 }
 
 
@@ -88,8 +89,6 @@ def collect_files() -> dict[str, Path]:
         suffixes={".zip", ".sha256", ".exe"}))
 
     add(PROJECT / "dist" / "cleanCT.exe", "dist/cleanCT.exe")
-    files.update(collect_tree(PROJECT / "dist" / "cleanCT-app",
-                              "dist/cleanCT-app"))
 
     engine_files = ("README.md", "air_crop.py", "gpu_backend.py",
                     "requirements-gpu.txt", "requirements.txt",
@@ -97,7 +96,7 @@ def collect_files() -> dict[str, Path]:
                     "wood_track.py")
     for name in engine_files:
         add(ENGINE / name, f"metal_remover/{name}")
-    for folder in ("build", "scripts", "tests"):
+    for folder in ("tests",):
         files.update(collect_tree(ENGINE / folder, f"metal_remover/{folder}",
                                   suffixes=TEXT_SUFFIXES))
 

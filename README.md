@@ -39,6 +39,8 @@ cleanCT\
                         pkg_gui_smoke.py, capture_screens.py + screenshots\,
                         create_audit_backup.py, venv_notorch\ (test interpreter)
   dist\                 Reference standalone build (dist\cleanCT-app)
+  version\             Release folders written by installer\build_installer.py
+                        (version\cleanCT_v1.0.0\)
   0BACKUP\              Hashed round snapshots of the whole system
 ```
 
@@ -72,7 +74,7 @@ $env:QT_QPA_PLATFORM = "offscreen"; $env:PYTHONUTF8 = "1"
 & "$PWD\installer\_pkg\cleanCT.exe" --selfcheck
 ```
 
-Production launcher: `installer\_pkg\cleanCT.exe` (PyInstaller one-file, windowless; spawns `runtime\python.exe -X utf8 app\main.py` next to itself). Release artifacts: `installer\out\cleanCT-1.0.0-portable.zip` and `cleanCT-1.0.0-setup.exe`.
+Production launcher: `installer\_pkg\cleanCT.exe` (PyInstaller one-file, windowless; spawns `runtime\python.exe -X utf8 app\main.py` next to itself). Release artifacts: `version\cleanCT_v1.0.0\` holds the portable ZIP and its `.sha256`, `cleanCT-1.0.0-setup.exe`, `README_INSTALLER.txt`, `USER_GUIDE.md`, `THIRD_PARTY_NOTICES.md`, and `RELEASE_NOTES.md`. `installer\out` keeps the same build outputs.
 
 ---
 
@@ -99,7 +101,7 @@ ISCC.exe "$PWD\installer\cleanct.iss"
 & "$PWD\tests\venv_notorch\Scripts\python.exe" "$PWD\tests\create_audit_backup.py"
 ```
 
-Suites: `test_checkpoint_file.py`, `test_viewer_regressions.py`, `test_render_async.py`, `test_specimen_panel.py`, `test_unproc_and_frames.py`, `test_export_formats.py`, `test_export_stream.py`, `test_pipeline_synthetic.py`, `test_volume_inputs.py`, `test_launcher_paths.py`, `test_installer_icons.py`.
+Suites: `test_checkpoint_file.py`, `test_viewer_regressions.py`, `test_render_async.py`, `test_specimen_panel.py`, `test_wood_bounds.py`, `test_auto_snap.py`, `test_unproc_and_frames.py`, `test_export_formats.py`, `test_export_stream.py`, `test_nifti_roundtrip.py`, `test_state_files.py`, `test_pipeline_synthetic.py`, `test_volume_inputs.py`, `test_launcher_paths.py`, `test_installer_icons.py`.
 
 ---
 

@@ -1,6 +1,6 @@
 cleanCT 1.0.0 - Release and Installation
 ======================================================
-Build date: 2026-09-25
+Build date: 2026-11-18
 Architecture: Windows x64
 Bundled application runtime: CPython 3.12.3 x64
 Launcher builder: PyInstaller 6.22.2
@@ -16,8 +16,8 @@ Classic installer: cleanCT-1.0.0-setup.exe
 
 Portable package: cleanCT-1.0.0-portable.zip
   1. Extract the complete ZIP to a folder you can write to.
-  2. Open the _pkg folder and double-click cleanCT.exe.
-  3. Keep the extracted _pkg files together. No Python installation
+  2. Open the cleanCT-1.0.0 folder and double-click cleanCT.exe.
+  3. Keep the extracted cleanCT-1.0.0 folder together. No Python installation
      is required.
 
 First launch and workflow:
@@ -36,5 +36,5 @@ outputs are kept under %LOCALAPPDATA%\cleanCT, separately from the
 installation folder.
 
 The launcher was rebuilt from installer/launcher_main.py with the
-Windows icon at dist/cleanCT-app/icons/app.ico. The production payload
+Windows icon at assets/icons/app.ico. The production payload
 includes the application graphics under app/icons.

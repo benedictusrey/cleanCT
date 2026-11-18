@@ -7,7 +7,7 @@ changelog), `AUDIT.md` (per-release audit record), `USER_GUIDE.md` (end-user),
 `DEV_README.md` (developer setup).
 
 - Checkout (source of truth): `H:\Treated Kyodai samples\cleanCT`
-- Release snapshot mirror: `H:\Treated Kyodai samples\cleanCT_v1.0.0`
+- Release folder: `version\cleanCT_v1.0.0\` in the checkout (the old sibling mirror `H:\Treated Kyodai samples\cleanCT_v1.0.0` is being retired)
 - Detection engine (sibling): `H:\Treated Kyodai samples\metal_remover`
 - App version: 1.0.0 - app entry `main.py` (PySide6)
 

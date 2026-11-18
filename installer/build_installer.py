@@ -22,7 +22,7 @@ then produces:
 The payload is torch-free: GPU acceleration is delivered through CuPy
 (cupy-cuda12x 13.4.1 + nvidia-cuda-nvrtc-cu12 12.8.93), and machines without
 an NVIDIA GPU run the validated CPU backend. The pinned environment is copied
-from build/venv_notorch (audit 0Q); packaging removes only verified test/docs,
+from tests/venv_notorch (audit 0Q); packaging removes only verified test/docs,
 Qt authoring/QML assets, and the duplicate CuPy NVRTC DLLs. The resulting
 payload was checked with the packaged GUI smoke and active CuPy GPU selfcheck.
 """
@@ -41,6 +41,7 @@ from pathlib import Path
 
 APP_NAME = "cleanCT"
 APP_VERSION = "1.0.0"
+ZIP_ROOT = f"{APP_NAME}-{APP_VERSION}"     # top folder inside the portable ZIP
 PY_EMBED_URL = ("https://www.python.org/ftp/python/3.12.3/"
                 "python-3.12.3-embed-amd64.zip")
 PY_EMBED_VERSION = "3.12.3"
@@ -58,32 +59,6 @@ OUT = HERE / "out"
 PKG_FINAL = PKG
 PKG_STAGING = CACHE / "_pkg_staging"
 
-
-def _discover_roots() -> None:
-    """Resolve the checkout/engine/venv roots from THIS installer folder.
-
-    Works both inside the checkout (`<checkout>/installer/`) and as a
-    copied release bundle (e.g. `cleanCT_v1.0.0/installer/` sitting
-    beside a sibling checkout named `cleanCT`)."""
-    global SRC, SRCDIR, ENGINE, VENV, APP_ENTRY_FILE, ICON_ASSET_DIR
-    if (SRCDIR / "core" / "paths.py").is_file() and \
-            (SRC / "main.py").is_file() and VENV.is_dir():
-        return
-    bases: list[Path] = []
-    for ancestor in HERE.parents:
-        bases.append(ancestor)
-        bases.append(ancestor / "cleanCT")
-    for base in bases:
-        if (base / "src" / "core" / "paths.py").is_file() \
-                and (base / "main.py").is_file() \
-                and (base / "tests" / "venv_notorch").is_dir():
-            SRC = base
-            SRCDIR = base / "src"
-            ENGINE = base.parent / "metal_remover"
-            VENV = base / "tests" / "venv_notorch"
-            APP_ENTRY_FILE = base / "main.py"
-            ICON_ASSET_DIR = base / "assets" / "icons"
-            return
 
 # Explicit include list: the packaged app is exactly what it imports at
 # runtime, immune to checkout clutter (export bundles, caches, the custom
@@ -253,7 +228,7 @@ def step_runtime() -> None:
 
     sp_src = VENV / "Lib" / "site-packages"
     if not sp_src.exists():
-        log("FATAL: build/venv_notorch missing - run setup_env.ps1 first")
+        log("FATAL: tests/venv_notorch missing - run setup_env.ps1 first")
         sys.exit(2)
     sp = rt / "Lib" / "site-packages"
     log("copying runtime site-packages; pruning test/docs/unused Qt assets")
@@ -298,7 +273,7 @@ def copy_icon_assets(destination: Path) -> tuple[int, int]:
     }
     if staged_files != source_files or count != len(source_files):
         raise RuntimeError(
-            "staged icon file list differs from dist/cleanCT-app/icons")
+            "staged icon file list differs from assets/icons")
     total_bytes = 0
     for relative in sorted(source_files):
         source_file = source / Path(relative)
@@ -428,9 +403,9 @@ def step_docs() -> None:
         f"{APP_NAME} {APP_VERSION}\n"
         f"{'=' * 40}\n\n"
         "Quick start:\n"
-        "  1. Extract the complete ZIP and keep the _pkg folder together.\n"
-        "  2. Open _pkg and double-click cleanCT.exe. No Python install or\n"
-        "     administrator setup is needed. First launch may take longer.\n"
+        f"  1. Extract the complete ZIP and keep the {ZIP_ROOT} folder together.\n"
+        f"  2. Open the {ZIP_ROOT} folder and double-click cleanCT.exe. No Python\n"
+        "     install or administrator setup is needed. First launch may take longer.\n"
         "  3. The specimen list shows data already available on this PC. A\n"
         "     fresh install may be empty; select 'Load specimen folder…' to add\n"
         "     a DICOM series, TIFF stack, or 3-D NIfTI file.\n"
@@ -503,8 +478,8 @@ def step_installer_readme(pyinstaller_version: str,
         "",
         f"Portable package: {APP_NAME}-{APP_VERSION}-portable.zip",
         "  1. Extract the complete ZIP to a folder you can write to.",
-        "  2. Open the _pkg folder and double-click cleanCT.exe.",
-        "  3. Keep the extracted _pkg files together. No Python installation",
+        f"  2. Open the {ZIP_ROOT} folder and double-click cleanCT.exe.",
+        f"  3. Keep the extracted {ZIP_ROOT} folder together. No Python installation",
         "     is required.",
         "",
         "First launch and workflow:",
@@ -523,7 +498,7 @@ def step_installer_readme(pyinstaller_version: str,
         "installation folder.",
         "",
         "The launcher was rebuilt from installer/launcher_main.py with the",
-        "Windows icon at dist/cleanCT-app/icons/app.ico. The production payload",
+        "Windows icon at assets/icons/app.ico. The production payload",
         "includes the application graphics under app/icons.",
         "",
     ]
@@ -545,7 +520,7 @@ def step_portable() -> Path:
         key=lambda p: p.relative_to(PKG).as_posix().casefold(),
     )
     expected = [
-        (Path(PKG_FINAL.name) / p.relative_to(PKG)).as_posix()
+        (Path(ZIP_ROOT) / p.relative_to(PKG)).as_posix()
         for p in files
     ]
     temporary.unlink(missing_ok=True)
@@ -558,7 +533,7 @@ def step_portable() -> Path:
                 temporary, "w", compression=zipfile.ZIP_DEFLATED,
                 compresslevel=9) as archive:
             for path in files:
-                arcname = (Path(PKG_FINAL.name) / path.relative_to(PKG)).as_posix()
+                arcname = (Path(ZIP_ROOT) / path.relative_to(PKG)).as_posix()
                 archive.write(path, arcname)
         with zipfile.ZipFile(temporary, "r") as archive:
             if archive.namelist() != expected:
@@ -585,6 +560,53 @@ def step_portable() -> Path:
         raise
     log(f"portable candidate: {candidate.stat().st_size / 1e6:.1f} MB")
     return candidate
+
+
+RELEASE_DIR = SRC / "version" / f"{APP_NAME}_v{APP_VERSION}"
+RELEASE_NOTES_SRC = SRC / "version" / "RELEASE_NOTES.md"
+
+
+def _sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def step_release(zip_path: Path, sha_path: Path, setup_path: Path | None) -> Path:
+    """Copy the published release set into <checkout>\\version\\<release>.
+
+    Each file lands as <name>.tmp and is renamed only once all are copied, so a
+    half-copied release never appears. The copied ZIP is hashed again and
+    compared with its sidecar."""
+    RELEASE_DIR.mkdir(parents=True, exist_ok=True)
+    sources = [zip_path, sha_path]
+    if setup_path is not None:
+        sources.append(setup_path)
+    sources += [PKG_FINAL / "README_INSTALLER.txt",
+                PKG_FINAL / "USER_GUIDE.md",
+                PKG_FINAL / "THIRD_PARTY_NOTICES.md"]
+    if RELEASE_NOTES_SRC.is_file():
+        sources.append(RELEASE_NOTES_SRC)
+    staged: list[tuple[Path, Path]] = []
+    for source in sources:
+        if not source.is_file():
+            raise RuntimeError(f"release file is missing: {source}")
+        target = RELEASE_DIR / source.name
+        temporary = target.with_name(target.name + ".tmp")
+        temporary.unlink(missing_ok=True)
+        shutil.copy2(source, temporary)
+        staged.append((temporary, target))
+    for temporary, target in staged:
+        os.replace(temporary, target)
+    expected = sha_path.read_text(encoding="ascii").split()[0]
+    actual = _sha256_of(RELEASE_DIR / zip_path.name)
+    if actual != expected:
+        raise RuntimeError(
+            f"copied ZIP hash {actual} does not match the sidecar {expected}")
+    log(f"release: {RELEASE_DIR}")
+    return RELEASE_DIR
 
 
 def promote_package(staged: Path) -> Path | None:
@@ -838,8 +860,10 @@ def main() -> int:
                     help="path to the Inno Setup command-line compiler")
     args = ap.parse_args()
 
-    _discover_roots()
     log(f"checkout root: {SRC}")
+    if not (SRC / "main.py").is_file():
+        log(f"FATAL: cleanCT checkout not found at {SRC} (main.py is missing)")
+        return 2
     if not SRCDIR.is_dir() or not (SRCDIR / "core" / "paths.py").is_file():
         log(f"FATAL: application sources not found at {SRCDIR}")
         return 2
@@ -880,7 +904,7 @@ def main() -> int:
         step_engine()
         step_runtime()
         if args.skip_launcher:
-            previous_launcher = PKG / "cleanCT.exe"
+            previous_launcher = PKG_FINAL / "cleanCT.exe"
             if not previous_launcher.is_file():
                 raise RuntimeError("--skip-launcher requested but no existing launcher is available")
             shutil.copy2(previous_launcher, PKG / "cleanCT.exe")
@@ -1000,6 +1024,13 @@ def main() -> int:
         sha_backup.unlink(missing_ok=True)
         setup_backup.unlink(missing_ok=True)
         readme_backup.unlink(missing_ok=True)
+        if not args.skip_zip:
+            try:
+                step_release(final_zip, final_sha,
+                             None if args.skip_inno else final_setup)
+            except Exception as exc:
+                log(f"FATAL: release copy failed: {exc}")
+                return 2
 
     size = sum(p.stat().st_size for p in PKG.rglob("*") if p.is_file())
     log(f"payload: {size / 1e6:.1f} MB in _pkg")
