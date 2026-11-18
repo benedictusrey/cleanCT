@@ -579,6 +579,20 @@ Open items and deliberate deviations:
   `cleanCT-1.0.0-portable.zip` SHA-256 `75cf10628b3a85778619fa079d0c5fe3a9a2c4c21204030784fc0e906a19c6e4`.
   Earlier builds: arrows fix `416c89ab…`, 1280 px minimum `dba1773d…`.
 
+### 2.13 [2026-11-19] Polish round: state pill, status bar, colour keys
+
+- Header states the specimen's state (Not processed, Processed, Exported) beside the name.
+  The subtitle no longer repeats the name.
+- Outcome messages and job progress share one bottom status bar ("Ready" when idle).
+- Sidebar: tighter spacing; the specimen list shows four rows at 1280x720; the activity
+  line is one elided line.
+- Viewer colour keys are theme tokens. The light palette darkens them to 3:1 on the panel.
+- Copy: sentence case, en dashes. Legend and export path never wrap. Metadata drops whole
+  details instead of cutting a value.
+- Probe: the Tab-order check waits for loads and jobs to settle first.
+- Commit `b384b0f`. Release SHA-256: setup `065decad4b4f241b57f810024f9237b757801eaf409f3a9e7ddbe12baf029a34`,
+  portable `e3db81fc1154ec8f30431013e0b439450397c2a39b4b3e3895ce022860e639f3`.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
