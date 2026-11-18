@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import theme
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QScrollArea
@@ -56,7 +57,7 @@ class SpecimenPropertiesDialog(QDialog):
         layout.setSpacing(12)
 
         title = QLabel("Specimen properties")
-        title.setStyleSheet("font-size: 15px; font-weight: bold;")
+        theme.set_role(title, "title")
         layout.addWidget(title)
 
         scroll = QScrollArea()
@@ -65,7 +66,6 @@ class SpecimenPropertiesDialog(QDialog):
         inner = QLabel(html)
         inner.setTextFormat(Qt.RichText)
         inner.setWordWrap(True)
-        inner.setStyleSheet("background: transparent;")
         scroll.setWidget(inner)
         layout.addWidget(scroll, 1)
 

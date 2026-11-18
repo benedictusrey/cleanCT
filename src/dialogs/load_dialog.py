@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import theme
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -29,18 +30,18 @@ class LoadDialog(QDialog):
 
         # Header
         hdr = QLabel("Load XCT Volume")
-        hdr.setStyleSheet("font-size: 16px; font-weight: bold; color: #f0f4fc;")
+        theme.set_role(hdr, "title")
         layout.addWidget(hdr)
 
         sub = QLabel("Choose a DICOM series folder, TIFF stack, or 3-D NIfTI file.")
-        sub.setStyleSheet("color: #9daabf; font-size: 12px;")
+        theme.set_role(sub, "secondary")
         layout.addWidget(sub)
 
         # Folder Input row
         fld_box = QVBoxLayout()
         fld_box.setSpacing(4)
         lbl_fld = QLabel("Source file or series folder:")
-        lbl_fld.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_fld, "secondary")
         fld_box.addWidget(lbl_fld)
 
         row_fld = QHBoxLayout()
@@ -71,7 +72,7 @@ class LoadDialog(QDialog):
         id_box = QVBoxLayout()
         id_box.setSpacing(4)
         lbl_id = QLabel("Specimen ID (alias):")
-        lbl_id.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_id, "secondary")
         id_box.addWidget(lbl_id)
 
         self.edit_specimen = QLineEdit()
@@ -86,7 +87,7 @@ class LoadDialog(QDialog):
         mode_box = QVBoxLayout()
         mode_box.setSpacing(4)
         lbl_mode = QLabel("Intensity interpretation:")
-        lbl_mode.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_mode, "secondary")
         mode_box.addWidget(lbl_mode)
         self.combo_intensity = QComboBox()
         self.combo_intensity.setObjectName("combo_intensity_mode")
@@ -100,7 +101,7 @@ class LoadDialog(QDialog):
 
         # Validation status note
         self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet("color: #37d67a; font-size: 11px;")
+        theme.set_role(self.lbl_status, "status-ok")
         layout.addWidget(self.lbl_status)
 
         layout.addStretch()
@@ -160,7 +161,7 @@ class LoadDialog(QDialog):
         # guard it with a busy cursor and keep the button single-shot.
         from PySide6.QtWidgets import QApplication
         self.btn_confirm.setEnabled(False)
-        self.lbl_status.setStyleSheet("color: #9daabf; font-size: 11px;")
+        theme.set_role(self.lbl_status, "secondary")
         self.lbl_status.setText("Validating the source (reading headers)…")
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
@@ -169,7 +170,7 @@ class LoadDialog(QDialog):
         except csx.LoadError as err:
             QApplication.restoreOverrideCursor()
             self.btn_confirm.setEnabled(True)
-            self.lbl_status.setStyleSheet("color: #ff463c; font-size: 11px;")
+            theme.set_role(self.lbl_status, "status-error")
             self.lbl_status.setText("✗ Validation failed — see the message.")
             QMessageBox.critical(
                 self, "Validation Failed",
@@ -178,7 +179,7 @@ class LoadDialog(QDialog):
         except Exception as err:
             QApplication.restoreOverrideCursor()
             self.btn_confirm.setEnabled(True)
-            self.lbl_status.setStyleSheet("color: #ff463c; font-size: 11px;")
+            theme.set_role(self.lbl_status, "status-error")
             self.lbl_status.setText("✗ Unexpected validation error.")
             QMessageBox.critical(self, "Validation Failed", str(err))
             return
@@ -191,7 +192,7 @@ class LoadDialog(QDialog):
         note = " — check physical scale" if info.get("geometry_assumed") else ""
         if info.get("intensity_mode") == "raw":
             note += " — intensity thresholds will be estimated"
-        self.lbl_status.setStyleSheet("color: #37d67a; font-size: 11px;")
+        theme.set_role(self.lbl_status, "status-ok")
         self.lbl_status.setText(
             f"✓ Valid {kind} volume: {n} slices, {info.get('rows')} × {info.get('cols')}{spacing}{note}")
         self.lbl_status.setWordWrap(True)

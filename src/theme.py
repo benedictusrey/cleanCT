@@ -341,8 +341,58 @@ QProgressBar::chunk {{
    Set with theme.set_role(widget, "hint") and similar. */
 QLabel[role="hint"] {{
     color: {TEXT_MUTED};
+    font-size: 11px;
+    font-weight: 500;
+}}
+QLabel[role="primary"] {{
+    color: {TEXT_PRIMARY};
     font-size: 12px;
     font-weight: 500;
+}}
+QLabel[role="secondary"] {{
+    color: {TEXT_SECONDARY};
+    font-size: 12px;
+    font-weight: 500;
+}}
+QLabel[role="label"] {{
+    color: {TEXT_LABEL};
+    font-size: 12px;
+    font-weight: 500;
+}}
+QLabel[role="accent"] {{
+    color: {ACCENT_AMBER};
+    font-size: 12px;
+    font-weight: 700;
+}}
+QLabel[role="title"] {{
+    color: {TEXT_PRIMARY};
+    font-size: 16px;
+    font-weight: 700;
+}}
+QLabel[role="kpi-title"] {{
+    color: {TEXT_MUTED};
+    font-size: 11px;
+    font-weight: 700;
+}}
+QLabel[role="kpi-value"] {{
+    color: {TEXT_PRIMARY};
+    font-size: 15px;
+    font-weight: 700;
+}}
+QLabel[role="kpi-ok"] {{
+    color: {ACCENT_GREEN};
+    font-size: 15px;
+    font-weight: 700;
+}}
+QLabel[role="kpi-warn"] {{
+    color: {ACCENT_AMBER};
+    font-size: 15px;
+    font-weight: 700;
+}}
+QLabel[role="kpi-muted"] {{
+    color: {TEXT_MUTED};
+    font-size: 15px;
+    font-weight: 700;
 }}
 QLabel[role="section"] {{
     color: {TEXT_SECONDARY};
@@ -372,6 +422,105 @@ QLabel[role="status-error"] {{
 QWidget#main_area {{
     background-color: {BG_MAIN};
 }}
+QFrame#brand_card {{
+    background-color: transparent;
+    border-bottom: 1px solid {BORDER};
+    padding-bottom: 12px;
+    margin-bottom: 2px;
+}}
+QFrame#box_card, QFrame#box_action_log {{
+    background-color: {BG_JOB};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    padding: 10px;
+}}
+QFrame#box_action_log {{
+    background-color: {BG_SUNKEN};
+    padding: 6px;
+}}
+QFrame#box_lateral {{
+    background-color: rgba(79, 140, 255, 0.08);
+    border: 1px solid rgba(79, 140, 255, 0.35);
+    border-radius: 8px;
+    padding: 8px;
+}}
+QFrame#empty_state {{
+    background-color: {BG_JOB};
+    border: 1px solid {BORDER};
+    border-radius: 10px;
+}}
+QFrame#divider {{
+    background-color: {BORDER};
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}}
+QLabel#range_summary {{
+    border-top: 1px dashed {BORDER};
+    padding-top: 8px;
+}}
+QLabel#app_icon {{
+    padding: 4px;
+    border-radius: 26px;
+}}
+QLabel[role="chip-info"] {{
+    background: rgba(79, 140, 255, 0.12);
+    color: {INFO};
+    border: 1px solid rgba(79, 140, 255, 0.3);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 500;
+}}
+QLabel[role="chip-ok"] {{
+    background: rgba(55, 214, 122, 0.12);
+    color: {ACCENT_GREEN};
+    border: 1px solid rgba(55, 214, 122, 0.35);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel[role="chip-warn"] {{
+    background: rgba(255, 176, 32, 0.12);
+    color: {ACCENT_AMBER};
+    border: 1px solid rgba(255, 176, 32, 0.35);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}}
+QPushButton[role="link"] {{
+    background: transparent;
+    border: none;
+    color: {TEXT_MUTED};
+    font-size: 11px;
+    font-weight: 500;
+    padding: 1px 5px;
+}}
+QPushButton[role="preset"] {{
+    font-size: 11px;
+    padding: 2px 6px;
+}}
+QPushButton#btn_th_reset {{
+    background-color: #242c3d;
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER_LIGHT};
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+}}
+QPushButton#btn_th_reset[active="true"] {{
+    background-color: rgba(242, 178, 60, 0.16);
+    border: 1px solid {ACCENT_AMBER};
+    color: {ACCENT_AMBER};
+}}
+QPushButton#btn_th_reset:hover {{
+    background-color: #2e384d;
+    border-color: {ACCENT_BLUE};
+    color: #ffffff;
+}}
 QFrame#job_box {{
     background-color: {BG_JOB};
     border: 1px solid {BORDER};
@@ -381,7 +530,7 @@ QFrame#job_box {{
 QTextEdit#log_view {{
     background-color: {BG_SUNKEN};
     color: {TEXT_LABEL};
-    border: 1px solid {BORDER};
+    border: none;
     border-radius: 8px;
     padding: 6px;
     font-family: Consolas, "Cascadia Mono", monospace;

@@ -1,6 +1,7 @@
 """About cleanCT dialog with enlarged HD brand icon."""
 from __future__ import annotations
 
+import theme
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QFont
 from PySide6.QtWidgets import (
@@ -38,12 +39,7 @@ class AboutDialog(QDialog):
                 128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
             icon_label.setPixmap(pm)
-        icon_label.setStyleSheet("""
-            QLabel {
-                padding: 4px;
-                border-radius: 26px;
-            }
-        """)
+        icon_label.setObjectName("app_icon")
         layout.addWidget(icon_label)
 
         # Brand Title
@@ -56,13 +52,13 @@ class AboutDialog(QDialog):
         # Descriptor
         desc_sub = QLabel("Non-Destructive Wood CT Metal-Base Removal & Inspection")
         desc_sub.setAlignment(Qt.AlignCenter)
-        desc_sub.setStyleSheet("color: #9daabf; font-size: 13px; font-weight: 500;")
+        theme.set_role(desc_sub, "secondary")
         layout.addWidget(desc_sub)
 
         # Divider
         div = QFrame()
         div.setFrameShape(QFrame.HLine)
-        div.setStyleSheet("background-color: #2a3244; max-height: 1px;")
+        div.setObjectName("divider")
         layout.addWidget(div)
 
         # Description text
@@ -78,16 +74,16 @@ class AboutDialog(QDialog):
         )
         desc_text.setWordWrap(True)
         desc_text.setTextFormat(Qt.RichText)
-        desc_text.setStyleSheet("color: #c0cbe0; font-size: 12px; line-height: 1.45;")
+        theme.set_role(desc_text, "label")
         layout.addWidget(desc_text)
 
         # Prepared by section
         author_box = QVBoxLayout()
         author_box.setSpacing(2)
         author_hdr = QLabel("PREPARED BY")
-        author_hdr.setStyleSheet("color: #6f7c91; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        theme.set_role(author_hdr, "hint")
         author_name = QLabel("Benedictus Reynaldo Hartanto")
-        author_name.setStyleSheet("color: #f2b23c; font-size: 14px; font-weight: 600;")
+        theme.set_role(author_name, "accent")
         author_box.addWidget(author_hdr)
         author_box.addWidget(author_name)
         layout.addLayout(author_box)

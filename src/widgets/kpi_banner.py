@@ -1,6 +1,7 @@
 """Top KPI Banner displaying specimen statistics and cut status."""
 from __future__ import annotations
 
+import theme
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
 
 
@@ -25,11 +26,11 @@ class KPIBanner(QFrame):
             card.setSpacing(1)
 
             lbl_title = QLabel(title)
-            lbl_title.setStyleSheet("color: #6f7c91; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+            theme.set_role(lbl_title, "kpi-title")
 
             lbl_val = QLabel("—")
             lbl_val.setObjectName(f"kpi_{key}")
-            lbl_val.setStyleSheet("color: #f0f4fc; font-size: 15px; font-weight: 700;")
+            theme.set_role(lbl_val, "kpi-value")
 
             card.addWidget(lbl_title)
             card.addWidget(lbl_val)
@@ -44,8 +45,7 @@ class KPIBanner(QFrame):
             # no processed data (fresh specimen): every card reads a dash
             for _, val in self.cards.values():
                 val.setText("—")
-            self.cards["gt"][1].setStyleSheet(
-                "color: #6f7c91; font-size: 15px; font-weight: 700;")
+            theme.set_role(self.cards["gt"][1], "kpi-muted")
             return
 
         # Two supported shapes: the raw pipeline report (nested platform /
@@ -117,10 +117,10 @@ class KPIBanner(QFrame):
                 d = 0
             if d == 0:
                 self.cards["gt"][1].setText("MATCH")
-                self.cards["gt"][1].setStyleSheet("color: #37d67a; font-size: 15px; font-weight: 700;")
+                theme.set_role(self.cards["gt"][1], "kpi-ok")
             else:
                 self.cards["gt"][1].setText(f"{d:+d} vs manual")
-                self.cards["gt"][1].setStyleSheet("color: #f2b23c; font-size: 15px; font-weight: 700;")
+                theme.set_role(self.cards["gt"][1], "kpi-warn")
         else:
             self.cards["gt"][1].setText("—")
-            self.cards["gt"][1].setStyleSheet("color: #6f7c91; font-size: 15px; font-weight: 700;")
+            theme.set_role(self.cards["gt"][1], "kpi-muted")

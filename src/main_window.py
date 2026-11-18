@@ -40,6 +40,7 @@ if str(ROOT) not in sys.path:
 
 from core import viewer_core, custom_series as csx, bundle_export, \
     checkpoint_file, auto_snap
+import theme
 import tomograph as tg
 
 from widgets.viewer_2d import Viewer2D
@@ -607,14 +608,6 @@ class MainWindow(QMainWindow):
         # Brand Header (Vertically centered, elegant alignment)
         brand_card = QFrame()
         brand_card.setObjectName("brand_card")
-        brand_card.setStyleSheet("""
-            QFrame#brand_card {
-                background-color: transparent;
-                border-bottom: 1px solid #2b3447;
-                padding-bottom: 12px;
-                margin-bottom: 2px;
-            }
-        """)
         brand_layout = QHBoxLayout(brand_card)
         brand_layout.setContentsMargins(2, 2, 2, 2)
         brand_layout.setSpacing(12)
@@ -636,10 +629,9 @@ class MainWindow(QMainWindow):
         lbl_title = QLabel("clean<span style='color:#f2b23c;'>CT</span>")
         lbl_title.setTextFormat(Qt.RichText)
         lbl_title.setFont(QFont("Segoe UI", 17, QFont.Bold))
-        lbl_title.setStyleSheet("line-height: 1.1; margin: 0; padding: 0;")
 
         lbl_sub = QLabel("Wood CT Metal-Base Removal")
-        lbl_sub.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: 500; margin: 0; padding: 0;")
+        theme.set_role(lbl_sub, "secondary")
 
         brand_text.addWidget(lbl_title)
         brand_text.addWidget(lbl_sub)
@@ -649,26 +641,16 @@ class MainWindow(QMainWindow):
 
         # GPU Chip
         self.lbl_gpu = QLabel("Checking GPU…")
-        self.lbl_gpu.setStyleSheet("""
-            background: rgba(79, 140, 255, 0.12);
-            color: #82b1ff;
-            border: 1px solid rgba(79, 140, 255, 0.3);
-            border-radius: 12px;
-            padding: 5px 10px;
-            font-size: 11px;
-            font-weight: 500;
-        """)
+        theme.set_role(self.lbl_gpu, "chip-info")
         side_layout.addWidget(self.lbl_gpu)
 
         # Specimen panel: section header with live count and busy spinner
         spec_head = QHBoxLayout()
         spec_head.setSpacing(6)
         lbl_specimens = QLabel("Specimens")
-        lbl_specimens.setStyleSheet(
-            "color: #6f7c91; font-size: 9px; font-weight: bold; "
-            "letter-spacing: 0.4px;")
+        theme.set_role(lbl_specimens, "hint")
         self.lbl_spec_count = QLabel("")
-        self.lbl_spec_count.setStyleSheet("color: #6f7c91; font-size: 9px;")
+        theme.set_role(self.lbl_spec_count, "hint")
         self.spec_spinner = BusySpinner(self)
         spec_head.addWidget(lbl_specimens)
         spec_head.addStretch()
@@ -769,8 +751,7 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(self.btn_load_checkpoint)
 
         history_label = QLabel("Preview history · this session")
-        history_label.setStyleSheet(
-            "color: #6f7c91; font-size: 9px; font-weight: bold; letter-spacing: 0.4px;")
+        theme.set_role(history_label, "hint")
         side_layout.addWidget(history_label)
         self.combo_preview_history = QComboBox()
         self.combo_preview_history.setObjectName("combo_preview_history")
@@ -799,7 +780,7 @@ class MainWindow(QMainWindow):
 
         # Job Box
         self.job_box = QFrame()
-        self.job_box.setStyleSheet("background: #141822; border: 1px solid #2b3447; border-radius: 8px; padding: 10px;")
+        self.job_box.setObjectName("job_box")
         self.job_box.setVisible(False)
         # one timer for the hide delay: a new job stops it instead of letting a
         # stale single-shot hide the box while the next job runs
@@ -814,9 +795,9 @@ class MainWindow(QMainWindow):
 
         job_top_row = QHBoxLayout()
         self.lbl_job_phase = QLabel("Processing…")
-        self.lbl_job_phase.setStyleSheet("font-size: 11px; color: #f2b23c; font-weight: 700;")
+        theme.set_role(self.lbl_job_phase, "accent")
         self.lbl_job_eta = QLabel("~8s left")
-        self.lbl_job_eta.setStyleSheet("font-size: 10px; color: #9daabf; font-family: monospace;")
+        theme.set_role(self.lbl_job_eta, "secondary")
         job_top_row.addWidget(self.lbl_job_phase)
         job_top_row.addStretch()
         job_top_row.addWidget(self.lbl_job_eta)
@@ -829,33 +810,25 @@ class MainWindow(QMainWindow):
         job_layout.addWidget(self.job_progress)
 
         self.lbl_job_sub = QLabel("initializing backend…")
-        self.lbl_job_sub.setStyleSheet("font-size: 10px; color: #6f7c91;")
+        theme.set_role(self.lbl_job_sub, "hint")
         job_layout.addWidget(self.lbl_job_sub)
         side_layout.addWidget(self.job_box)
 
         # Real-time Action Logger (Bottom Left Corner)
         box_log = QFrame()
         box_log.setObjectName("box_action_log")
-        box_log.setStyleSheet("""
-            QFrame#box_action_log {
-                background: #10131b;
-                border: 1px solid #2b3447;
-                border-radius: 8px;
-                padding: 6px;
-            }
-        """)
         log_layout = QVBoxLayout(box_log)
         log_layout.setContentsMargins(4, 4, 4, 4)
         log_layout.setSpacing(4)
 
         log_head = QHBoxLayout()
         lbl_log_title = QLabel("Activity")
-        lbl_log_title.setStyleSheet("color: #6f7c91; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        theme.set_role(lbl_log_title, "hint")
         log_head.addWidget(lbl_log_title)
         log_head.addStretch()
         btn_clear_log = QPushButton("clear")
         btn_clear_log.setFixedHeight(18)
-        btn_clear_log.setStyleSheet("font-size: 9px; padding: 1px 5px; background: transparent; border: none; color: #6f7c91;")
+        theme.set_role(btn_clear_log, "link")
         btn_clear_log.clicked.connect(lambda: self.log_view.clear())
         log_head.addWidget(btn_clear_log)
         log_layout.addLayout(log_head)
@@ -866,15 +839,7 @@ class MainWindow(QMainWindow):
         # wrap at word boundaries — mid-word breaks ("sagitta / l") read badly
         from PySide6.QtGui import QTextOption
         self.log_view.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-        self.log_view.setStyleSheet("""
-            QTextEdit {
-                background-color: transparent;
-                color: #8fa0b8;
-                font-family: Consolas, monospace;
-                font-size: 10px;
-                border: none;
-            }
-        """)
+        self.log_view.setObjectName("log_view")
         log_layout.addWidget(self.log_view)
         side_layout.addWidget(box_log)
 
@@ -901,7 +866,7 @@ class MainWindow(QMainWindow):
         self.lbl_sample_title = QLabel("Select a sample")
         self.lbl_sample_title.setFont(QFont("Segoe UI", 18, QFont.Bold))
         self.lbl_sample_sub = QLabel("Pick a dataset & sample from the sidebar")
-        self.lbl_sample_sub.setStyleSheet("color: #9daabf; font-size: 12px;")
+        theme.set_role(self.lbl_sample_sub, "secondary")
         title_box.addWidget(self.lbl_sample_title)
         title_box.addWidget(self.lbl_sample_sub)
         top_bar.addLayout(title_box)
@@ -912,20 +877,16 @@ class MainWindow(QMainWindow):
 
         self.empty_state = QFrame()
         self.empty_state.setObjectName("empty_state")
-        self.empty_state.setStyleSheet(
-            "QFrame#empty_state { background: #141822; border: 1px solid #2b3447; "
-            "border-radius: 10px; }")
         empty_layout = QHBoxLayout(self.empty_state)
         empty_layout.setContentsMargins(18, 12, 18, 12)
         empty_copy = QVBoxLayout()
         self.lbl_empty_title = QLabel("Load a scan to begin")
-        self.lbl_empty_title.setStyleSheet(
-            "color: #f0f4fc; font-size: 15px; font-weight: 700;")
+        theme.set_role(self.lbl_empty_title, "kpi-value")
         self.lbl_empty_copy = QLabel(
             "Choose a DICOM series, TIFF stack, or 3-D NIfTI file to preview, "
             "set cut lines, process, and export.")
         self.lbl_empty_copy.setWordWrap(True)
-        self.lbl_empty_copy.setStyleSheet("color: #9daabf; font-size: 11px;")
+        theme.set_role(self.lbl_empty_copy, "secondary")
         empty_copy.addWidget(self.lbl_empty_title)
         empty_copy.addWidget(self.lbl_empty_copy)
         empty_layout.addLayout(empty_copy, 1)
@@ -1000,7 +961,7 @@ class MainWindow(QMainWindow):
         mode_row.addWidget(self.btn_export)
 
         self.lbl_export_status = QLabel("")
-        self.lbl_export_status.setStyleSheet("color: #37d67a; font-size: 11px;")
+        theme.set_role(self.lbl_export_status, "status-ok")
         mode_row.addWidget(self.lbl_export_status)
 
         mode_row.addStretch()
@@ -1047,7 +1008,7 @@ class MainWindow(QMainWindow):
         ax_head.addStretch()
         lbl_legend = QLabel("<span style='color:#f2b23c;'>■ wood ROI</span>  <span style='color:#ff463c;'>■ metal</span>")
         lbl_legend.setTextFormat(Qt.RichText)
-        lbl_legend.setStyleSheet("font-size: 11px;")
+        theme.set_role(lbl_legend, "hint")
         ax_head.addWidget(lbl_legend)
         axial_box.addLayout(ax_head)
 
@@ -1062,7 +1023,7 @@ class MainWindow(QMainWindow):
         self.axial_slider.valueChanged.connect(self._on_axial_slider_changed)
         self.lbl_axial_z = QLabel("z=0")
         self.lbl_axial_z.setFixedWidth(55)
-        self.lbl_axial_z.setStyleSheet("font-weight: 600; color: #f2b23c;")
+        theme.set_role(self.lbl_axial_z, "accent")
         scrub_box.addWidget(self.axial_slider)
         scrub_box.addWidget(self.lbl_axial_z)
         axial_box.addLayout(scrub_box)
@@ -1071,7 +1032,7 @@ class MainWindow(QMainWindow):
         # Subtle elegant divider
         div = QFrame()
         div.setFrameShape(QFrame.HLine)
-        div.setStyleSheet("background-color: #2b3447; max-height: 1px;")
+        div.setObjectName("divider")
         m2d_layout.addWidget(div)
 
         # 2. Bottom Half: Longitudinal Cut View (Sagittal | Coronal)
@@ -1221,7 +1182,7 @@ class MainWindow(QMainWindow):
 
         guide_bar.addStretch()
         lbl_hint = QLabel("drag lines to adjust")
-        lbl_hint.setStyleSheet("color: #6f7c91; font-size: 11px;")
+        theme.set_role(lbl_hint, "hint")
         guide_bar.addWidget(lbl_hint)
         prev_layout.addLayout(guide_bar)
 
@@ -1270,7 +1231,7 @@ class MainWindow(QMainWindow):
         box_cmap = QVBoxLayout()
         box_cmap.setSpacing(6)
         lbl_cmap = QLabel("Colorspace Palette:")
-        lbl_cmap.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: bold;")
+        theme.set_role(lbl_cmap, "secondary")
         box_cmap.addWidget(lbl_cmap)
 
         cmap_row = QHBoxLayout()
@@ -1288,7 +1249,7 @@ class MainWindow(QMainWindow):
 
         # 2. Density Thresholds (Min HU / Max HU)
         box_thresh = QFrame()
-        box_thresh.setStyleSheet("background: #141822; border: 1px solid #2a3244; border-radius: 8px; padding: 10px;")
+        box_thresh.setObjectName("box_card")
         th_layout = QVBoxLayout(box_thresh)
         th_layout.setContentsMargins(8, 8, 8, 8)
         th_layout.setSpacing(8)
@@ -1296,7 +1257,7 @@ class MainWindow(QMainWindow):
         th_head = QHBoxLayout()
         th_head.setContentsMargins(0, 0, 0, 0)
         self.lbl_th_head = QLabel("2D Density Thresholds (HU)")
-        self.lbl_th_head.setStyleSheet("color: #9daabf; font-size: 11px; font-weight: bold;")
+        theme.set_role(self.lbl_th_head, "secondary")
         th_head.addWidget(self.lbl_th_head)
         th_head.addStretch()
 
@@ -1308,27 +1269,7 @@ class MainWindow(QMainWindow):
         self.btn_th_reset.setProperty("active", "true")
         self.btn_th_reset.setFixedWidth(64)
         self.btn_th_reset.setFixedHeight(24)
-        self.btn_th_reset.setStyleSheet("""
-            QPushButton#btn_th_reset {
-                background-color: #242c3d;
-                color: #f0f4fc;
-                border: 1px solid #3d4963;
-                border-radius: 5px;
-                font-size: 11px;
-                font-weight: 600;
-                padding: 2px 6px;
-            }
-            QPushButton#btn_th_reset[active="true"] {
-                background-color: rgba(242, 178, 60, 0.16);
-                border: 1px solid #f2b23c;
-                color: #f2b23c;
-            }
-            QPushButton#btn_th_reset:hover {
-                background-color: #2e384d;
-                border-color: #4f8cff;
-                color: #ffffff;
-            }
-        """)
+        self.btn_th_reset.setObjectName("btn_th_reset")
         self.btn_th_reset.clicked.connect(self._reset_thresholds)
         th_head.addWidget(self.btn_th_reset)
         th_layout.addLayout(th_head)
@@ -1383,7 +1324,7 @@ class MainWindow(QMainWindow):
         ]:
             b.setFixedHeight(22)
             b.setProperty("active", "false")
-            b.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+            theme.set_role(b, "preset")
             b.clicked.connect(lambda _, l=lo, h=hi, n=nm: self._apply_thresh_preset(l, h, n))
             presets_row.addWidget(b)
         th_layout.addLayout(presets_row)
@@ -1391,13 +1332,13 @@ class MainWindow(QMainWindow):
 
         # 3. Interactive Guide Sliders (2 Lines & 4 Lines)
         box_guides_sec = QFrame()
-        box_guides_sec.setStyleSheet("background: #141822; border: 1px solid #2a3244; border-radius: 8px; padding: 10px;")
+        box_guides_sec.setObjectName("box_card")
         g_layout = QVBoxLayout(box_guides_sec)
         g_layout.setContentsMargins(6, 6, 6, 6)
         g_layout.setSpacing(10)
 
         lbl_g_head = QLabel("Interactive Boundary Sliders (2 Lines & 4 Lines):")
-        lbl_g_head.setStyleSheet("color: #f2b23c; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;")
+        theme.set_role(lbl_g_head, "accent")
         g_layout.addWidget(lbl_g_head)
 
         # Top Line: Keep From (Green)
@@ -1405,7 +1346,7 @@ class MainWindow(QMainWindow):
         box_keep.setSpacing(2)
         lbl_keep = QLabel("<span style='color:#37d67a;'>■</span> Top Line (Keep Start) — green boundary:")
         lbl_keep.setTextFormat(Qt.RichText)
-        lbl_keep.setStyleSheet("color: #c0cbe0; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_keep, "label")
         box_keep.addWidget(lbl_keep)
         row_keep = QHBoxLayout()
         self.spin_keep = QSpinBox()
@@ -1424,7 +1365,7 @@ class MainWindow(QMainWindow):
         box_cut.setSpacing(2)
         lbl_cut = QLabel("<span style='color:#ff463c;'>■</span> Bottom Line (Platform Cut) — red boundary:")
         lbl_cut.setTextFormat(Qt.RichText)
-        lbl_cut.setStyleSheet("color: #c0cbe0; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_cut, "label")
         box_cut.addWidget(lbl_cut)
         row_cut = QHBoxLayout()
         self.spin_cut = QSpinBox()
@@ -1437,7 +1378,7 @@ class MainWindow(QMainWindow):
         row_cut.addWidget(self.slider_cut, 1)
         box_cut.addLayout(row_cut)
         self.lbl_anchor_hint = QLabel("detector anchor: —")
-        self.lbl_anchor_hint.setStyleSheet("color: #6f7c91; font-size: 10px;")
+        theme.set_role(self.lbl_anchor_hint, "hint")
         box_cut.addWidget(self.lbl_anchor_hint)
         g_layout.addLayout(box_cut)
 
@@ -1446,7 +1387,7 @@ class MainWindow(QMainWindow):
         box_margin.setSpacing(2)
         lbl_margin = QLabel("<span style='color:#f2b23c;'>■</span> Margin Above Cut — safety slices kept:")
         lbl_margin.setTextFormat(Qt.RichText)
-        lbl_margin.setStyleSheet("color: #c0cbe0; font-size: 11px; font-weight: 500;")
+        theme.set_role(lbl_margin, "label")
         box_margin.addWidget(lbl_margin)
         row_margin = QHBoxLayout()
         self.spin_margin = QSpinBox()
@@ -1462,13 +1403,13 @@ class MainWindow(QMainWindow):
 
         # Lateral Bounds Sliders (Visible in 4-Lines Mode)
         self.box_lateral = QFrame()
-        self.box_lateral.setStyleSheet("background: rgba(79, 140, 255, 0.08); border: 1px solid rgba(79, 140, 255, 0.35); border-radius: 8px; padding: 8px;")
+        self.box_lateral.setObjectName("box_lateral")
         lat_layout = QVBoxLayout(self.box_lateral)
         lat_layout.setContentsMargins(4, 4, 4, 4)
         lat_layout.setSpacing(6)
         lbl_lat = QLabel("<span style='color:#4f8cff;'>■</span> Lateral ROI Boundary Lines (4-Lines Mode):")
         lbl_lat.setTextFormat(Qt.RichText)
-        lbl_lat.setStyleSheet("color: #82b1ff; font-size: 11px; font-weight: bold;")
+        theme.set_role(lbl_lat, "info")
         lat_layout.addWidget(lbl_lat)
 
         row_lat_l = QHBoxLayout()
@@ -1509,7 +1450,7 @@ class MainWindow(QMainWindow):
         self.row_lat_top.setSpacing(2)
         self.lbl_top = QLabel("<span style='color:#37d67a;'>■</span> Top Y (axial box):")
         self.lbl_top.setTextFormat(Qt.RichText)
-        self.lbl_top.setStyleSheet("color: #c0cbe0; font-size: 11px; font-weight: 500;")
+        theme.set_role(self.lbl_top, "label")
         self.row_lat_top.addWidget(self.lbl_top)
         row_lat_t = QHBoxLayout()
         self.spin_top = QSpinBox()
@@ -1530,7 +1471,7 @@ class MainWindow(QMainWindow):
         self.row_lat_bottom.setSpacing(2)
         self.lbl_bottom = QLabel("<span style='color:#37d67a;'>■</span> Bottom Y (axial box):")
         self.lbl_bottom.setTextFormat(Qt.RichText)
-        self.lbl_bottom.setStyleSheet("color: #c0cbe0; font-size: 11px; font-weight: 500;")
+        theme.set_role(self.lbl_bottom, "label")
         self.row_lat_bottom.addWidget(self.lbl_bottom)
         row_lat_b = QHBoxLayout()
         self.spin_bottom = QSpinBox()
@@ -1566,7 +1507,8 @@ class MainWindow(QMainWindow):
 
         # Live Range Summary
         self.lbl_range_summary = QLabel("delivery: —")
-        self.lbl_range_summary.setStyleSheet("color: #9daabf; font-size: 12px; font-weight: 500; border-top: 1px dashed #2a3244; padding-top: 8px;")
+        self.lbl_range_summary.setObjectName("range_summary")
+        theme.set_role(self.lbl_range_summary, "secondary")
         ctrl_layout.addWidget(self.lbl_range_summary)
 
         ctrl_layout.addStretch()
@@ -1593,7 +1535,6 @@ class MainWindow(QMainWindow):
         ctrl_scroll.setFrameShape(QFrame.NoFrame)
         ctrl_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         ctrl_scroll.setFixedWidth(468)          # 460 content + scrollbar margin
-        ctrl_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
         splitter.addWidget(ctrl_scroll)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
@@ -1602,24 +1543,6 @@ class MainWindow(QMainWindow):
         return page
 
     # ---------------------------------------------------------------- Data & Sidebar
-    _GPU_CHIP_STYLE_ACTIVE = """
-        background: rgba(55, 214, 122, 0.12);
-        color: #37d67a;
-        border: 1px solid rgba(55, 214, 122, 0.35);
-        border-radius: 12px;
-        padding: 5px 10px;
-        font-size: 11px;
-        font-weight: 600;
-    """
-    _GPU_CHIP_STYLE_FALLBACK = """
-        background: rgba(255, 176, 32, 0.12);
-        color: #f2b23c;
-        border: 1px solid rgba(255, 176, 32, 0.35);
-        border-radius: 12px;
-        padding: 5px 10px;
-        font-size: 11px;
-        font-weight: 600;
-    """
 
     def _check_gpu(self):
         """Probe the ENGINE's real backend (CuPy/CUDA vs CPU) on a WORKER
@@ -1650,14 +1573,14 @@ class MainWindow(QMainWindow):
                 self.lbl_gpu.setText(f"GPU: {short} · CuPy CUDA")
                 self.lbl_gpu.setToolTip(
                     f"GPU acceleration active: {name} via CuPy (CUDA 12.x)")
-                self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_ACTIVE)
+                theme.set_role(self.lbl_gpu, "chip-ok")
                 self._log_action(f"GPU acceleration active: {name} via CuPy")
             else:
                 reason = str(res.get("reason") or "no usable CUDA framework")
                 self.lbl_gpu.setText("CPU processing (no CUDA GPU)")
                 self.lbl_gpu.setToolTip(
                     f"CPU processing — {reason}; no GPU required")
-                self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_FALLBACK)
+                theme.set_role(self.lbl_gpu, "chip-warn")
                 self._log_action(
                     f"CPU processing ({reason}) — multi-threaded CPU is "
                     "used; no GPU required")
@@ -1665,7 +1588,7 @@ class MainWindow(QMainWindow):
         def _err(msg: str):
             self.lbl_gpu.setText("CPU processing (backend probe failed)")
             self.lbl_gpu.setToolTip("GPU probe failed; CPU processing in use")
-            self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_FALLBACK)
+            theme.set_role(self.lbl_gpu, "chip-warn")
             self._log_action(f"GPU probe exception: {msg}; using CPU")
 
         # the thread wrapper MUST outlive run(): a local would be
@@ -3024,29 +2947,25 @@ class MainWindow(QMainWindow):
         if err is None:
             return False
         self.lbl_export_status.setText(f"✗ {err}")
-        self.lbl_export_status.setStyleSheet(
-            "color: #ff463c; font-size: 11px; font-weight: 600;")
+        theme.set_role(self.lbl_export_status, "status-error")
         return True
 
     def _update_range_summary(self):
         if not self.payload:
             self.lbl_range_summary.setText("Load a specimen to adjust cut lines.")
-            self.lbl_range_summary.setStyleSheet(
-                "color: #9daabf; font-size: 12px; font-weight: 500;")
+            theme.set_role(self.lbl_range_summary, "secondary")
             self.btn_apply_prefs.setEnabled(False)
             return
         if (self.payload or {}).get("unprocessed"):
             self.lbl_range_summary.setText(
                 "specimen not processed yet — run Process selected")
-            self.lbl_range_summary.setStyleSheet(
-                "color: #f2b23c; font-size: 12px; font-weight: 500;")
+            theme.set_role(self.lbl_range_summary, "accent")
             self.btn_apply_prefs.setEnabled(False)
             return
         err = self._valid_keep_cut()
         if err:
             self.lbl_range_summary.setText(f"✗ {err}")
-            self.lbl_range_summary.setStyleSheet(
-                "color: #ff463c; font-size: 12px; font-weight: bold;")
+            theme.set_role(self.lbl_range_summary, "status-error")
             self.btn_apply_prefs.setEnabled(False)
             return
         kept = self.pref_cut - self.pref_keep
@@ -3054,8 +2973,7 @@ class MainWindow(QMainWindow):
         if self.pref_margin > 0:
             base += f"  ·  margin +{self.pref_margin}"
         self.lbl_range_summary.setText(base)
-        self.lbl_range_summary.setStyleSheet(
-            "color: #37d67a; font-size: 12px; font-weight: 500;")
+        theme.set_role(self.lbl_range_summary, "status-ok")
         self.btn_apply_prefs.setEnabled(True)
 
     def _schedule_prefs_preview(self):
@@ -3588,8 +3506,7 @@ class MainWindow(QMainWindow):
         """Set the export status line + log the delivered bundle."""
         sample = exp.get("sample") or self.sample
         self.lbl_export_status.setText(f"✓ Bundle exported: {sample}")
-        self.lbl_export_status.setStyleSheet(
-            "color: #37d67a; font-size: 11px; font-weight: 600;")
+        theme.set_role(self.lbl_export_status, "status-ok")
         fmt = exp.get("export_format", "both")
         _fmt_detail = ("DICOM + NIfTI" if fmt == "both"
                        else "DICOM series" if fmt == "dicom"
@@ -3667,8 +3584,7 @@ class MainWindow(QMainWindow):
         self._job_stage = ""
         if self._job_kind in ("export", "process_export"):
             self.lbl_export_status.setText("✗ Export failed")
-            self.lbl_export_status.setStyleSheet(
-                "color: #ff463c; font-size: 11px; font-weight: 600;")
+            theme.set_role(self.lbl_export_status, "status-error")
         if self._closing:
             self._log_action(f"Operation failed while closing: {err}")
             return
@@ -3843,7 +3759,7 @@ class MainWindow(QMainWindow):
             return
         _ds, src_dir, src_over, out_dir = srcs
         self.lbl_export_status.setText("Exporting bundle…")
-        self.lbl_export_status.setStyleSheet("color: #f2b23c; font-size: 11px; font-weight: 600;")
+        theme.set_role(self.lbl_export_status, "accent")
         self._log_action(f"Exporting extraction bundle for {dataset}/{sample} to {dest_root}")
 
         report_p = out_dir / "report.json"
