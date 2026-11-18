@@ -129,6 +129,22 @@ try:
                 lambda: csx.duplicate_specimen("orig", "copy_one")):
         check("re-register: the id resolves to the new source",
               (link1 / "s0000.dcm").is_file())
+    # ---- user state never falls back into the install folder (Task 15) ----
+    from core import paths as app_paths
+    blocker = work / "not-a-folder"
+    blocker.write_text("x", encoding="utf-8")
+    saved_data = os.environ.get("CLEANCT_DATA")
+    os.environ["CLEANCT_DATA"] = str(blocker / "state")
+    try:
+        fallback = app_paths.state_root()
+    finally:
+        if saved_data is None:
+            os.environ.pop("CLEANCT_DATA", None)
+        else:
+            os.environ["CLEANCT_DATA"] = saved_data
+    check("unwritable state folder falls back to the temp folder, not the app folder",
+          fallback == Path(tempfile.gettempdir()) / "cleanCT"
+          and fallback != app_paths.APP_ROOT, str(fallback))
 finally:
     csx.CUSTOM_DIR, csx.REGISTRY, csx.DATA_DIR = saved_globals
     shutil.rmtree(work, ignore_errors=True)

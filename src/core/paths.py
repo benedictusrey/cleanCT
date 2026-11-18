@@ -15,11 +15,12 @@ the development checkout:
     Where per-user state is written (settings.json, logs/, custom registry,
     export bundles).  Resolution order:
       1. ``CLEANCT_DATA`` environment variable (explicit override)
-      2. ``%LOCALAPPDATA%/cleanCT``            (installed layout only --
-                                               guarded by an installed.json
-                                               marker so the dev checkout is
-                                               never silently redirected)
-      3. the app root                          (development layout)
+      2. ``%LOCALAPPDATA%/cleanCT``            (installed layout only; the
+                                               development checkout is never
+                                               redirected)
+      3. ``<app root>/data``                   (development layout)
+    If the chosen folder cannot be created, state goes to ``<temp>/cleanCT``
+    with a message on stderr. It never falls back into the install folder.
 
 In the development layout every value resolves exactly as the pre-1.0.0
 code did, so behaviour on the build machine is byte-identical.
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
@@ -71,6 +73,17 @@ def engine_root() -> Path:
     return APP_ROOT
 
 
+def _temp_state_root(reason: str) -> Path:
+    p = Path(tempfile.gettempdir()) / "cleanCT"
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    print(f"cleanCT: user state folder unavailable ({reason}); using {p}",
+          file=sys.stderr)
+    return p
+
+
 def state_root() -> Path:
     """Per-user writable state root (settings, logs, registry, exports).
 
@@ -81,8 +94,8 @@ def state_root() -> Path:
         p = Path(env)
         try:
             p.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            return APP_ROOT
+        except OSError as exc:
+            return _temp_state_root(f"CLEANCT_DATA: {exc}")
         return p
     if is_installed():
         base = os.environ.get("LOCALAPPDATA")
@@ -90,8 +103,8 @@ def state_root() -> Path:
             p = Path(base) / "cleanCT"
             try:
                 p.mkdir(parents=True, exist_ok=True)
-            except OSError:
-                return APP_ROOT
+            except OSError as exc:
+                return _temp_state_root(f"LOCALAPPDATA: {exc}")
             return p
     return APP_ROOT / "data"
 
