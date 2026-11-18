@@ -75,6 +75,31 @@ def _preview(value: Any) -> str:
     return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
 
 
+def fit_preview(value: str, max_edge: int = 1600) -> str:
+    """Scale a preview so its longest edge is at most max_edge pixels.
+
+    The live preview can be a wide strip of slices (a 384 px scan gives an
+    8202 x 640 px image), which the checkpoint limit refuses. A checkpoint needs
+    a thumbnail, so the preview is scaled to fit; the limit itself is unchanged.
+    """
+    import io
+    from PIL import Image
+    data_url = value
+    if data_url.startswith("data:"):
+        data_url = data_url.partition(",")[2]
+    raw = base64.b64decode(data_url, validate=True)
+    with Image.open(io.BytesIO(raw)) as image:
+        image.load()
+        if max(image.size) <= max_edge:
+            return value
+        scale = max_edge / max(image.size)
+        size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+        thumb = image.convert("RGB").resize(size, Image.LANCZOS)
+    out = io.BytesIO()
+    thumb.save(out, format="PNG", optimize=True)
+    return "data:image/png;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+
+
 def validate_checkpoint(document: Any) -> dict:
     if not isinstance(document, dict) or document.get("schema") != SCHEMA:
         raise CheckpointError("This is not a cleanCT checkpoint file.")

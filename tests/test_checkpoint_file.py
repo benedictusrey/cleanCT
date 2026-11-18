@@ -54,6 +54,25 @@ def main():
         check("checkpoint replace is atomic and leaves no temporary files",
               cp.load_checkpoint(path)["state"]["sample"] == "replacement"
               and not list(TEST_TMP.glob(".checkpoint-roundtrip.ctcheckpoint.json.*.tmp")))
+        # the live preview of a 384 px scan is 8202 x 640 px: it must be fitted, not refused
+        wide = Image.new("RGB", (8202, 640), (30, 60, 90))
+        wide_buf = io.BytesIO()
+        wide.save(wide_buf, format="JPEG", quality=85)
+        wide_url = ("data:image/jpeg;base64,"
+                    + base64.b64encode(wide_buf.getvalue()).decode("ascii"))
+        fitted = cp.fit_preview(wide_url)
+        with Image.open(io.BytesIO(base64.b64decode(fitted.split(",", 1)[1]))) as img:
+            edge = max(img.size)
+        cp.save_checkpoint(path, cp.new_document(state, fitted, "", ""))
+        check("a wide preview is fitted to the checkpoint limit and round-trips",
+              edge <= cp.MAX_PREVIEW_EDGE
+              and cp.load_checkpoint(path)["preview_png"] == fitted, f"longest edge {edge}")
+        try:
+            cp.new_document(state, wide_url, "", "")
+            refused = False
+        except cp.CheckpointError:
+            refused = True
+        check("an unfitted preview beyond the limit is still refused", refused)
 
         invalid = dict(document)
         invalid["version"] = cp.VERSION + 1
