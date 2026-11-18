@@ -43,7 +43,7 @@ class AboutDialog(QDialog):
         layout.addWidget(icon_label)
 
         # Brand Title
-        title_label = QLabel("clean<span style='color:#f2b23c;'>CT</span>")
+        title_label = QLabel(f"clean<span style='color:{theme.color('accent')};'>CT</span>")
         title_label.setTextFormat(Qt.RichText)
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
@@ -67,9 +67,9 @@ class AboutDialog(QDialog):
             "It detects the high-attenuation metal platform beneath the wood block, "
             "removes it at the validated cut boundary, and delivers verified clean DICOM series, "
             "NIfTI-1 volumes, and complete extraction provenance.<br><br>"
-            "<b>Workflow:</b> ① Select dataset or load a custom specimen folder, "
-            "② inspect unstripped reconstructions with interactive 2D draggable guides & scientific colorspaces, "
-            "③ apply overrides and auto-export the delivery bundle.<br><br>"
+            "<b>Workflow:</b> first select a dataset or load a scan folder; then inspect "
+            "the unstripped reconstruction with draggable guides and scientific colour maps; "
+            "last apply the cut and export the bundle.<br><br>"
             "Validated against high-resolution manual ground truth. Original scan data remain untouched in-place."
         )
         desc_text.setWordWrap(True)
@@ -80,7 +80,7 @@ class AboutDialog(QDialog):
         # Prepared by section
         author_box = QVBoxLayout()
         author_box.setSpacing(2)
-        author_hdr = QLabel("PREPARED BY")
+        author_hdr = QLabel("Prepared by")
         theme.set_role(author_hdr, "hint")
         author_name = QLabel("Benedictus Reynaldo Hartanto")
         theme.set_role(author_name, "accent")

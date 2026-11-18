@@ -68,7 +68,7 @@ def format_specimen_meta(meta: dict) -> str:
         parts.append(human_size(meta.get("size")))
     elif "size" in meta and not meta.get("size"):
         parts.append("size …")
-    return " · ".join(parts)
+    return ", ".join(parts)
 
 
 class BusySpinner(QWidget):
@@ -111,7 +111,7 @@ class BusySpinner(QWidget):
     def paintEvent(self, _event) -> None:
         if not self._running:
             return
-        pen = QPen(QColor("#f2b23c"), 2.0)
+        pen = QPen(QColor(theme.color("accent")), 2.0)
         pen.setCapStyle(Qt.RoundCap)
         p = QPainter(self)
         p.setRenderHint(p.RenderHint.Antialiasing)
@@ -176,8 +176,10 @@ class SpecimenDelegate(QStyledItemDelegate):
         f2.setPointSizeF(9.0)
         p.setFont(f2)
         p.setPen(QColor(theme.color("text_2" if selected else "text_3")))
-        p.drawText(meta_rect, Qt.AlignLeft | Qt.AlignVCenter,
-                   meta if meta else " ")
+        # elide, so a long metadata line never runs past the row's edge
+        elided_meta = QFontMetrics(f2).elidedText(
+            meta or " ", Qt.ElideRight, meta_rect.width())
+        p.drawText(meta_rect, Qt.AlignLeft | Qt.AlignVCenter, elided_meta)
 
         p.restore()
 

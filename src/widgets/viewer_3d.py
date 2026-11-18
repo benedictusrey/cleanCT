@@ -25,7 +25,7 @@ class Viewer3D(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(280, 260)
+        self.setMinimumSize(240, 200)   # lets the Auto page fit a 720 px window
         self.setAttribute(Qt.WA_OpaquePaintEvent, True)
         self._empty_text = "Load a scan to see it here."
 

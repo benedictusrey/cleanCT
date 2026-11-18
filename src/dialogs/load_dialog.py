@@ -171,7 +171,7 @@ class LoadDialog(QDialog):
             QApplication.restoreOverrideCursor()
             self.btn_confirm.setEnabled(True)
             theme.set_role(self.lbl_status, "status-error")
-            self.lbl_status.setText("✗ Validation failed — see the message.")
+            self.lbl_status.setText("Validation failed. See the message.")
             QMessageBox.critical(
                 self, "Validation Failed",
                 f"Could not validate the selected volume:\n{err}")
@@ -180,7 +180,7 @@ class LoadDialog(QDialog):
             QApplication.restoreOverrideCursor()
             self.btn_confirm.setEnabled(True)
             theme.set_role(self.lbl_status, "status-error")
-            self.lbl_status.setText("✗ Unexpected validation error.")
+            self.lbl_status.setText("Unexpected validation error.")
             QMessageBox.critical(self, "Validation Failed", str(err))
             return
         QApplication.restoreOverrideCursor()
@@ -189,12 +189,12 @@ class LoadDialog(QDialog):
         n = int(info.get("n_slices", 0))
         voxel = float(info.get("pixel_um", 0) or 0)
         spacing = f", {voxel:.3f} µm pixels" if voxel else ", physical scale missing"
-        note = " — check physical scale" if info.get("geometry_assumed") else ""
+        note = " Check the physical scale." if info.get("geometry_assumed") else ""
         if info.get("intensity_mode") == "raw":
-            note += " — intensity thresholds will be estimated"
+            note += " Intensity thresholds will be estimated."
         theme.set_role(self.lbl_status, "status-ok")
         self.lbl_status.setText(
-            f"✓ Valid {kind} volume: {n} slices, {info.get('rows')} × {info.get('cols')}{spacing}{note}")
+            f"Valid {kind} volume: {n} slices, {info.get('rows')} × {info.get('cols')}{spacing}.{note}")
         self.lbl_status.setWordWrap(True)
         self.folder_path = str(p)
         self.specimen_id = specimen

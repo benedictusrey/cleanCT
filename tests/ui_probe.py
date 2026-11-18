@@ -54,10 +54,10 @@ import main_window as mw  # noqa: E402
 from core import custom_series as csx  # noqa: E402
 
 OUT = ROOT / "tests" / "screenshots" / "probe"
-SIZES = [(1540, 960), (1280, 800), (1920, 1080), (1024, 768)]
+SIZES = [(1540, 960), (1280, 800), (1920, 1080), (1024, 768), (1280, 720)]
 TIME_BUDGET_S = int(os.environ.get("PROBE_TIMEOUT", "1500"))
 ALLOW_CAPS = {
-    "GPU", "CUDA", "CPU", "TIFF", "ROI", "HU", "CT", "MB", "KB", "GB", "ID", "OK",
+    "GPU", "CUDA", "CPU", "TIFF", "ROI", "HU", "CT", "XCT", "MB", "KB", "GB", "ID", "OK",
     "XY", "XZ", "YZ", "NII", "DCM", "PNG", "RTX", "SUPER", "API", "PDF", "JSON",
     "DICOM", "NIFTI", "KPI", "ESC", "RAW", "HDR", "SHA", "DPI", "NVIDIA",
 }
@@ -340,6 +340,10 @@ def probe_interactions(window: QWidget, app) -> None:
     actions = {
         "tab switch to Boundaries": lambda: window.btn_tab_prefs.click(),
         "tab switch back to Auto": lambda: window.btn_tab_auto.click(),
+        "tab switch to Settings": lambda: window.btn_tab_settings.click(),
+        "settings nav: Export": lambda: window.settings_nav.setCurrentRow(1),
+        "settings nav: Shortcuts": lambda: window.settings_nav.setCurrentRow(3),
+        "tab switch back to Auto from Settings": lambda: window.btn_tab_auto.click(),
         "activity drawer open": lambda: window.btn_log_toggle.click(),
         "activity drawer close": lambda: window.btn_log_toggle.click(),
         "clear activity": lambda: window._clear_log(),
@@ -374,6 +378,70 @@ def probe_interactions(window: QWidget, app) -> None:
         find("a11y", "P2", "keyboard", "controls Tab never reaches", ", ".join(missed[:20]))
 
 
+# Controls that change data or start work: clicked only by the pipeline stages.
+NO_CLICK = {"btn_remove", "btn_process", "btn_process_export", "btn_export",
+            "btn_rename", "btn_duplicate", "btn_locate", "btn_empty_load"}
+
+
+def probe_every_click(window: QWidget, app) -> None:
+    """Click every visible, enabled button and checkbox on each page, in both
+    themes. A click that raises, or opens a prompt nobody expected, is a finding."""
+    from PySide6.QtWidgets import QAbstractButton
+    STAGE[0] = "every click"
+    clicked = 0
+    # every settings section is a view of its own: a hidden section's buttons
+    # are not visible, so they would be skipped without this
+    views = [("auto", None), ("prefs", None)] + [("settings", row) for row in range(4)]
+    for theme_name in ("light", "dark"):
+        window.cmb_theme.setCurrentIndex(window.cmb_theme.findData(theme_name))
+        for tab, row in views:
+            window._switch_tab(tab, schedule=False)
+            if row is not None:
+                window.settings_nav.setCurrentRow(row)
+            tab = tab if row is None else f"settings {row}"
+            QApplication.processEvents()
+            names = []
+            for btn in window.findChildren(QAbstractButton):
+                if btn.isVisible() and btn.isEnabled():
+                    names.append(btn.objectName() or btn.text() or type(btn).__name__)
+            for btn in list(window.findChildren(QAbstractButton)):
+                key = btn.objectName() or btn.text() or type(btn).__name__
+                if key not in names or key in NO_CLICK or not btn.isVisible() or not btn.isEnabled():
+                    continue
+                STAGE[0] = f"click: {key} [{theme_name} {tab}]"
+                try:
+                    btn.click()
+                    QApplication.processEvents()
+                    clicked += 1
+                except Exception as exc:      # noqa: BLE001 - a crash is a finding
+                    find("interaction", "P0", key, "click raised an exception",
+                         f"{type(exc).__name__}: {exc}")
+    stats["clicks"] = clicked
+    window.cmb_theme.setCurrentIndex(window.cmb_theme.findData("dark"))
+    window._switch_tab("auto", schedule=False)
+    QApplication.processEvents()
+
+
+def probe_dialogs(app) -> None:
+    """Open each dialog in both themes and run the same static checks as the
+    windows: a dialog that paints the wrong ground or unreadable text is a finding."""
+    from dialogs.about_dialog import AboutDialog
+    from dialogs.load_dialog import LoadDialog
+    STAGE[0] = "dialogs"
+    for theme_name in ("light", "dark"):
+        theme.set_mode(theme_name)
+        theme.apply(app)
+        for factory in (LoadDialog, AboutDialog):
+            STAGE[0] = f"dialog: {factory.__name__} [{theme_name}]"
+            dialog = factory()
+            dialog.show()
+            QApplication.processEvents()
+            run_static_checks(dialog, f"[dialog {factory.__name__} {theme_name}]")
+            dialog.close()
+    theme.set_mode("dark")
+    theme.apply(app)
+
+
 def probe_sizes(window: QWidget, app, shots: bool) -> None:
     STAGE[0] = "layout"
     for theme_name in ("dark", "light"):
@@ -381,7 +449,7 @@ def probe_sizes(window: QWidget, app, shots: bool) -> None:
         # handler must update every colour that is built into the widgets
         window.cmb_theme.setCurrentIndex(window.cmb_theme.findData(theme_name))
         QApplication.processEvents()
-        for tab in ("auto", "prefs"):
+        for tab in ("auto", "prefs", "settings"):
             window._switch_tab(tab, schedule=False)
             for w, h in SIZES:
                 window.resize(w, h)
@@ -391,6 +459,11 @@ def probe_sizes(window: QWidget, app, shots: bool) -> None:
                     stats.setdefault("clamped", []).append(
                         f"requested {w}x{h}, window is {window.width()}x{window.height()}")
                 run_static_checks(window, tag)
+                # every page must fit its window: a scroll bar means hidden controls
+                for area in window.findChildren(QScrollArea):
+                    if area.isVisible() and area.verticalScrollBar().maximum() > 0:
+                        find("layout", "P2", tag, "page needs a vertical scroll bar",
+                             area.objectName() or type(area.widget()).__name__)
                 if shots and (w, h) in ((1540, 960), (1280, 800)):
                     OUT.mkdir(parents=True, exist_ok=True)
                     window.grab().save(str(OUT / f"{theme_name}_{tab}_{window.width()}x"
@@ -598,6 +671,8 @@ def main() -> int:
 
     probe_sizes(window, app, shots=True)                  # landing state
     probe_interactions(window, app)
+    probe_every_click(window, app)
+    probe_dialogs(app)
     gaps: list[float] = []
     last = [time.monotonic()]
     beat = QTimer()

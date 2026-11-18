@@ -76,6 +76,8 @@ def color(name: str) -> str:
 _QSS = Template("""
 QMainWindow, QDialog { background: $app; color: $text; }
 QWidget { color: $text; font-family: $font_ui; font-size: 13px; background: transparent; }
+/* a top-level window needs an opaque ground: transparent, it paints black */
+QWidget:window { background: $app; }
 QWidget#main_area { background: $app; }
 QToolTip { background: $raised; color: $text; border: 1px solid $line_strong;
            padding: 6px 8px; border-radius: 6px; font-size: 12px; }
@@ -86,8 +88,13 @@ QFrame.panel, QFrame#box_card, QFrame#box_lateral, QFrame#box_action_log,
 QFrame#job_box, QFrame#kpi_bar, QFrame#empty_state {
     background: $panel; border: 1px solid $line; border-radius: 8px; }
 QFrame#brand_card { background: transparent; border: none; }
+/* a group inside a panel: a hairline, not a box inside a box */
+QFrame#box_card, QFrame#box_lateral { background: transparent; border: none;
+    border-top: 1px solid $line; border-radius: 0; }
 QFrame#kpi_bar { background: transparent; border: none; }
 QFrame#divider { background: $line; border: none; min-height: 1px; max-height: 1px; }
+QFrame#vdivider { background: $line; border: none; min-width: 1px; max-width: 1px; }
+QFrame#tabbar { background: transparent; border: none; border-bottom: 1px solid $line; }
 
 /* text roles */
 QLabel[role="title"] { font-family: $font_display; font-size: 19px; font-weight: 600; color: $text; }
@@ -106,6 +113,8 @@ QLabel[role="kpi-value"] { font-family: $font_display; font-size: 17px; font-wei
 QLabel[role="kpi-ok"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $ok; }
 QLabel[role="kpi-warn"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $warn; }
 QLabel#range_summary { color: $text_2; font-size: 12px; }
+QLabel[role="key"] { font-family: $font_mono; font-size: 12px; color: $text;
+    background: $raised; border: 1px solid $line_strong; border-radius: 4px; padding: 2px 6px; }
 
 /* buttons: secondary by default; primary is the one action of a region */
 QPushButton { background: transparent; color: $text; border: 1px solid $line_strong;
@@ -133,6 +142,20 @@ QPushButton[role="link"], QPushButton#btn_about { color: $accent; }
 QPushButton[active="true"] { background: $accent; color: $on_accent;
                              border: 1px solid $accent; font-weight: 600; }
 QPushButton[active="true"]:hover { background: $accent_hover; }
+/* workspace tabs: underlined, on one baseline; the active tab takes the accent rule */
+QPushButton[role="tab"] { background: transparent; color: $text_2; border: none;
+    border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px 7px 14px;
+    font-size: 14px; }
+QPushButton[role="tab"]:hover { color: $text; background: transparent; }
+QPushButton[role="tab"][active="true"] { background: transparent; color: $text; font-weight: 600;
+    border: none; border-bottom: 2px solid $accent; }
+QPushButton[role="tab"][active="true"]:hover { background: transparent; }
+/* sub-tabs inside a panel: a compact segmented group */
+QPushButton[role="segment"] { background: $raised; color: $text_2; border: 1px solid $line;
+    border-radius: 6px; padding: 4px 12px; font-size: 12px; }
+QPushButton[role="segment"]:hover { color: $text; }
+QPushButton[role="segment"][active="true"] { background: $accent; color: $on_accent;
+    border: 1px solid $accent; font-weight: 600; }
 
 /* fields */
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QTextEdit {
@@ -143,6 +166,24 @@ QComboBox:on { border-color: $accent; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { color: $text_3; }
 QLineEdit#edit_search { background: $raised; }
 QComboBox::drop-down { border: none; width: 22px; }
+/* spin-box steppers and the combo chevron. The field's own background hides
+   Qt's native arrows, so the arrows are small PNGs in the theme's text colours
+   (see _arrow_files); a stylesheet cannot draw a clean triangle itself. */
+QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::down-button { subcontrol-origin: border; width: 18px; border: none;
+    border-left: 1px solid $line; background: transparent; }
+QSpinBox::up-button, QDoubleSpinBox::up-button { subcontrol-position: top right;
+    border-top-right-radius: 6px; border-bottom: 1px solid $line; }
+QSpinBox::down-button, QDoubleSpinBox::down-button { subcontrol-position: bottom right;
+    border-bottom-right-radius: 6px; }
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: $raised; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { width: 8px; height: 5px; image: url("$arrow_up"); }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { width: 8px; height: 5px; image: url("$arrow_down"); }
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled { image: url("$arrow_up_off"); }
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled { image: url("$arrow_down_off"); }
+QComboBox::down-arrow { width: 8px; height: 5px; image: url("$arrow_down"); }
+QComboBox::down-arrow:disabled { image: url("$arrow_down_off"); }
 QComboBox QAbstractItemView { background: $panel; color: $text; border: 1px solid $line_strong;
     selection-background-color: $accent; selection-color: $on_accent; outline: none; }
 QTextEdit#log_view, QPlainTextEdit#log_view { font-family: $font_mono; font-size: 12px;
@@ -151,6 +192,9 @@ QTextEdit#log_view, QPlainTextEdit#log_view { font-family: $font_mono; font-size
 /* lists and menus */
 QListWidget { background: transparent; border: none; outline: none; color: $text; }
 QListWidget#sample_list { background: transparent; }
+QListWidget#settings_nav::item { padding: 9px 12px; border-radius: 6px; color: $text_2; }
+QListWidget#settings_nav::item:hover { color: $text; }
+QListWidget#settings_nav::item:selected { background: $raised; color: $accent; font-weight: 600; }
 QListWidget::item { padding: 8px 10px; border-radius: 6px; color: $text; }
 QListWidget::item:hover { background: $raised; }
 QListWidget::item:selected { background: $raised; color: $text; }
@@ -189,10 +233,48 @@ QSplitter::handle { background: $line; }
 """)
 
 
+_ARROW_SHAPES = {
+    "up": [(0.5, 4.5), (4.0, 0.5), (7.5, 4.5)],
+    "down": [(0.5, 0.5), (7.5, 0.5), (4.0, 4.5)],
+}
+
+
+def _arrow_files() -> dict[str, str]:
+    """Arrow glyphs for the stylesheet: 8x5 PNGs in the active theme's text colours.
+
+    Named by colour, so a theme switch simply points at the other files. The files
+    live in the system temp folder; they are small and rebuilt if missing."""
+    import tempfile
+    from pathlib import Path
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QColor, QImage, QPainter, QPolygonF
+
+    folder = Path(tempfile.gettempdir()) / "cleanct-ui"
+    folder.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, str] = {}
+    for suffix, token in (("", "text_2"), ("_off", "text_3")):
+        colour = color(token)
+        for shape, points in _ARROW_SHAPES.items():
+            path = folder / f"{shape}-{colour[1:]}.png"
+            if not path.exists():
+                image = QImage(8, 5, QImage.Format_ARGB32)
+                image.fill(Qt.transparent)
+                painter = QPainter(image)
+                painter.setRenderHint(QPainter.Antialiasing)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(colour))
+                painter.drawPolygon(QPolygonF([QPointF(x, y) for x, y in points]))
+                painter.end()
+                image.save(str(path), "PNG")
+            paths[f"arrow_{shape}{suffix}"] = path.as_posix()
+    return paths
+
+
 def qss() -> str:
     """The stylesheet for the active theme."""
     tokens = dict(LIGHT if _mode == "light" else DARK)
     tokens.update(font_ui=FONT_UI, font_display=FONT_DISPLAY, font_mono=FONT_MONO)
+    tokens.update(_arrow_files())
     return _QSS.substitute(tokens)
 
 

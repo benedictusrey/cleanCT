@@ -25,6 +25,7 @@ Select the registered specimen in the left-hand list to load it.
 ### Save and restore a preview checkpoint
 
 - **Save checkpoint** saves the current preview image, cut lines, intensity window, viewing plane, and related preview settings to a compact .ctcheckpoint.json file.
+- Save and Open start in the folder used last. **Settings > Checkpoints** shows that folder and lets you choose another.
 - **Open checkpoint** restores the saved preview immediately. If the original registered source is still available at the same location, cleanCT reconnects it so you can continue processing. If it is missing or moved, the preview remains available as a snapshot; load and register the source again to process or export.
 - A checkpoint stores a preview and settings, not the scan volume. Keep the original scan available separately.
 - **Preview history · this session** keeps applied preview states available in the sidebar until you exit cleanCT. Choose a history entry to restore it. This history is not written to disk unless you save a checkpoint.
@@ -52,11 +53,11 @@ Choose one of these actions in the left sidebar:
 
 To export a specimen that has already been processed:
 
-1. In **Export to**, enter a destination folder or select **Browse…**. The selected folder is remembered for later sessions.
-2. Choose a format for this export:
-   - For DICOM sources: **DICOM + NIfTI** (default), **DICOM only**, or **NIfTI only**.
+1. Open the **Settings** tab (right end of the tab row), then the **Export** section. Enter a destination folder or select **Browse…**. Typed or browsed folders are saved for later sessions. The export row above the viewers shows the current folder; **Change in Settings** opens this section.
+2. In the same section, choose a format for this export:
+   - For DICOM sources: **DICOM + NIfTI** (default), **DICOM only**, or **NIfTI only**. The line under the format says what each one writes.
    - For TIFF/NIfTI sources: cleanCT uses **NIfTI only**, preserving source voxel values and physical affine where available.
-3. Select **Export bundle** and wait for the completion status.
+3. Select **Export bundle** in the export row and wait for the completion status.
 
 The bundle is saved in a subfolder named for the specimen. It includes the requested output files and a summary with processing and source details. Exports are separate from the source scan. Re-exporting updates that specimen’s bundle only after the new export is complete. For DICOM sources, an existing unrequested format is retained. To prevent source mixing, a TIFF/NIfTI export stops if the destination already contains a DICOM bundle with the same specimen ID; choose a different ID or destination.
 

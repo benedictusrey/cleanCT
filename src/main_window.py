@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QFrame, QListWidget, QListWidgetItem, QStackedWidget, QLineEdit,
     QSpinBox, QSlider, QCheckBox, QFileDialog, QMessageBox, QProgressBar,
     QSplitter, QTextEdit, QScrollArea, QLayout, QComboBox, QInputDialog,
-    QMenu, QApplication
+    QMenu, QApplication, QGridLayout, QSizePolicy
 )
 
 # Core pipeline imports
@@ -192,6 +192,13 @@ class MainWindow(QMainWindow):
         self.export_format: str = (_saved_fmt
                                    if _saved_fmt in bundle_export.EXPORT_FORMATS
                                    else bundle_export.FORMAT_BOTH)
+        # Start folder for Save and Open checkpoint: the folder of the last
+        # save, open or choice (settings.json). Empty until the first one.
+        try:
+            self.checkpoint_dir: str = str(bundle_export.load_settings(STATE)
+                                           .get("checkpoint_dir") or "").strip()
+        except Exception:
+            self.checkpoint_dir = ""
         self._air_crop_enabled: bool = True
         # Air-detected wood bounds (fractions) for the auto guide lines,
         # refreshed on every specimen load from the robust envelope.
@@ -461,8 +468,9 @@ class MainWindow(QMainWindow):
         self._set_intensity_controls(rep)
         n = int(rep.get("n_slices") or 0)
         vox = float(rep.get("voxel_mm") or 0.0)
+        # the title already names the specimen: the subtitle says only the state
         self.lbl_sample_sub.setText(
-            f"{sample}: loaded, not processed yet. Check the detection guides, "
+            "Loaded, not processed yet. Check the detection guides, "
             "then run Process selected.")
         self._set_export_source_kind(
             str(p.get("source_kind") or rep.get("source_kind") or "dicom"))
@@ -758,6 +766,8 @@ class MainWindow(QMainWindow):
         self.sample_list.setObjectName("sample_list")
         self.sample_list.setItemDelegate(SpecimenDelegate(self.sample_list))
         self.sample_list.setMouseTracking(True)
+        # rows are the list's full width: a sideways bar would only show clipping
+        self.sample_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.sample_list.itemClicked.connect(self._on_sample_clicked)
         self.sample_list.itemSelectionChanged.connect(
             self._update_specimen_actions)
@@ -958,22 +968,23 @@ class MainWindow(QMainWindow):
         main_area = QFrame()
         main_area.setObjectName("main_area")
         main_area_layout = QVBoxLayout(main_area)
-        main_area_layout.setContentsMargins(20, 16, 20, 16)
-        main_area_layout.setSpacing(12)
+        main_area_layout.setContentsMargins(20, 14, 20, 12)
+        main_area_layout.setSpacing(8)
 
         # Top Header Bar (Title + KPI Banner)
         top_bar = QVBoxLayout()
-        top_bar.setSpacing(12)
+        top_bar.setSpacing(8)
 
-        title_box = QVBoxLayout()
-        title_box.setSpacing(2)
+        # title and subtitle share one baseline: one line of header, not two
+        title_row = QHBoxLayout()
+        title_row.setSpacing(12)
         self.lbl_sample_title = QLabel("Select a sample")
         theme.set_role(self.lbl_sample_title, "title")
         self.lbl_sample_sub = QLabel("Pick a dataset & sample from the sidebar")
         theme.set_role(self.lbl_sample_sub, "secondary")
-        title_box.addWidget(self.lbl_sample_title)
-        title_box.addWidget(self.lbl_sample_sub)
-        top_bar.addLayout(title_box)
+        title_row.addWidget(self.lbl_sample_title)
+        title_row.addWidget(self.lbl_sample_sub, 1, Qt.AlignBaseline)
+        top_bar.addLayout(title_row)
 
         self.kpi_banner = KPIBanner()
         top_bar.addWidget(self.kpi_banner)
@@ -1022,59 +1033,53 @@ class MainWindow(QMainWindow):
         mode_row.addWidget(self.btn_tab_prefs)
 
         mode_row.addStretch()
-        main_area_layout.addLayout(mode_row)
+        # Settings sits apart from the two working tabs, at the right end
+        self.btn_tab_settings = QPushButton("Settings")
+        self.btn_tab_settings.setObjectName("tab_btn_settings")
+        self.btn_tab_settings.setProperty("active", "false")
+        self.btn_tab_settings.setCheckable(True)
+        self.btn_tab_settings.clicked.connect(lambda: self._switch_tab("settings"))
+        mode_row.addWidget(self.btn_tab_settings)
+        for tab_button in (self.btn_tab_auto, self.btn_tab_prefs, self.btn_tab_settings):
+            theme.set_role(tab_button, "tab")
+        # one underlined row: the frame draws the baseline the tabs sit on
+        tabbar = QFrame()
+        tabbar.setObjectName("tabbar")
+        tabbar.setLayout(mode_row)
+        main_area_layout.addWidget(tabbar)
 
         # Export bar on its own row, so the tabs and the export settings do not
         # form one long row that sets the window's minimum width
+        # The folder and format are set on the Settings tab. This row shows
+        # where the bundle goes and starts the export; a long path is elided,
+        # so it never sets the window's minimum width.
         export_row = QHBoxLayout()
-        export_row.setSpacing(12)
-
-        # Export Bundle Bar
-        export_row.addWidget(QLabel("Export to:"))
-        self.edit_save_root = QLineEdit(self.save_root)
-        self.edit_save_root.setMinimumWidth(120)
-        self.edit_save_root.setToolTip(
-            f"Default folder for exported extraction bundles.\n"
-            f"Remembered across sessions.\n\n{self.save_root}")
-        self.edit_save_root.editingFinished.connect(self._on_save_root_edited)
-        export_row.addWidget(self.edit_save_root, 1)
-
-        btn_browse_root = QPushButton("Browse…")
-        btn_browse_root.clicked.connect(self._browse_save_root)
-        export_row.addWidget(btn_browse_root)
-
-        # Export format (audit 0M): DICOM only / NIfTI only / both.
-        export_row.addSpacing(8)
-        export_row.addWidget(QLabel("Format:"))
-        self.combo_export_format = QComboBox()
-        self._EXPORT_FORMAT_ITEMS = [
-            ("DICOM + NIfTI", bundle_export.FORMAT_BOTH),
-            ("DICOM only", bundle_export.FORMAT_DICOM),
-            ("NIfTI only", bundle_export.FORMAT_NIFTI),
-        ]
-        for label, _val in self._EXPORT_FORMAT_ITEMS:
-            self.combo_export_format.addItem(label)
-        self.combo_export_format.setToolTip(
-            "Which artifacts to write into the bundle:\n"
-            "• DICOM + NIfTI: kept-slice series AND the volume (default)\n"
-            "• DICOM only: just the kept-slice .dcm series\n"
-            "• NIfTI only: just the .nii volume (fastest, smallest I/O)")
-        self.combo_export_format.setCurrentIndex(
-            self._format_index(self.export_format))
-        self.combo_export_format.currentIndexChanged.connect(
-            self._on_export_format_changed)
-        export_row.addWidget(self.combo_export_format)
+        export_row.setSpacing(10)
+        lbl_export_to = QLabel("Export to:")
+        theme.set_role(lbl_export_to, "secondary")
+        export_row.addWidget(lbl_export_to)
+        self.lbl_export_dest = QLabel()
+        self.lbl_export_dest.setObjectName("lbl_export_dest")
+        self.lbl_export_dest.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        export_row.addWidget(self.lbl_export_dest, 1)
+        self.lbl_export_format = QLabel()
+        self.lbl_export_format.setObjectName("lbl_export_format")
+        theme.set_role(self.lbl_export_format, "hint")
+        export_row.addWidget(self.lbl_export_format)
+        btn_change_dest = QPushButton("Change in Settings")
+        btn_change_dest.setObjectName("btn_change_export")
+        theme.set_role(btn_change_dest, "link")
+        btn_change_dest.clicked.connect(lambda: self._open_settings("export"))
+        export_row.addWidget(btn_change_dest)
 
         self.btn_export = QPushButton("Export bundle")
         self.btn_export.setObjectName("btn_export")
         self.btn_export.clicked.connect(self._export_bundle)
         export_row.addWidget(self.btn_export)
+        main_area_layout.addLayout(export_row)
 
         self.lbl_export_status = QLabel("")
         theme.set_role(self.lbl_export_status, "status-ok")
-
-        export_row.addStretch()
-        main_area_layout.addLayout(export_row)
         self.lbl_export_status.setWordWrap(True)
         main_area_layout.addWidget(self.lbl_export_status)
 
@@ -1099,7 +1104,12 @@ class MainWindow(QMainWindow):
         self.page_prefs = self._build_prefs_page()
         self.stack.addWidget(_scrollable(self.page_prefs))
 
+        # Page 2: Settings (appearance, export, checkpoints, shortcuts)
+        self.page_settings = self._build_settings_page()
+        self.stack.addWidget(_scrollable(self.page_settings))
+
         root_layout.addWidget(main_area, 1)
+        self._refresh_export_summary()
 
     # ---------------------------------------------------------------- Auto Tab UI
     def _build_auto_page(self) -> QWidget:
@@ -1128,6 +1138,7 @@ class MainWindow(QMainWindow):
         ax_head.addStretch()
         lbl_legend = QLabel("<span style='background-color:#0b0d10; color:#f2b23c;'>■ wood ROI</span>  <span style='background-color:#0b0d10; color:#ff463c;'>■ metal</span>")
         lbl_legend.setTextFormat(Qt.RichText)
+        lbl_legend.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # never squeezed
         theme.set_role(lbl_legend, "hint")
         ax_head.addWidget(lbl_legend)
         axial_box.addLayout(ax_head)
@@ -1351,27 +1362,48 @@ class MainWindow(QMainWindow):
         ctrl_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
         lbl_ctrl_title = QLabel("Cut and range controls")
-        lbl_ctrl_title.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        theme.set_role(lbl_ctrl_title, "section")
         ctrl_layout.addWidget(lbl_ctrl_title)
 
-        # Appearance: dark by default; light for bright rooms (kept in settings.json)
-        row_theme = QHBoxLayout()
-        lbl_theme = QLabel("Appearance")
-        theme.set_role(lbl_theme, "secondary")
-        self.cmb_theme = QComboBox()
-        self.cmb_theme.setObjectName("cmb_theme")
-        self.cmb_theme.addItem("Dark", "dark")
-        self.cmb_theme.addItem("Light", "light")
-        self.cmb_theme.setCurrentIndex(0 if theme.mode() == "dark" else 1)
-        self.cmb_theme.setToolTip(
-            "The scan canvases stay dark in both themes, so the image keeps its contrast.")
-        self.cmb_theme.currentIndexChanged.connect(self._on_theme_changed)
-        row_theme.addWidget(lbl_theme)
-        row_theme.addStretch()
-        row_theme.addWidget(self.cmb_theme)
-        ctrl_layout.addLayout(row_theme)
+        # Three segments, one visible at a time, so each group fits the window
+        # without scrolling. The apply row below the stack never moves.
+        seg_row = QHBoxLayout()
+        seg_row.setSpacing(6)
+        self.ctrl_segments: dict[str, QPushButton] = {}
+        for key, label, tip in (
+            ("lines", "Lines", "Keep, cut and margin lines."),
+            ("display", "Display", "Colour palette and density thresholds."),
+            ("lateral", "Lateral box", "Left, right, top and bottom bounds, and auto-crop."),
+        ):
+            btn = QPushButton(label)
+            btn.setObjectName(f"btn_seg_{key}")
+            btn.setToolTip(tip)
+            btn.setProperty("active", "true" if key == "lines" else "false")
+            theme.set_role(btn, "segment")
+            btn.clicked.connect(lambda _=False, k=key: self._set_ctrl_segment(k))
+            seg_row.addWidget(btn)
+            self.ctrl_segments[key] = btn
+        seg_row.addStretch()
+        ctrl_layout.addLayout(seg_row)
 
-        # 1. Colorspace Palette Selector
+        self.ctrl_stack = QStackedWidget()
+        self.ctrl_stack.setObjectName("ctrl_stack")
+        ctrl_layout.addWidget(self.ctrl_stack, 1)
+
+        def segment_page() -> QVBoxLayout:
+            page = QWidget()
+            page_layout = QVBoxLayout(page)
+            page_layout.setContentsMargins(0, 0, 0, 0)
+            page_layout.setSpacing(12)
+            page_layout.setAlignment(Qt.AlignTop)
+            self.ctrl_stack.addWidget(page)
+            return page_layout
+
+        lines_layout = segment_page()        # index 0
+        display_layout = segment_page()      # index 1
+        lateral_layout = segment_page()      # index 2
+
+        # 1. Colorspace Palette Selector (the theme lives on the Settings tab)
         box_cmap = QVBoxLayout()
         box_cmap.setSpacing(6)
         lbl_cmap = QLabel("Colorspace Palette:")
@@ -1389,7 +1421,7 @@ class MainWindow(QMainWindow):
             cmap_row.addWidget(b)
             self.cmap_buttons[cm.lower()] = b
         box_cmap.addLayout(cmap_row)
-        ctrl_layout.addLayout(box_cmap)
+        display_layout.addLayout(box_cmap)
 
         # 2. Density Thresholds (Min HU / Max HU)
         box_thresh = QFrame()
@@ -1472,7 +1504,8 @@ class MainWindow(QMainWindow):
             b.clicked.connect(lambda _, l=lo, h=hi, n=nm: self._apply_thresh_preset(l, h, n))
             presets_row.addWidget(b)
         th_layout.addLayout(presets_row)
-        ctrl_layout.addWidget(box_thresh)
+        display_layout.addWidget(box_thresh)
+        display_layout.addStretch()
 
         # 3. Interactive Guide Sliders (2 Lines & 4 Lines)
         box_guides_sec = QFrame()
@@ -1481,9 +1514,13 @@ class MainWindow(QMainWindow):
         g_layout.setContentsMargins(6, 6, 6, 6)
         g_layout.setSpacing(10)
 
-        lbl_g_head = QLabel("Interactive Boundary Sliders (2 Lines & 4 Lines):")
+        lbl_g_head = QLabel("Boundary lines")
         theme.set_role(lbl_g_head, "accent")
         g_layout.addWidget(lbl_g_head)
+        lbl_g_hint = QLabel("Drag a line on the preview, or type a slice number.")
+        lbl_g_hint.setWordWrap(True)
+        theme.set_role(lbl_g_hint, "hint")
+        g_layout.addWidget(lbl_g_hint)
 
         # Top Line: Keep From (Green)
         box_keep = QVBoxLayout()
@@ -1632,10 +1669,11 @@ class MainWindow(QMainWindow):
         self.row_lat_bottom.addLayout(row_lat_b)
         lat_layout.addLayout(self.row_lat_bottom)
 
-        g_layout.addWidget(self.box_lateral)
+        lateral_layout.addWidget(self.box_lateral)
         self.box_lateral.setVisible(True)
 
-        ctrl_layout.addWidget(box_guides_sec)
+        lines_layout.addWidget(box_guides_sec)
+        lines_layout.addStretch()
 
         # Auto-crop to wood (air detection): trims near-pure-air margins so the
         # exported ROI spans the wood itself in XY, XZ and YZ.
@@ -1647,15 +1685,15 @@ class MainWindow(QMainWindow):
             "Wood touching the scan edge keeps that axis untouched; heavy fog "
             "disables trimming for safety; the result never grows beyond the "
             "tracked wood ROI.")
-        ctrl_layout.addWidget(self.chk_air_crop)
+        lateral_layout.addWidget(self.chk_air_crop)
+        lateral_layout.addStretch()
 
-        # Live Range Summary
+        # Live Range Summary: pinned under the segments, always visible
         self.lbl_range_summary = QLabel("delivery: not calculated yet")
         self.lbl_range_summary.setObjectName("range_summary")
+        self.lbl_range_summary.setWordWrap(True)
         theme.set_role(self.lbl_range_summary, "secondary")
         ctrl_layout.addWidget(self.lbl_range_summary)
-
-        ctrl_layout.addStretch()
 
         # Action Buttons
         btn_action_row = QHBoxLayout()
@@ -1687,6 +1725,234 @@ class MainWindow(QMainWindow):
         return page
 
     # ---------------------------------------------------------------- Data & Sidebar
+
+    # ---------------------------------------------------------------- Settings Tab UI
+    _SETTINGS_SECTIONS = ("appearance", "export", "checkpoints", "shortcuts")
+    _SHORTCUTS = (
+        ("Ctrl+O", "Load a scan"),
+        ("Ctrl+R", "Process the selected specimen"),
+        ("Ctrl+E", "Export the bundle"),
+        ("Ctrl+S", "Save a checkpoint"),
+        ("F2", "Rename the selected specimen"),
+        ("Del", "Remove the selected specimen from the list"),
+    )
+    _FORMAT_HINTS = {
+        bundle_export.FORMAT_BOTH: "Writes the kept-slice DICOM series and one NIfTI volume.",
+        bundle_export.FORMAT_DICOM: "Writes only the kept-slice DICOM series.",
+        bundle_export.FORMAT_NIFTI: "Writes only the NIfTI volume: the fastest, and the smallest.",
+    }
+
+    @staticmethod
+    def _setting_label(text: str) -> QLabel:
+        label = QLabel(text)
+        theme.set_role(label, "secondary")
+        return label
+
+    def _build_settings_page(self) -> QWidget:
+        """Settings: a left rail of sections, one card per section. Every choice
+        is saved to settings.json as it changes, so there is no Save button."""
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+        head = QLabel("Settings")
+        theme.set_role(head, "title")
+        outer.addWidget(head)
+        sub = QLabel("Choose how cleanCT looks, where it saves, and which keys act. "
+                     "Changes are saved as you make them.")
+        sub.setWordWrap(True)
+        theme.set_role(sub, "secondary")
+        outer.addWidget(sub)
+        outer.addSpacing(10)
+
+        body = QHBoxLayout()
+        body.setSpacing(18)
+        self.settings_nav = QListWidget()
+        self.settings_nav.setObjectName("settings_nav")
+        self.settings_nav.setFixedWidth(200)
+        for label in ("Appearance", "Export", "Checkpoints", "Shortcuts"):
+            self.settings_nav.addItem(label)
+        body.addWidget(self.settings_nav, 0, Qt.AlignTop)
+
+        self.settings_stack = QStackedWidget()
+        self.settings_stack.setMaximumWidth(760)
+        body.addWidget(self.settings_stack, 1)
+        body.addStretch()
+        outer.addLayout(body, 1)
+
+        def card(title: str, hint: str) -> QGridLayout:
+            """A section card: title, one line of purpose, then its rows."""
+            frame = QFrame()
+            frame.setProperty("class", "panel")
+            col = QVBoxLayout(frame)
+            col.setContentsMargins(22, 20, 22, 20)
+            col.setSpacing(12)
+            head_label = QLabel(title)
+            theme.set_role(head_label, "section")
+            col.addWidget(head_label)
+            hint_label = QLabel(hint)
+            hint_label.setWordWrap(True)
+            theme.set_role(hint_label, "hint")
+            col.addWidget(hint_label)
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(16)
+            grid.setVerticalSpacing(12)
+            grid.setColumnMinimumWidth(0, 110)
+            grid.setColumnStretch(1, 1)
+            col.addLayout(grid)
+            # the card keeps its own height; the page below it stays empty
+            wrap = QWidget()
+            wrap_col = QVBoxLayout(wrap)
+            wrap_col.setContentsMargins(0, 0, 0, 0)
+            wrap_col.addWidget(frame)
+            wrap_col.addStretch()
+            self.settings_stack.addWidget(wrap)
+            return grid
+
+        # Appearance: the theme (kept in settings.json)
+        grid = card("Appearance",
+                    "Dark suits a dim room and light suits a bright one. The scan "
+                    "canvas stays dark in both, so the image keeps its contrast.")
+        self.cmb_theme = QComboBox()
+        self.cmb_theme.setObjectName("cmb_theme")
+        self.cmb_theme.addItem("Dark", "dark")
+        self.cmb_theme.addItem("Light", "light")
+        self.cmb_theme.setCurrentIndex(0 if theme.mode() == "dark" else 1)
+        self.cmb_theme.setFixedWidth(200)
+        self.cmb_theme.setToolTip("Switch the chrome between dark and light.")
+        self.cmb_theme.currentIndexChanged.connect(self._on_theme_changed)
+        grid.addWidget(self._setting_label("Theme"), 0, 0)
+        grid.addWidget(self.cmb_theme, 0, 1, Qt.AlignLeft)
+
+        # Export: the folder and the format of every bundle
+        grid = card("Export",
+                    "Export bundle writes to this folder, and Process and Export "
+                    "uses it too.")
+        self.edit_save_root = QLineEdit(self.save_root)
+        self.edit_save_root.setObjectName("edit_save_root")
+        self.edit_save_root.setMinimumWidth(180)
+        self.edit_save_root.setToolTip(
+            "Default folder for exported extraction bundles.\n"
+            "Remembered across sessions.")
+        self.edit_save_root.editingFinished.connect(self._on_save_root_edited)
+        btn_browse_root = QPushButton("Browse…")
+        btn_browse_root.setObjectName("btn_browse_export")
+        btn_browse_root.clicked.connect(self._browse_save_root)
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(8)
+        folder_row.addWidget(self.edit_save_root, 1)
+        folder_row.addWidget(btn_browse_root)
+        grid.addWidget(self._setting_label("Folder"), 0, 0)
+        grid.addLayout(folder_row, 0, 1)
+
+        self.combo_export_format = QComboBox()
+        self.combo_export_format.setObjectName("combo_export_format")
+        self._EXPORT_FORMAT_ITEMS = [
+            ("DICOM + NIfTI", bundle_export.FORMAT_BOTH),
+            ("DICOM only", bundle_export.FORMAT_DICOM),
+            ("NIfTI only", bundle_export.FORMAT_NIFTI),
+        ]
+        for label, _val in self._EXPORT_FORMAT_ITEMS:
+            self.combo_export_format.addItem(label)
+        self.combo_export_format.setFixedWidth(200)
+        self.combo_export_format.setToolTip(
+            "Which artifacts to write into the bundle:\n"
+            "• DICOM + NIfTI: kept-slice series AND the volume (default)\n"
+            "• DICOM only: just the kept-slice .dcm series\n"
+            "• NIfTI only: just the .nii volume (fastest, smallest I/O)")
+        self.combo_export_format.setCurrentIndex(self._format_index(self.export_format))
+        self.combo_export_format.currentIndexChanged.connect(self._on_export_format_changed)
+        grid.addWidget(self._setting_label("Format"), 1, 0)
+        grid.addWidget(self.combo_export_format, 1, 1, Qt.AlignLeft)
+        self.lbl_format_hint = QLabel()
+        self.lbl_format_hint.setObjectName("lbl_format_hint")
+        self.lbl_format_hint.setWordWrap(True)
+        theme.set_role(self.lbl_format_hint, "hint")
+        grid.addWidget(self.lbl_format_hint, 2, 1)
+
+        # Checkpoints: where Save and Open start
+        grid = card("Checkpoints",
+                    "A checkpoint keeps the preview, the cut and keep lines, the colour "
+                    "map and the view settings. Open one to restore them. The scan "
+                    "reconnects when it is still registered at the same place.")
+        self.lbl_checkpoint_dir = QLabel()
+        self.lbl_checkpoint_dir.setObjectName("lbl_checkpoint_dir")
+        self.lbl_checkpoint_dir.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        btn_choose_ckpt = QPushButton("Choose…")
+        btn_choose_ckpt.setObjectName("btn_choose_checkpoint_dir")
+        btn_choose_ckpt.clicked.connect(self._choose_checkpoint_dir)
+        ckpt_row = QHBoxLayout()
+        ckpt_row.setSpacing(8)
+        ckpt_row.addWidget(self.lbl_checkpoint_dir, 1)
+        ckpt_row.addWidget(btn_choose_ckpt)
+        grid.addWidget(self._setting_label("Start folder"), 0, 0)
+        grid.addLayout(ckpt_row, 0, 1)
+        ckpt_hint = QLabel("Save and Open start in this folder. Each save or open "
+                           "moves it to the folder used.")
+        ckpt_hint.setWordWrap(True)
+        theme.set_role(ckpt_hint, "hint")
+        grid.addWidget(ckpt_hint, 1, 1)
+        self._refresh_checkpoint_dir()
+
+        # Shortcuts: a reference, not a setting
+        grid = card("Shortcuts",
+                    "Ctrl shortcuts work anywhere in the window. F2 and Del act on the "
+                    "selected specimen, so select it in the list first.")
+        for row_index, (keys, action) in enumerate(self._SHORTCUTS):
+            key = QLabel(keys)
+            theme.set_role(key, "key")
+            grid.addWidget(key, row_index, 0, Qt.AlignLeft)
+            grid.addWidget(QLabel(action), row_index, 1)
+
+        self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
+        self.settings_nav.setCurrentRow(0)
+        return page
+
+    def _open_settings(self, section: str = "appearance") -> None:
+        self._switch_tab("settings")
+        self.settings_nav.setCurrentRow(self._SETTINGS_SECTIONS.index(section))
+
+    def _refresh_export_summary(self) -> None:
+        """Keep the export row and the Settings hint in step with the folder and format."""
+        label = self.combo_export_format.currentText()
+        shown = self.lbl_export_dest.fontMetrics().elidedText(self.save_root, Qt.ElideMiddle, 420)
+        self.lbl_export_dest.setText(shown)
+        self.lbl_export_dest.setToolTip(self.save_root)
+        self.lbl_export_format.setText(label)
+        self.btn_export.setToolTip(f"Write the bundle to the export folder ({label}).")
+        if self.combo_export_format.isEnabled():
+            # read the combo, not self.export_format: that is updated after this refresh
+            chosen = self._EXPORT_FORMAT_ITEMS[self.combo_export_format.currentIndex()][1]
+            self.lbl_format_hint.setText(self._FORMAT_HINTS[chosen])
+        else:
+            self.lbl_format_hint.setText(
+                "TIFF and NIfTI sources have no DICOM tags, so the bundle is a NIfTI volume.")
+
+    def _refresh_checkpoint_dir(self) -> None:
+        text = self.checkpoint_dir or "Not chosen yet"
+        self.lbl_checkpoint_dir.setText(
+            self.lbl_checkpoint_dir.fontMetrics().elidedText(text, Qt.ElideMiddle, 420))
+        self.lbl_checkpoint_dir.setToolTip(self.checkpoint_dir or text)
+
+    def _remember_checkpoint_dir(self, folder: str) -> None:
+        """Save and Open start in the folder used last (settings.json)."""
+        if not folder or folder == self.checkpoint_dir:
+            return
+        self.checkpoint_dir = folder
+        self._refresh_checkpoint_dir()
+        try:
+            settings = bundle_export.load_settings(STATE)
+            settings["checkpoint_dir"] = folder
+            bundle_export.save_settings(STATE, settings)
+        except Exception as e:
+            self._log_action(f"could not remember the checkpoint folder: {e}")
+
+    def _choose_checkpoint_dir(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self, "Choose the checkpoint folder", self.checkpoint_dir)
+        if folder:
+            self._remember_checkpoint_dir(folder)
+            self._log_action(f"checkpoint folder set: {folder}")
 
     def _check_gpu(self):
         """Probe the ENGINE's real backend (CuPy/CUDA vs CPU) on a WORKER
@@ -1869,7 +2135,7 @@ class MainWindow(QMainWindow):
             except (OSError, TypeError, ValueError):
                 continue
         if available_customs:
-            add_header("Loaded specimens", "#4f8cff")
+            add_header("Loaded specimens", theme.color("info"))
             for specimen, entry in available_customs.items():
                 kind = str(entry.get("source_kind") or "dicom")
                 meta = {
@@ -1888,7 +2154,7 @@ class MainWindow(QMainWindow):
 
         empty = QListWidgetItem("No specimens loaded yet")
         empty.setFlags(Qt.NoItemFlags)
-        empty.setForeground(QColor("#6f7c91"))
+        empty.setForeground(QColor(theme.color("text_3")))
         empty.setData(self._SECTION_ROLE, "empty")
         self.sample_list.addItem(empty)
         self._empty_row = empty
@@ -2661,23 +2927,27 @@ class MainWindow(QMainWindow):
 
     # ---------------------------------------------------------------- Tabs & Navigation
     def _switch_tab(self, tab: str, schedule: bool = True):
-        if tab == "auto":
-            self.stack.setCurrentIndex(0)
-            self.btn_tab_auto.setProperty("active", "true")
-            self.btn_tab_prefs.setProperty("active", "false")
-        else:
-            self.stack.setCurrentIndex(1)
-            self.btn_tab_auto.setProperty("active", "false")
-            self.btn_tab_prefs.setProperty("active", "true")
-            if schedule:
-                self._schedule_prefs_preview()
-
-        self.btn_tab_auto.style().unpolish(self.btn_tab_auto)
-        self.btn_tab_auto.style().polish(self.btn_tab_auto)
-        self.btn_tab_prefs.style().unpolish(self.btn_tab_prefs)
-        self.btn_tab_prefs.style().polish(self.btn_tab_prefs)
+        index = {"auto": 0, "prefs": 1, "settings": 2}.get(tab, 0)
+        self.stack.setCurrentIndex(index)
+        for name, button in (("auto", self.btn_tab_auto), ("prefs", self.btn_tab_prefs),
+                             ("settings", self.btn_tab_settings)):
+            button.setProperty("active", "true" if name == tab else "false")
+            button.style().unpolish(button)
+            button.style().polish(button)
+        if tab == "prefs" and schedule:
+            self._schedule_prefs_preview()
 
     # ---------------------------------------------------------------- Preferences Actions
+    _CTRL_SEGMENTS = ("lines", "display", "lateral")
+
+    def _set_ctrl_segment(self, key: str) -> None:
+        """Show one group of the Boundaries controls; the others stay in the stack."""
+        self.ctrl_stack.setCurrentIndex(self._CTRL_SEGMENTS.index(key))
+        for name, button in self.ctrl_segments.items():
+            button.setProperty("active", "true" if name == key else "false")
+            button.style().unpolish(button)
+            button.style().polish(button)
+
     def _set_pref_plane(self, plane: str):
         self.pref_plane = plane
         self.pref_viewer.setPlane(plane)
@@ -2827,10 +3097,9 @@ class MainWindow(QMainWindow):
         if changed:
             self._log_action("snapped lines to detection: " + ", ".join(changed))
         else:
-            QMessageBox.information(
-                self, "Snap to detection",
-                "No detection evidence is available for this specimen "
-                "(the bounds could not be measured).\nLines left unchanged.")
+            # an informational result belongs in the Activity line, not a popup
+            self._log_action("snap to detection: no detection evidence for this "
+                             "specimen; the lines are unchanged")
 
     def _set_guide_mode(self, mode: str):
         self.btn_guide_2l.setProperty("active", "true" if mode == "2lines" else "false")
@@ -3814,11 +4083,16 @@ class MainWindow(QMainWindow):
             self._log_action(f"could not persist export folder: {e}")
 
     def _on_save_root_edited(self):
-        self.save_root = self.edit_save_root.text().strip()
-        # keep the tooltip in step with the (possibly elided) path
-        self.edit_save_root.setToolTip(
-            "Default folder for exported extraction bundles.\n"
-            f"Remembered across sessions.\n\n{self.save_root}")
+        typed = self.edit_save_root.text().strip()
+        if not typed:
+            # an empty folder is not a folder: put the working one back
+            self.edit_save_root.setText(self.save_root)
+            return
+        if typed != self.save_root:
+            # typed edits are remembered like Browse picks (they were not before)
+            self._persist_save_root(typed)
+            self._log_action(f"Default export folder updated: {typed}")
+        self._refresh_export_summary()
 
     def _browse_save_root(self):
         dir_path = QFileDialog.getExistingDirectory(self, "Select Extraction Bundle Destination", self.save_root)
@@ -3826,6 +4100,7 @@ class MainWindow(QMainWindow):
             self.edit_save_root.setText(dir_path)
             self._persist_save_root(dir_path)
             self._log_action(f"Default export folder updated: {dir_path}")
+            self._refresh_export_summary()
 
     def _format_index(self, fmt: str) -> int:
         for i, (_label, val) in enumerate(self._EXPORT_FORMAT_ITEMS):
@@ -3834,6 +4109,7 @@ class MainWindow(QMainWindow):
         return 0
 
     def _on_export_format_changed(self, idx: int):
+        self._refresh_export_summary()
         if getattr(self, "_setting_export_format", False):
             return
         fmt = self._EXPORT_FORMAT_ITEMS[idx][1]
@@ -3865,6 +4141,7 @@ class MainWindow(QMainWindow):
             self.combo_export_format.setCurrentIndex(index)
         finally:
             self._setting_export_format = False
+        self._refresh_export_summary()
 
     def _set_intensity_controls(self, report_summary: dict) -> None:
         """Label threshold controls with the source's actual intensity unit."""
@@ -4146,8 +4423,9 @@ class MainWindow(QMainWindow):
                                     "Load a specimen before saving a checkpoint.")
             return
         default_name = f"{self.sample}.ctcheckpoint.json"
+        start = str(Path(self.checkpoint_dir) / default_name) if self.checkpoint_dir else default_name
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save preview checkpoint", default_name,
+            self, "Save preview checkpoint", start,
             "cleanCT checkpoint (*.ctcheckpoint.json);;JSON file (*.json)")
         if not path:
             return
@@ -4156,6 +4434,7 @@ class MainWindow(QMainWindow):
             destination = destination.with_name(destination.name + ".ctcheckpoint.json")
         try:
             self.save_checkpoint_file(destination)
+            self._remember_checkpoint_dir(str(destination.parent))
             self.lbl_export_status.setText(f"Checkpoint saved, {destination.name}")
             self._log_action(f"Saved preview checkpoint: {destination}")
         except Exception as exc:
@@ -4372,12 +4651,13 @@ class MainWindow(QMainWindow):
 
     def _open_load_checkpoint(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Load preview checkpoint", "",
+            self, "Load preview checkpoint", self.checkpoint_dir,
             "cleanCT checkpoint (*.ctcheckpoint.json *.json);;All files (*.*)")
         if not path:
             return
         try:
             self.load_checkpoint_file(path)
+            self._remember_checkpoint_dir(str(Path(path).parent))
         except Exception as exc:
             QMessageBox.critical(self, "Checkpoint error", str(exc))
 

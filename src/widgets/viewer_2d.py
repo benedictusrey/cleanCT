@@ -20,7 +20,7 @@ class Viewer2D(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
-        self.setMinimumSize(320, 240)
+        self.setMinimumSize(280, 150)   # lets two stacked viewers fit a 720 px window
         self._empty_text = "Load a scan to see it here."
         # Paint hardening: the widget paints every pixel of itself in
         # paintEvent (background fill first), so Qt can skip the implicit

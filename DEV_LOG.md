@@ -522,6 +522,54 @@ Open items and deliberate deviations:
     portable ZIP 6,691 entries, SHA-256 `dba1773d…0e82`; setup 208 MB, SHA-256
     `b4ededf3…c45`. Not installed on this PC.
 
+### 2.11 [2026-11-18] Dialog and colour audit, Settings tab
+
+- **Dialogs painted black.** `QWidget { background: transparent }` also made top-level
+  dialogs transparent, which Windows paints black. The Load dialog showed dark text on
+  black in the light theme. Fix: `QWidget:window { background: $app }` after that rule.
+  Test: `tests/test_dialogs.py` (ground and copy, both themes, four dialogs).
+- **Hard-coded colours.** About "CT" (amber, 1.87:1 on light), Properties values
+  (near-white, invisible on light), the specimen "Loaded specimens" header and empty row,
+  and the busy spinner. All now use theme tokens. Test: `tests/test_theme_tokens.py`
+  rejects a hex colour typed outside `theme.py` and the viewers.
+- **Copy.** Em dashes, check and cross glyphs, circled numerals and the all-caps
+  "PREPARED BY" label are gone.
+- **Snap to detection** reports "no detection evidence" in the Activity line, not a popup.
+- **Typed export folder** is now saved to settings.json (it was saved only by Browse).
+- **Settings tab.** A third tab, at the right of the tab row, with a rail for Appearance,
+  Export, Checkpoints and Shortcuts. The theme, export folder and export format moved
+  there. The export row shows the elided destination, the format, and a "Change in
+  Settings" link. The checkpoint start folder is remembered (`checkpoint_dir`). Test:
+  `tests/test_settings_page.py`.
+- **Probe.** Clicks every visible control on each page and each settings section in both
+  themes, and runs the static checks on the dialogs. Its export stage now starts from a
+  clean export folder: a leftover bundle opened a "Replace export?" prompt the guard
+  closed, which looked like a hung export.
+- **Found by the gate, fixed:** the format hint read `self.export_format` before it was
+  updated, so it lagged one change behind.
+- **Final probe:** 110 clicks, no findings. The guard closed 41 prompts, all from
+  expected dialogs (About, Load, checkpoint open, Browse, Choose, export replace).
+
+### 2.12 [2026-11-18] Full-view layout: tab bar, Boundaries segments, fit at 1280x720
+
+- **Measured before (vertical scroll range, `measure_fit`):** Auto 145 px at 1280x720,
+  65 px at 1280x800, 1 px at 1536x864; Boundaries 298 / 218 / 154 px at the same sizes;
+  zero only at 1920x1080.
+- **Chosen target: 1280x720 client.** It fits a 1280x800 or 1366x768 screen maximized,
+  and every larger size. Measured after the change: zero vertical scroll on Auto,
+  Boundaries and Settings at 1280x720, 1280x800, 1366x768, 1536x864 and 1920x1080.
+- **Changes:** underlined tab bar (`role="tab"`) on one baseline with Settings at the
+  right; header title and subtitle on one line; KPI strip with dividers; Boundaries
+  control column split into three segments (Lines, Display, Lateral box) with the range
+  summary and apply row pinned; `box_card` and `box_lateral` flattened to hairline groups;
+  viewer minimums lowered (2-D 280x150, 3-D 240x200).
+- **Copy and clipping:** sidebar metadata elided and joined with commas; "Not yet" and
+  "No reference" replace dashes; subtitle no longer repeats the specimen name; the
+  axial legend is not squeezed; the sidebar list has no sideways scroll bar.
+- **Tests:** `tests/test_layout_fit.py` (new) checks scroll ranges, segment fit, apply row
+  visibility, the tab role and the header and sidebar rules. `tests/ui_probe.py` adds
+  1280x720 and reports any page that needs a vertical scroll bar.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

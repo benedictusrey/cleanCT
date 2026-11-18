@@ -10,10 +10,14 @@ from PySide6.QtWidgets import (
 )
 
 
+MISSING = "not recorded"
+
+
 def _row(label: str, value: str) -> str:
-    return (f"<tr><td style='color:#6f7c91; padding:2px 14px 2px 0; "
+    # colours come from the active theme, so the rows read in both themes
+    return (f"<tr><td style='color:{theme.color('text_2')}; padding:2px 14px 2px 0; "
             f"white-space:nowrap; vertical-align:top;'>{label}</td>"
-            f"<td style='color:#f0f4fc;'>{value}</td></tr>")
+            f"<td style='color:{theme.color('text')};'>{value}</td></tr>")
 
 
 class SpecimenPropertiesDialog(QDialog):
@@ -23,20 +27,20 @@ class SpecimenPropertiesDialog(QDialog):
     def __init__(self, parent, info: dict):
         super().__init__(parent)
         name = info.get("name") or ""
-        self.setWindowTitle(f"Properties — {name}")
+        self.setWindowTitle(f"Properties: {name}")
         self.setModal(True)
         self.setMinimumWidth(580)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         rows = [
             _row("Specimen", f"<b>{name}</b>"),
-            _row("Source", info.get("kind_label") or info.get("kind") or "—"),
-            _row("Slices", str(info.get("slices") or "—")),
-            _row("Dimensions", info.get("dims") or "—"),
+            _row("Source", info.get("kind_label") or info.get("kind") or MISSING),
+            _row("Slices", str(info.get("slices") or MISSING)),
+            _row("Dimensions", info.get("dims") or MISSING),
             _row("Voxel size", (f"{float(info['um']):.4g} µm"
-                                if info.get("um") else "— (assumed)")),
-            _row("Size on disk", info.get("size_label") or "—"),
-            _row("Dataset", info.get("dataset") or "—"),
+                                if info.get("um") else MISSING)),
+            _row("Size on disk", info.get("size_label") or MISSING),
+            _row("Dataset", info.get("dataset") or MISSING),
         ]
         if info.get("added"):
             rows.append(_row("Registered", str(info["added"])))
