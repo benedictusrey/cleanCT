@@ -136,15 +136,16 @@ def main() -> int:
               and float(uncached[23][32, 40]) == 3071.0,
               "physical z order survives reversed filenames")
         check("uncached reads do not populate global slice cache",
-              f"custom/{name}" not in vc.ORIG_SLICE_CACHE)
+              not any(k.startswith(f"custom/{name}") for k in vc.ORIG_SLICE_CACHE))
         metal = vc._metal_points(ds, name, 20, n_slices, 1, 1000.0, 10000)
         check("metal point sampling returns points without caching full slices",
-              len(metal) > 0 and f"custom/{name}" not in vc.ORIG_SLICE_CACHE)
+              len(metal) > 0
+              and not any(k.startswith(f"custom/{name}") for k in vc.ORIG_SLICE_CACHE))
 
         cached = vc._source_slices(ds, name, [0, 23])
         check("bounded slice cache keeps requested entries",
               set(cached) == {0, 23}
-              and f"custom/{name}" in vc.ORIG_SLICE_CACHE)
+              and any(k.startswith(f"custom/{name}") for k in vc.ORIG_SLICE_CACHE))
 
         sdir = vc.output_root(ds) / name
         a = vc._ortho_columns_cached(ds, name, sdir)

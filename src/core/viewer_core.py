@@ -21,6 +21,7 @@ import json
 import math
 import os
 import threading
+import time
 from pathlib import Path
 
 import sys
@@ -46,7 +47,7 @@ except ImportError:                     # pragma: no cover
     from wood_bounds import wood_bounds
 
 _CACHE: dict[str, dict] = {}
-CACHE_VERSION = 19   # v19: edge-band-gated lateral projections (audit 0AF)
+CACHE_VERSION = 20   # v20: keys carry the registered source identity
 ORTHO_CACHE_VERSION = 3
 # Generated viewer caches always live in the writable per-user state root:
 # %LOCALAPPDATA%\cleanCT\cache for installed builds, <checkout>\data\cache
@@ -107,10 +108,70 @@ def _source_cache_token(ds) -> str:
     return str(signature.get("sha256") or "unfingerprinted")[:16]
 
 
+def source_identity(ds, sample: str) -> str:
+    """Digest of what a registered scan points at right now: the resolved
+    folder or file, its size and its modification time. Built-in datasets
+    have fixed folders and return "". A specimen ID re-registered to another
+    folder changes this value, so cached views of the old scan are not reused.
+    """
+    if getattr(ds, "key", None) != "custom":
+        return ""
+    if getattr(ds, "source_kind", "dicom") == "dicom":
+        candidate = Path(ds.source) / sample / "XY"
+    else:
+        candidate = Path(getattr(ds, "source_path", None) or "")
+    try:
+        status = candidate.stat()
+        text = f"{candidate.resolve()}|{status.st_size}|{status.st_mtime_ns}"
+    except OSError:
+        text = f"{candidate}|missing"
+    return hashlib.md5(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _prune_disk_cache(dataset: str, sample: str, kind: str, keep: Path) -> None:
+    """Delete superseded cache files for one specimen and kind, and temp
+    files left by killed writes (older than an hour).
+
+    ``kind`` is "payload" (preview payloads) or "ortho" (ortho columns).
+    Without this, the cache folder grows by one file per source change and
+    per cache-version bump, and nothing removes the superseded ones.
+    """
+    stem = f"{dataset}_{sample}_"
+    cutoff = time.time() - 3600
+    try:
+        entries = list(CACHE_DIR.iterdir())
+    except OSError:
+        return
+    for path in entries:
+        name = path.name
+        try:
+            if name.endswith(".tmp.npz"):
+                if path.stat().st_mtime < cutoff:
+                    path.unlink()
+                continue
+            if (path == keep or not name.startswith(stem)
+                    or not name.endswith(".npz")):
+                continue
+            if ("_orig_v" in name) == (kind == "ortho"):
+                path.unlink()
+        except OSError:
+            continue
+
+
+def forget_specimen(sample: str, dataset: str = "custom") -> None:
+    """Drop the in-memory views of a specimen ID that was removed or renamed."""
+    prefix = f"{dataset}/{sample}"
+    for store in (_XY_FILES, _SLICE_SHAPES, ORIG_SLICE_CACHE, _CACHE, _PREV):
+        for key in [k for k in store if k == prefix or k.startswith(prefix + ":")]:
+            store.pop(key, None)
+
+
 def _source_cache_key(ds, sample: str) -> str:
     base = f"{ds.key}/{sample}"
-    return (base if getattr(ds, "source_kind", "dicom") == "dicom"
-            else f"{base}:{_source_cache_token(ds)}")
+    if getattr(ds, "source_kind", "dicom") != "dicom":
+        base = f"{base}:{_source_cache_token(ds)}"
+    identity = source_identity(ds, sample)
+    return f"{base}:{identity}" if identity else base
 
 
 def _xy_files(ds, sample: str) -> list[Path]:
@@ -734,7 +795,8 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
             pass
         return payload
     key = (f"{dataset}/{sample}:{_mtime_key(sdir)}:"
-           f"src{_source_cache_token(ds)}:v{CACHE_VERSION}")
+           f"src{_source_cache_token(ds)}:id{source_identity(ds, sample)}"
+           f":v{CACHE_VERSION}")
     hit = _CACHE.get(key)
     if hit:
         return hit
@@ -869,6 +931,7 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
         np.savez_compressed(tmp, payload=np.array(json.dumps(disk)),
                             cloud=blob)
         os.replace(tmp, dp)
+        _prune_disk_cache(dataset, sample, "payload", dp)
     except Exception:
         pass                                  # cache is best-effort
     for cache_key in list(ORIG_SLICE_CACHE):
@@ -1196,7 +1259,8 @@ def _prev_source(dataset: str, sample: str) -> dict:
     stripped lines, window + cut geometry. Cached in-process and on disk."""
     ds = _get_ds(dataset, sample)
     sdir = output_root(ds) / sample
-    key = f"{_prev_key(dataset, sample, sdir)}:src{_source_cache_token(ds)}"
+    key = (f"{_prev_key(dataset, sample, sdir)}:src{_source_cache_token(ds)}"
+           f":id{source_identity(ds, sample)}")
     hit = _PREV.get(key)
     if hit:
         _PREV.pop(key)
@@ -1273,7 +1337,8 @@ def _ortho_columns_cached(ds, sample: str, sdir: Path,
     ``None`` columns mean the cache predates them (callers then fall back
     to the legacy rank-2 path, which wood_bounds still honours).
     """
-    key = f"{ds.key}/{sample}:{_mtime_key(sdir)}:src{_source_cache_token(ds)}"
+    key = (f"{ds.key}/{sample}:{_mtime_key(sdir)}:src{_source_cache_token(ds)}"
+           f":id{source_identity(ds, sample)}")
     disk = CACHE_DIR / (key.replace("/", "_").replace(":", "_")
                         + f"_orig_v{ORTHO_CACHE_VERSION}.npz")
     if disk.exists():
@@ -1298,6 +1363,7 @@ def _ortho_columns_cached(ds, sample: str, sdir: Path,
         else:
             np.savez_compressed(tmp, sag=sag, cor=cor)
         os.replace(tmp, disk)
+        _prune_disk_cache(ds.key, sample, "ortho", disk)
     except Exception:
         pass
     return sag, cor, sagc, corc

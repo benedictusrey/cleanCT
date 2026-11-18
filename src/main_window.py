@@ -2020,6 +2020,7 @@ class MainWindow(QMainWindow):
         except csx.LoadError as e:
             QMessageBox.critical(self, "Rename failed", str(e))
             return
+        viewer_core.forget_specimen(sp)     # the old ID's cached views are stale
         # keep the processed output folder aligned with the new ID
         out_dir = self._specimen_output_dir(ds, sp)
         if out_dir is not None and out_dir.is_dir():
@@ -2087,6 +2088,7 @@ class MainWindow(QMainWindow):
             except OSError as e:
                 QMessageBox.critical(self, "Remove failed", str(e))
                 return
+            viewer_core.forget_specimen(sp)
             if (self.dataset == ds and self.sample == sp and
                     not self._checkpoint_snapshot_only):
                 self._deselect_current()
@@ -2205,6 +2207,7 @@ class MainWindow(QMainWindow):
         for sp in list(customs):
             try:
                 if csx.remove_specimen(sp):
+                    viewer_core.forget_specimen(sp)
                     removed += 1
             except OSError as e:
                 self._log_action(f"⚠ could not unregister {sp}: {e}")
