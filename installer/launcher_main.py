@@ -81,6 +81,15 @@ def fail_box(msg: str) -> None:
         pass
 
 
+def is_elevated() -> bool:
+    """True when this process runs with administrator rights (UAC elevated)."""
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
 def main() -> int:
     found = payload_dirs()
     if found is None:
@@ -120,6 +129,11 @@ def main() -> int:
     if len(sys.argv) > 1:
         args += list(sys.argv[1:])
 
+    if is_elevated():
+        # scans are linked with junctions that an elevated process cannot traverse
+        fail_box("cleanCT is running as administrator. Scans linked in a normal "
+                 "session cannot be opened in this mode. Close cleanCT and start "
+                 "it normally from the Start menu.")
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     log, log_path = open_log(app_dir)
     started = time.monotonic()

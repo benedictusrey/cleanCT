@@ -34,7 +34,7 @@ Name: "{group}\cleanCT"; Filename: "{app}\cleanCT.exe"
 Name: "{autodesktop}\cleanCT"; Filename: "{app}\cleanCT.exe";     Tasks: desktopicon
 
 [Run]
-Filename: "{app}\cleanCT.exe"; Description: "Launch cleanCT";     Flags: nowait postinstall skipifsilent
+Filename: "{app}\cleanCT.exe"; Description: "Launch cleanCT";     Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallDelete]
 ; runtime logs/state live in %LOCALAPPDATA%\cleanCT (left on purpose)

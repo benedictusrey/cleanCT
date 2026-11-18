@@ -158,6 +158,16 @@ def main() -> int:
                     Path("D:/cleanCT-output")),
           str(explicit_output["env"].get("CLEANCT_OUTPUT_ROOT")))
 
+    real_is_elevated = getattr(launcher, "is_elevated", None)
+    launcher.is_elevated = lambda: True
+    try:
+        elevated = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"})
+    finally:
+        launcher.is_elevated = real_is_elevated or (lambda: False)
+    check("launcher warns when started as administrator",
+          len(elevated["boxes"]) == 1 and "as administrator" in elevated["boxes"][0],
+          str(elevated["boxes"]))
+    check("launcher still starts the app when elevated", elevated["return_code"] == 0)
     crashed = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"}, exit_code=3)
     check("launcher names the log when the app exits badly at start-up",
           crashed["return_code"] == 3 and len(crashed["boxes"]) == 1
