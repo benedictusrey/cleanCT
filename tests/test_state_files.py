@@ -153,6 +153,28 @@ try:
         if os.path.lexists(csx.DATA_DIR / 'stuck' / 'XY'):
             real_rmdir_junction(csx.DATA_DIR / 'stuck' / 'XY')
     check('a link that cannot be removed still unregisters the ID', removed is True and still_registered is False, f'removed={removed} still={still_registered}')
+    # ---- a failed cleanup must not hide the real registration error ----
+    masked_folder = jn / "masked_dicom"
+    masked_folder.mkdir()
+    real_validate, real_link = csx.validate_input, csx._link_source
+    real_sorted, real_rmdir = csx.sorted_source_files, csx._rmdir_junction
+    csx.validate_input = lambda folder, **kw: {
+        "source_kind": "dicom", "source_folder": str(masked_folder),
+        "source_path": str(masked_folder), "n_slices": 2}
+    csx._link_source = lambda link, target: None
+    csx.sorted_source_files = lambda folder: []      # sort check fails: 0 != 2
+    csx._rmdir_junction = refused                    # and the cleanup fails too
+    try:
+        csx.register_series(masked_folder, "masked")
+        masked_msg = "no error"
+    except Exception as exc:
+        masked_msg = f"{type(exc).__name__}: {exc}"
+    finally:
+        csx.validate_input, csx._link_source = real_validate, real_link
+        csx.sorted_source_files, csx._rmdir_junction = real_sorted, real_rmdir
+    check("a failed cleanup does not hide the pipeline validation error",
+          masked_msg.startswith("LoadError: series failed pipeline validation")
+          and "448" not in masked_msg, masked_msg[:200])
     # ---- user state never falls back into the install folder (Task 15) ----
     from core import paths as app_paths
     blocker = work / "not-a-folder"

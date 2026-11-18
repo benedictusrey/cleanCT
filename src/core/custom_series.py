@@ -327,7 +327,10 @@ def register_series(folder: Path, specimen: str | None = None,
             raise LoadError(f"series sort mismatch via junction "
                             f"({n_sorted} != {info['n_slices']})")
     except Exception as e:
-        _rmdir_junction(link)
+        try:
+            _rmdir_junction(link)
+        except OSError as exc:      # a failed cleanup must not hide the real error
+            print(f"cleanCT: could not remove the link {link}: {exc}", file=sys.stderr)
         raise LoadError(f"series failed pipeline validation: {e}") from e
 
     entry = {**info, "specimen": specimen, "dataset_key": CUSTOM_KEY,

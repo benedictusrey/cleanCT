@@ -1978,28 +1978,41 @@ class MainWindow(QMainWindow):
         new = new.strip()
         if not new or new == sp:
             return
-        # refuse before the registry changes: a processed folder that already
-        # carries the target ID would leave this specimen's results orphaned
         target_id = csx.unique_specimen_id(new, ignore=sp)
+        if target_id == sp:             # the name sanitizes to the current ID
+            return
         out_dir = self._specimen_output_dir(ds, sp)
+        # refuse before anything changes: a processed folder that already
+        # carries the target ID would leave this specimen's results orphaned
         if out_dir is not None and out_dir.with_name(target_id).exists():
             QMessageBox.warning(self, "Rename specimen",
                                 f"“{target_id}” already has processed results. "
                                 "Choose another ID.")
             return
+        # the processed folder moves first, so a folder that cannot be moved
+        # (open in Explorer, a file held by another program) changes nothing
+        moved = out_dir is not None and out_dir.is_dir()
+        if moved:
+            try:
+                out_dir.rename(out_dir.with_name(target_id))
+            except OSError as e:
+                QMessageBox.critical(
+                    self, "Rename failed",
+                    f"The processed results of “{sp}” could not be moved: {e}\n"
+                    "Close any program that has them open, then try again.")
+                return
         try:
             accepted = csx.rename_specimen(sp, new)
-        except csx.LoadError as e:
+        except (csx.LoadError, OSError) as e:
+            if moved:                   # put the results back under the old ID
+                try:
+                    out_dir.with_name(target_id).rename(out_dir)
+                except OSError as undo:
+                    self._log_action(f"could not move the results of {target_id} "
+                                     f"back to {sp}: {undo}")
             QMessageBox.critical(self, "Rename failed", str(e))
             return
         viewer_core.forget_specimen(sp)     # the old ID's cached views are stale
-        # keep the processed output folder aligned with the new ID
-        if out_dir is not None and out_dir.is_dir():
-            try:
-                out_dir.rename(out_dir.with_name(accepted))
-            except OSError as e:
-                self._log_action(f"⚠ renamed {sp} → {accepted} but the "
-                                 f"processed folder stayed put: {e}")
         if self.dataset == ds and self.sample == sp and \
                 not self._checkpoint_snapshot_only:
             self.sample = accepted

@@ -271,6 +271,51 @@ def main() -> int:
     shutil.rmtree(out_custom / "panel_c_block", ignore_errors=True)
     shutil.rmtree(out_custom / "panel_b", ignore_errors=True)
 
+    # [3c] a processed folder that cannot be moved changes nothing -----------
+    (out_custom / "panel_b").mkdir(parents=True, exist_ok=True)
+    (out_custom / "panel_b" / "report.json").write_text('{"report": {"source_kind": "dicom"}}', encoding="utf-8")
+    window._select_row_for(("custom", "panel_b"))
+    _InputStub.text = "panel_e_locked"
+    held = open(out_custom / "panel_b" / "report.json", "rb")   # Windows cannot rename a folder with an open file
+    shown: list[str] = []
+    real_critical = _MsgStub.__dict__["critical"]
+    _MsgStub.critical = staticmethod(lambda *a, **k: shown.append(str(a[2]) if len(a) > 2 else ""))
+    try:
+        window._rename_selected()
+    finally:
+        held.close()
+        _MsgStub.critical = real_critical
+    locked_reg = csx.registered_specimens()
+    check("a locked processed folder blocks the rename and keeps the old ID",
+          "panel_b" in locked_reg and "panel_e_locked" not in locked_reg, str(sorted(locked_reg)))
+    check("the results stay under the old name",
+          (out_custom / "panel_b" / "report.json").is_file()
+          and not (out_custom / "panel_e_locked").exists())
+    check("the user is told why the rename stopped",
+          len(shown) == 1 and "could not be moved" in shown[0], str(shown)[:120])
+    shutil.rmtree(out_custom / "panel_b", ignore_errors=True)
+
+    # [3d] a registry write that fails after the folder moved puts it back ----
+    (out_custom / "panel_b").mkdir(parents=True, exist_ok=True)
+    (out_custom / "panel_b" / "report.json").write_text('{"report": {"source_kind": "dicom"}}', encoding="utf-8")
+    window._select_row_for(("custom", "panel_b"))
+    _InputStub.text = "panel_f_undo"
+    real_rename_specimen = csx.rename_specimen
+
+    def failing_rename(old, new_id):
+        raise OSError(28, "No space left on device")
+
+    csx.rename_specimen = failing_rename
+    try:
+        window._rename_selected()
+    finally:
+        csx.rename_specimen = real_rename_specimen
+    undo_reg = csx.registered_specimens()
+    check("a failed registry write puts the processed folder back under the old ID",
+          "panel_b" in undo_reg and (out_custom / "panel_b" / "report.json").is_file()
+          and not (out_custom / "panel_f_undo").exists(), str(sorted(undo_reg)))
+    shutil.rmtree(out_custom / "panel_b", ignore_errors=True)
+
     # [4] duplicate ------------------------------------------------------------
     _InputStub.text = "panel_a_clone"
     window._duplicate_selected()
