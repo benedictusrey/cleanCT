@@ -189,6 +189,33 @@ _again = {str(pydicom.dcmread(p, stop_before_pixels=True).SeriesInstanceUID)
 check("UID: a re-export of the same specimen gets a new SeriesInstanceUID",
       len(_again) == 1 and _again.isdisjoint(_out_series),
       f"first={sorted(_out_series)} again={sorted(_again)}")
+
+# verification memory: output headers only, pixels for at most three spot checks
+import pydicom as _pyd  # noqa: E402
+
+_real_dcmread = _pyd.dcmread
+_dest_mem = tmp / "out_dcm_mem"
+_series_name = be.series_dir_name(SPEC)
+_verify_reads: list[bool] = []
+
+
+def _spy_dcmread(fp, *args, **kwargs):
+    # only this export's output series folder (source slices sit in "XY")
+    if Path(str(fp)).parent.name == _series_name:
+        _verify_reads.append(bool(kwargs.get("stop_before_pixels", False)))
+    return _real_dcmread(fp, *args, **kwargs)
+
+
+_pyd.dcmread = _spy_dcmread
+try:
+    be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
+                     stripped, _dest_mem, keep_from=4, export_format="dicom")
+finally:
+    _pyd.dcmread = _real_dcmread
+_pixel_reads = sum(1 for header_only in _verify_reads if not header_only)
+check("VERIFY: output series read header-only except three pixel spot checks",
+      len(_verify_reads) >= N_KEPT and _pixel_reads <= 3,
+      f"reads={len(_verify_reads)} with pixels={_pixel_reads}")
 check("BOTH: full delivery metadata written and readable",
       str(_check0.PatientID) == SPEC
       and str(_check0.Modality) == "CT"

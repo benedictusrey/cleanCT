@@ -1095,15 +1095,18 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
         # kept slices keep their ORIGINAL filenames, whose alphabetical
         # order need not match physical slice order — match each output
         # slice to its source through the SOP UID it references
-        out_by_uid: dict[str, object] = {}
+        # headers only: a series can be gigabytes, so index paths, not datasets
+        out_by_uid: dict[str, Path] = {}
         for p in out_files:
-            ds = pydicom.dcmread(p)
+            ds = pydicom.dcmread(p, stop_before_pixels=True)
             refs = getattr(ds, "SourceImageSequence", None) or []
             if refs:
-                out_by_uid[str(refs[0].ReferencedSOPInstanceUID)] = ds
+                out_by_uid[str(refs[0].ReferencedSOPInstanceUID)] = p
         for idx in (0, cut_from // 2, cut_from - 1):        # spot checks
             src = pydicom.dcmread(source_files[idx])
-            outp = out_by_uid.get(str(src.SOPInstanceUID))
+            out_path = out_by_uid.get(str(src.SOPInstanceUID))
+            # pixels are read for one spot-check slice at a time, then dropped
+            outp = pydicom.dcmread(out_path) if out_path is not None else None
             if outp is None:
                 problems.append(f"kept slice {idx} missing from the series")
                 continue
