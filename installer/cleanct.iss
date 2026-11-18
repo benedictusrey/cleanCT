@@ -33,8 +33,9 @@ Source: "_pkg\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 Name: "{group}\cleanCT"; Filename: "{app}\cleanCT.exe"
 Name: "{autodesktop}\cleanCT"; Filename: "{app}\cleanCT.exe";     Tasks: desktopicon
 
+; start as the original user: an elevated cleanCT cannot traverse its junctions (WinError 448)
 [Run]
-Filename: "{app}\cleanCT.exe"; Description: "Launch cleanCT";     Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\cleanCT.exe"; Description: "Launch cleanCT"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallDelete]
 ; runtime logs/state live in %LOCALAPPDATA%\cleanCT (left on purpose)

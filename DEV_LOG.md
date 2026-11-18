@@ -380,9 +380,50 @@ README_INSTALLER.txt, USER_GUIDE.md, THIRD_PARTY_NOTICES.md, RELEASE_NOTES.md).
 Extracted ZIP: cleanCT.exe --selfcheck exit 0, and the log reports the output
 root under %LOCALAPPDATA%\cleanCT\pipeline_output. Packaged GUI smoke PASS.
 
+Post-audit fixes (WinError 448 report, same day):
+- **Setup starts cleanCT as admin (likely root cause; not reproduced here).** The
+  setup's "Launch cleanCT" box ran the app elevated. An elevated process cannot
+  follow the junctions the app makes for loaded scans, so each load failed with
+  WinError 448. The entry now runs as the original user (`runasoriginaluser`,
+  commit `717a306`), and the launcher warns when it starts elevated. The builder
+  template had dropped the flag, so every rebuild would have undone it; the
+  template is fixed and the guard checks it too (`59cd71d`,
+  `tests/test_installer_script.py`).
+- **A specimen whose link cannot be removed.** The registry entry is deleted
+  first, so a stuck link no longer keeps the ID registered (`df7448b`,
+  `remove_specimen`).
+- **A failed cleanup hides the real error.** When the pipeline check of a new
+  DICOM link fails, a failed removal of the link is logged, and the validation
+  error is what the user sees (`a3b8732`, `register_series`). Four junctions
+  from earlier failed loads (`2-5`, `2-8`, `1-9_cleaned`, `2-21_cleaned`) are
+  still in the state folder with no registry entry; they are safe to remove.
+- **Cache names could collide.** Cache file names joined the key parts with
+  "_", so pruning specimen `x` could delete the cache of `x_y`. Names now use
+  "~"; older names are removed as regenerable; `CACHE_VERSION` is 21 (`df7448b`).
+- **Rename order.** The processed folder moves before the registry changes. A
+  locked folder stops the rename with a message; a failed registry write moves
+  the folder back. Tests: `tests/test_specimen_panel.py` [3c] and [3d]
+  (`a3b8732`).
+- **Rename into existing results** is refused before anything changes, and a
+  name that sanitizes to the current ID is a no-op (`d1b9400`, `a3b8732`).
+- **Windows device names.** IDs such as CON, NUL, AUX, COM1 to COM9 and LPT1 to
+  LPT9 get a `_scan` suffix, because Windows cannot create those folders
+  (`d1b9400`).
+- **Open:** the design depends on NTFS junctions. Not changed here; it needs a
+  decision (see the audit report).
+
+Verification (rebuild after the post-audit fixes): the builder's gate PASS and the
+launcher self-check PASS. The portable ZIP has 6,689 entries under
+`cleanCT-1.0.0`, its CRCs are clean, and its SHA-256 equals the sidecar. The
+packaged sources contain the fixes. The setup was compiled from the regenerated
+`installer\cleanct.iss`, which has `runasoriginaluser`. It has not been installed
+on this PC, so the launch behaviour is covered by `tests/test_installer_script.py`,
+not by a run.
+
 Open items and deliberate deviations:
-- **Setup installer not built.** `ISCC.exe` (Inno Setup 6) is not installed on
-  this PC, so `cleanCT-1.0.0-setup.exe` is missing from the release folder.
+- **Setup installer built:** `cleanCT-1.0.0-setup.exe` (208 MB, SHA-256
+  `3cb20ae2…26f7`). Install it once to confirm that cleanCT starts as the normal
+  user and that the scans from the report load.
 - **Sibling mirror `H:\Treated Kyodai samples\cleanCT_v1.0.0`** (about 1.3 GB)
   is still present. It is removed only on explicit confirmation.
 - Painted image overlays (7 to 8 pt, drawn over the scan) were left as they are.

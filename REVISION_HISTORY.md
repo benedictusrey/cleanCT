@@ -252,3 +252,16 @@ changelog of what changed and why.
   asks before it replaces a bundle, and Ctrl+O, Ctrl+R, Ctrl+E and Ctrl+S are
   available. The launcher reports start-up failures with the log location.
 - Details, files and open items: `DEV_LOG.md` section 2.8.
+
+## 2026-11-18 — Post-audit fixes (WinError 448 report)
+
+- **Setup and elevation:** the setup starts cleanCT as the original user, and the
+  launcher warns when it starts as administrator. The builder template keeps the
+  setting, and the test checks the template as well.
+- **Specimens:** removing a specimen whose link cannot be removed no longer keeps
+  its ID registered; a failed cleanup no longer hides the real error; a rename
+  moves the processed folder first and moves it back on failure; Windows device
+  names are valid IDs with a suffix.
+- **Viewer cache:** cache file names cannot collide between specimens
+  (`CACHE_VERSION` 21).
+- Details, commits and open items: `DEV_LOG.md` section 2.8.
