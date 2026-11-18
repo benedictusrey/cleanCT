@@ -113,7 +113,7 @@ class WorkerThread(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("cleanCT — Wood CT Metal-Base Removal")
+        self.setWindowTitle("cleanCT: wood CT metal-base removal")
         self.resize(1540, 960)
 
         # Set Window Icon (Native Multi-Res with all explicit pixel mipmaps)
@@ -211,6 +211,7 @@ class MainWindow(QMainWindow):
         self._empty_row: QListWidgetItem | None = None
 
         self._init_ui()
+        self._wrap_long_labels()
         # the app always opens centered (idempotent; main.py re-applies it
         # before show() — this also covers direct construction, e.g. the
         # native test harness)
@@ -338,6 +339,19 @@ class MainWindow(QMainWindow):
         now_str = datetime.now().strftime("%H:%M:%S")
         if hasattr(self, "log_view") and self.log_view:
             self.log_view.append(f"[{now_str}] {msg}")
+        if hasattr(self, "lbl_log_last") and self.lbl_log_last:
+            short = msg if len(msg) <= 90 else msg[:89].rstrip() + "…"
+            self.lbl_log_last.setText(f"{now_str}  {short}")
+            self.lbl_log_last.setToolTip(f"[{now_str}] {msg}")
+
+    def _set_log_open(self, opened: bool) -> None:
+        self.log_view.setVisible(opened)
+        self.btn_log_toggle.setText("Hide activity" if opened else "Show activity")
+
+    def _clear_log(self) -> None:
+        self.log_view.clear()
+        self.lbl_log_last.setText("")
+        self.lbl_log_last.setToolTip("")
 
     def center_on_screen(self):
         """Center the window on the screen's AVAILABLE geometry (the area
@@ -423,8 +437,8 @@ class MainWindow(QMainWindow):
         n = int(rep.get("n_slices") or 0)
         vox = float(rep.get("voxel_mm") or 0.0)
         self.lbl_sample_sub.setText(
-            f"{sample} — user-loaded specimen · NOT PROCESSED YET — "
-            f"verify the detection guides, then run Process selected")
+            f"{sample}: loaded, not processed yet. Check the detection guides, "
+            "then run Process selected.")
         self._set_export_source_kind(
             str(p.get("source_kind") or rep.get("source_kind") or "dicom"))
         self.kpi_banner.updateMetrics({"empty": True})
@@ -856,32 +870,41 @@ class MainWindow(QMainWindow):
         job_layout.addWidget(self.lbl_job_sub)
         side_layout.addWidget(self.job_box)
 
-        # Real-time Action Logger (Bottom Left Corner)
+        # Activity: the latest message stays visible; the full log opens on demand
         box_log = QFrame()
         box_log.setObjectName("box_action_log")
         log_layout = QVBoxLayout(box_log)
-        log_layout.setContentsMargins(4, 4, 4, 4)
-        log_layout.setSpacing(4)
+        log_layout.setContentsMargins(10, 6, 10, 6)
+        log_layout.setSpacing(6)
 
         log_head = QHBoxLayout()
-        lbl_log_title = QLabel("Activity")
-        theme.set_role(lbl_log_title, "hint")
-        log_head.addWidget(lbl_log_title)
+        self.btn_log_toggle = QPushButton("Show activity")
+        self.btn_log_toggle.setObjectName("btn_log_toggle")
+        self.btn_log_toggle.setCheckable(True)
+        theme.set_role(self.btn_log_toggle, "ghost")
+        self.btn_log_toggle.toggled.connect(self._set_log_open)
+        log_head.addWidget(self.btn_log_toggle)
         log_head.addStretch()
-        btn_clear_log = QPushButton("clear")
-        btn_clear_log.setFixedHeight(18)
-        theme.set_role(btn_clear_log, "link")
-        btn_clear_log.clicked.connect(lambda: self.log_view.clear())
+        btn_clear_log = QPushButton("Clear")
+        theme.set_role(btn_clear_log, "ghost")
+        btn_clear_log.clicked.connect(self._clear_log)
         log_head.addWidget(btn_clear_log)
         log_layout.addLayout(log_head)
+        self.lbl_log_last = QLabel("")
+        self.lbl_log_last.setObjectName("lbl_log_last")
+        self.lbl_log_last.setWordWrap(True)
+        theme.set_role(self.lbl_log_last, "hint")
+        log_layout.addWidget(self.lbl_log_last)
 
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
-        self.log_view.setMinimumHeight(110)
-        # wrap at word boundaries — mid-word breaks ("sagitta / l") read badly
+        self.log_view.setMinimumHeight(120)
+        self.log_view.setMaximumHeight(220)
+        # wrap at word boundaries; a mid-word break reads badly
         from PySide6.QtGui import QTextOption
         self.log_view.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         self.log_view.setObjectName("log_view")
+        self.log_view.setVisible(False)
         log_layout.addWidget(self.log_view)
         side_layout.addWidget(box_log)
 
@@ -897,13 +920,13 @@ class MainWindow(QMainWindow):
         main_area_layout.setSpacing(12)
 
         # Top Header Bar (Title + KPI Banner)
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(18)
+        top_bar = QVBoxLayout()
+        top_bar.setSpacing(12)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
         self.lbl_sample_title = QLabel("Select a sample")
-        self.lbl_sample_title.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        theme.set_role(self.lbl_sample_title, "title")
         self.lbl_sample_sub = QLabel("Pick a dataset & sample from the sidebar")
         theme.set_role(self.lbl_sample_sub, "secondary")
         title_box.addWidget(self.lbl_sample_title)
@@ -911,7 +934,7 @@ class MainWindow(QMainWindow):
         top_bar.addLayout(title_box)
 
         self.kpi_banner = KPIBanner()
-        top_bar.addWidget(self.kpi_banner, 1)
+        top_bar.addWidget(self.kpi_banner)
         main_area_layout.addLayout(top_bar)
 
         self.empty_state = QFrame()
@@ -956,25 +979,31 @@ class MainWindow(QMainWindow):
         self.btn_tab_prefs.clicked.connect(lambda: self._switch_tab("prefs"))
         mode_row.addWidget(self.btn_tab_prefs)
 
-        mode_row.addSpacing(16)
+        mode_row.addStretch()
+        main_area_layout.addLayout(mode_row)
+
+        # Export bar on its own row, so the tabs and the export settings do not
+        # form one long row that sets the window's minimum width
+        export_row = QHBoxLayout()
+        export_row.setSpacing(12)
 
         # Export Bundle Bar
-        mode_row.addWidget(QLabel("Export to:"))
+        export_row.addWidget(QLabel("Export to:"))
         self.edit_save_root = QLineEdit(self.save_root)
-        self.edit_save_root.setMinimumWidth(200)
+        self.edit_save_root.setMinimumWidth(120)
         self.edit_save_root.setToolTip(
             f"Default folder for exported extraction bundles.\n"
             f"Remembered across sessions.\n\n{self.save_root}")
         self.edit_save_root.editingFinished.connect(self._on_save_root_edited)
-        mode_row.addWidget(self.edit_save_root, 1)
+        export_row.addWidget(self.edit_save_root, 1)
 
         btn_browse_root = QPushButton("Browse…")
         btn_browse_root.clicked.connect(self._browse_save_root)
-        mode_row.addWidget(btn_browse_root)
+        export_row.addWidget(btn_browse_root)
 
         # Export format (audit 0M): DICOM only / NIfTI only / both.
-        mode_row.addSpacing(8)
-        mode_row.addWidget(QLabel("Format:"))
+        export_row.addSpacing(8)
+        export_row.addWidget(QLabel("Format:"))
         self.combo_export_format = QComboBox()
         self._EXPORT_FORMAT_ITEMS = [
             ("DICOM + NIfTI", bundle_export.FORMAT_BOTH),
@@ -992,18 +1021,18 @@ class MainWindow(QMainWindow):
             self._format_index(self.export_format))
         self.combo_export_format.currentIndexChanged.connect(
             self._on_export_format_changed)
-        mode_row.addWidget(self.combo_export_format)
+        export_row.addWidget(self.combo_export_format)
 
         self.btn_export = QPushButton("Export bundle")
         self.btn_export.setObjectName("btn_export")
         self.btn_export.clicked.connect(self._export_bundle)
-        mode_row.addWidget(self.btn_export)
+        export_row.addWidget(self.btn_export)
 
         self.lbl_export_status = QLabel("")
         theme.set_role(self.lbl_export_status, "status-ok")
 
-        mode_row.addStretch()
-        main_area_layout.addLayout(mode_row)
+        export_row.addStretch()
+        main_area_layout.addLayout(export_row)
         self.lbl_export_status.setWordWrap(True)
         main_area_layout.addWidget(self.lbl_export_status)
 
@@ -1012,12 +1041,21 @@ class MainWindow(QMainWindow):
         main_area_layout.addWidget(self.stack, 1)
 
         # Page 0: Auto Tab Workspace
+        # Each page scrolls sideways when the window is narrower than the page
+        # needs, instead of forcing the whole window wider than the screen.
+        def _scrollable(page: QWidget) -> QScrollArea:
+            area = QScrollArea()
+            area.setWidgetResizable(True)
+            area.setFrameShape(QFrame.NoFrame)
+            area.setWidget(page)
+            return area
+
         self.page_auto = self._build_auto_page()
-        self.stack.addWidget(self.page_auto)
+        self.stack.addWidget(_scrollable(self.page_auto))
 
         # Page 1: Preferences Tab Workspace
         self.page_prefs = self._build_prefs_page()
-        self.stack.addWidget(self.page_prefs)
+        self.stack.addWidget(_scrollable(self.page_prefs))
 
         root_layout.addWidget(main_area, 1)
 
@@ -1042,8 +1080,8 @@ class MainWindow(QMainWindow):
         axial_box.setSpacing(6)
 
         ax_head = QHBoxLayout()
-        lbl_ax_title = QLabel("Axial — Original | Stripped")
-        lbl_ax_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        lbl_ax_title = QLabel("Axial: original and stripped")
+        theme.set_role(lbl_ax_title, "section")
         ax_head.addWidget(lbl_ax_title)
         ax_head.addStretch()
         lbl_legend = QLabel("<span style='color:#f2b23c;'>■ wood ROI</span>  <span style='color:#ff463c;'>■ metal</span>")
@@ -1080,8 +1118,8 @@ class MainWindow(QMainWindow):
         long_box.setSpacing(6)
 
         long_head = QHBoxLayout()
-        lbl_long_title = QLabel("Longitudinal — Cut Boundary Alignment")
-        lbl_long_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        lbl_long_title = QLabel("Longitudinal: cut boundary alignment")
+        theme.set_role(lbl_long_title, "section")
         long_head.addWidget(lbl_long_title)
         long_head.addStretch()
 
@@ -1111,8 +1149,8 @@ class MainWindow(QMainWindow):
         v3d_layout.setSpacing(8)
 
         v3d_head = QHBoxLayout()
-        lbl_3d_title = QLabel("3D Point Cloud Inspection")
-        lbl_3d_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        lbl_3d_title = QLabel("3D point cloud")
+        theme.set_role(lbl_3d_title, "section")
         v3d_head.addWidget(lbl_3d_title)
         v3d_head.addStretch()
 
@@ -1162,8 +1200,9 @@ class MainWindow(QMainWindow):
         prev_layout.setSpacing(8)
 
         head_row = QHBoxLayout()
-        self.lbl_pref_head = QLabel("Original Reconstruction — Grayscale Colormap")
-        self.lbl_pref_head.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.lbl_pref_head = QLabel("Original scan")
+        self.lbl_pref_head.setWordWrap(True)
+        theme.set_role(self.lbl_pref_head, "section")
         head_row.addWidget(self.lbl_pref_head)
         head_row.addStretch()
 
@@ -1201,14 +1240,13 @@ class MainWindow(QMainWindow):
         self.btn_guide_4l.clicked.connect(lambda: self._set_guide_mode("4lines"))
         guide_bar.addWidget(self.btn_guide_4l)
 
-        self.btn_snap_lines = QPushButton("⇩ Snap to detection")
+        self.btn_snap_lines = QPushButton("Snap to detection")
         self.btn_snap_lines.setObjectName("btn_snap_lines")
         self.btn_snap_lines.setToolTip(
             "Move the Keep/Cut lines to the validated detection: the Keep "
             "line to the air-detected wood top and the Cut line to the "
             "pipeline's halo-onset cut (the metal threshold line).")
         self.btn_snap_lines.clicked.connect(self._snap_lines_to_detection)
-        guide_bar.addWidget(self.btn_snap_lines)
 
         self.chk_auto_snap = QCheckBox("Auto snap to detection")
         self.chk_auto_snap.setChecked(True)
@@ -1218,13 +1256,20 @@ class MainWindow(QMainWindow):
             "Dragging any line pauses auto-snap until the next detection;\n"
             "uncheck to keep manual lines untouched across loads.")
         self.chk_auto_snap.toggled.connect(self._on_auto_snap_toggled)
-        guide_bar.addWidget(self.chk_auto_snap)
 
         guide_bar.addStretch()
+        prev_layout.addLayout(guide_bar)
+
+        # snap and auto-snap get their own row, so the toolbar fits beside the controls
+        snap_bar = QHBoxLayout()
+        snap_bar.setSpacing(10)
+        snap_bar.addWidget(self.btn_snap_lines)
+        snap_bar.addWidget(self.chk_auto_snap)
+        snap_bar.addStretch()
         lbl_hint = QLabel("drag lines to adjust")
         theme.set_role(lbl_hint, "hint")
-        guide_bar.addWidget(lbl_hint)
-        prev_layout.addLayout(guide_bar)
+        snap_bar.addWidget(lbl_hint)
+        prev_layout.addLayout(snap_bar)
 
         # 2D Interactive Viewer (4 Lines enabled by default)
         self.pref_viewer = Viewer2D()
@@ -1263,9 +1308,26 @@ class MainWindow(QMainWindow):
         ctrl_layout.setSpacing(12)
         ctrl_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
-        lbl_ctrl_title = QLabel("Cut Point & Collection Range Controls")
+        lbl_ctrl_title = QLabel("Cut and range controls")
         lbl_ctrl_title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         ctrl_layout.addWidget(lbl_ctrl_title)
+
+        # Appearance: dark by default; light for bright rooms (kept in settings.json)
+        row_theme = QHBoxLayout()
+        lbl_theme = QLabel("Appearance")
+        theme.set_role(lbl_theme, "secondary")
+        self.cmb_theme = QComboBox()
+        self.cmb_theme.setObjectName("cmb_theme")
+        self.cmb_theme.addItem("Dark", "dark")
+        self.cmb_theme.addItem("Light", "light")
+        self.cmb_theme.setCurrentIndex(0 if theme.mode() == "dark" else 1)
+        self.cmb_theme.setToolTip(
+            "The scan canvases stay dark in both themes, so the image keeps its contrast.")
+        self.cmb_theme.currentIndexChanged.connect(self._on_theme_changed)
+        row_theme.addWidget(lbl_theme)
+        row_theme.addStretch()
+        row_theme.addWidget(self.cmb_theme)
+        ctrl_layout.addLayout(row_theme)
 
         # 1. Colorspace Palette Selector
         box_cmap = QVBoxLayout()
@@ -1384,7 +1446,7 @@ class MainWindow(QMainWindow):
         # Top Line: Keep From (Green)
         box_keep = QVBoxLayout()
         box_keep.setSpacing(2)
-        lbl_keep = QLabel("<span style='color:#37d67a;'>■</span> Top Line (Keep Start) — green boundary:")
+        lbl_keep = QLabel("<span style='color:#37d67a;'>■</span> Top line: keep start")
         lbl_keep.setTextFormat(Qt.RichText)
         theme.set_role(lbl_keep, "label")
         box_keep.addWidget(lbl_keep)
@@ -1403,7 +1465,7 @@ class MainWindow(QMainWindow):
         # Bottom Line: Cut Slice (Red)
         box_cut = QVBoxLayout()
         box_cut.setSpacing(2)
-        lbl_cut = QLabel("<span style='color:#ff463c;'>■</span> Bottom Line (Platform Cut) — red boundary:")
+        lbl_cut = QLabel("<span style='color:#ff463c;'>■</span> Bottom line: platform cut")
         lbl_cut.setTextFormat(Qt.RichText)
         theme.set_role(lbl_cut, "label")
         box_cut.addWidget(lbl_cut)
@@ -1425,7 +1487,7 @@ class MainWindow(QMainWindow):
         # Margin (Safety Buffer)
         box_margin = QVBoxLayout()
         box_margin.setSpacing(2)
-        lbl_margin = QLabel("<span style='color:#f2b23c;'>■</span> Margin Above Cut — safety slices kept:")
+        lbl_margin = QLabel("<span style='color:#f2b23c;'>■</span> Margin above cut: slices kept")
         lbl_margin.setTextFormat(Qt.RichText)
         theme.set_role(lbl_margin, "label")
         box_margin.addWidget(lbl_margin)
@@ -3657,6 +3719,31 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "Processing Error", f"Operation failed:\n{err}")
 
     # ---------------------------------------------------------------- Export Bundle
+    def _wrap_long_labels(self) -> None:
+        """Long explanations wrap onto more lines instead of setting the minimum
+        width of the window. An unwrapped sentence pushed the window to about
+        2,500 px, which is wider than most screens."""
+        from PySide6.QtWidgets import QSizePolicy
+        for lbl in self.findChildren(QLabel):
+            if len(lbl.text()) > 28 and lbl.property("role") not in ("title", "section"):
+                lbl.setWordWrap(True)
+        for box in self.findChildren(QCheckBox):
+            if len(box.text()) > 28:
+                box.setSizePolicy(QSizePolicy.Ignored, box.sizePolicy().verticalPolicy())
+
+    def _on_theme_changed(self, index: int) -> None:
+        """Switch the chrome between dark and light, and remember the choice."""
+        chosen = self.cmb_theme.itemData(index) or "dark"
+        theme.set_mode(chosen)
+        theme.apply(QApplication.instance())
+        self.update()
+        try:
+            settings = bundle_export.load_settings(STATE)
+            settings["theme"] = chosen
+            bundle_export.save_settings(STATE, settings)
+        except Exception as e:
+            self._log_action(f"could not save the appearance: {e}")
+
     def _persist_save_root(self, path: str):
         """Remember the export destination across sessions (settings.json)."""
         self.save_root = path

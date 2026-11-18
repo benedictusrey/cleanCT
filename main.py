@@ -134,7 +134,6 @@ def main() -> int:
             None, "cleanCT", "cleanCT is already open. Use its window instead.")
         return 0
     app.setStyle("Fusion")
-    app.setPalette(theme.palette())
     app.setApplicationName("cleanCT")
     # NOTE: no setApplicationDisplayName — Qt appends it to every window
     # title, which duplicated the title bar as "… Metal-Base Removal - cleanCT"
@@ -143,8 +142,14 @@ def main() -> int:
     app_icon = icon_utils.get_app_icon(ROOT)
     app.setWindowIcon(app_icon)
 
-    # Apply Dark Graphite Theme
-    app.setStyleSheet(theme.QSS)
+    # The theme the user chose in Preferences (dark unless changed)
+    try:
+        from core import bundle_export
+        from core.paths import state_root
+        theme.set_mode(bundle_export.load_settings(state_root()).get("theme", "dark"))
+    except Exception:
+        theme.set_mode("dark")
+    theme.apply(app)
 
     window = MainWindow()
     window.setWindowIcon(app_icon)

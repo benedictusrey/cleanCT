@@ -14,7 +14,7 @@ from PySide6.QtCore import QSize, Qt, QTimer, QRectF
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QWidget
 
-from theme import TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY
+import theme
 
 ROW_HEIGHT = 44
 ROW_MARGIN = 6
@@ -145,12 +145,16 @@ class SpecimenDelegate(QStyledItemDelegate):
         selected = bool(option.state & QStyle.State_Selected)
         hovered = bool(option.state & QStyle.State_MouseOver)
         if selected:
-            p.setPen(QColor("#f2b23c"))
-            p.setBrush(QColor(242, 178, 60, 42))
+            fill = QColor(theme.color("accent"))
+            fill.setAlpha(36)
+            p.setPen(QColor(theme.color("accent")))
+            p.setBrush(fill)
             p.drawRoundedRect(rect, 8, 8)
         elif hovered:
+            fill = QColor(theme.color("text"))
+            fill.setAlpha(16)
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(255, 255, 255, 14))
+            p.setBrush(fill)
             p.drawRoundedRect(rect, 8, 8)
 
         name_rect = rect.adjusted(8, 5, -8, 0)
@@ -162,7 +166,7 @@ class SpecimenDelegate(QStyledItemDelegate):
         f.setBold(True)
         f.setPointSizeF(10.0)
         p.setFont(f)
-        p.setPen(QColor("#f2b23c" if selected else TEXT_PRIMARY))
+        p.setPen(QColor(theme.color("accent" if selected else "text")))
         elided_name = QFontMetrics(f).elidedText(
             str(key[1]), Qt.ElideRight, name_rect.width())
         p.drawText(name_rect, Qt.AlignLeft | Qt.AlignVCenter, elided_name)
@@ -171,7 +175,7 @@ class SpecimenDelegate(QStyledItemDelegate):
         f2.setBold(False)
         f2.setPointSizeF(9.0)
         p.setFont(f2)
-        p.setPen(QColor(TEXT_SECONDARY if selected else TEXT_MUTED))
+        p.setPen(QColor(theme.color("text_2" if selected else "text_3")))
         p.drawText(meta_rect, Qt.AlignLeft | Qt.AlignVCenter,
                    meta if meta else " ")
 

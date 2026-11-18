@@ -512,10 +512,22 @@ def main() -> int:
     check("no button text uses a pictograph", not pictographs, str(pictographs))
     check("the process-and-export button escapes its & mnemonic",
           "&&" in window.btn_process_export.text(), window.btn_process_export.text())
-    import theme as _theme   # main.py applies theme.QSS to the application
-    app_sheet = _theme.QSS
+    import theme as _theme   # main.py applies the active theme's stylesheet
+    app_sheet = _theme.qss()
     check("combo boxes and menus are styled by the application sheet",
           "QComboBox" in app_sheet and "QMenu" in app_sheet)
+    # appearance: the Preferences switch changes the theme and remembers it
+    from core import bundle_export as _be
+    from core.paths import state_root as _state_root
+    window.cmb_theme.setCurrentIndex(window.cmb_theme.findData("light"))
+    went_light = _theme.mode() == "light" and "#f1f3f5" in _theme.qss()
+    saved_light = _be.load_settings(_state_root()).get("theme") == "light"
+    window.cmb_theme.setCurrentIndex(window.cmb_theme.findData("dark"))
+    back_dark = _theme.mode() == "dark" and "#15181d" in _theme.qss()
+    saved_dark = _be.load_settings(_state_root()).get("theme") == "dark"
+    check("the appearance switch changes the theme and saves the choice",
+          went_light and saved_light and back_dark and saved_dark,
+          f"light={went_light}/{saved_light} dark={back_dark}/{saved_dark}")
     window._set_boundary_enabled(False)
     locked = (not window.spin_left.isEnabled() and not window.slider_right.isEnabled()
               and not window.btn_snap_lines.isEnabled())

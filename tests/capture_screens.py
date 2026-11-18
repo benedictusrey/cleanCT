@@ -112,7 +112,7 @@ def grab(app, window, path: Path) -> None:
 
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyleSheet(theme.QSS)
+    theme.apply(app)
     app.setApplicationName("cleanCT")
     out_dir = OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
