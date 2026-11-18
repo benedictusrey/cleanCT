@@ -4265,6 +4265,8 @@ class MainWindow(QMainWindow):
         if not document.get("preview_png"):
             raise checkpoint_file.CheckpointError(
                 "This checkpoint has no preview image to restore.")
+        # previews still in flight belong to the specimen being replaced
+        self._preview_generation += 1
         state = document["state"]
         self._pending_select = None
         self._pending_view_restore = None

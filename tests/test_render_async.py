@@ -472,6 +472,35 @@ def main() -> int:
         mw.viewer_core.CACHE_DIR = old_cache_dir
         mw.viewer_core._CACHE = old_payload_cache
 
+    # a restored checkpoint must outrank previews still in flight for the old specimen
+    restore_state = {
+        "dataset": "24um", "sample": "1-restore",
+        "cut": 6, "keep": 2, "margin": 1, "n_slices": 8,
+        "plane": "coronal", "z": 3, "cmap": "viridis",
+        "lo": -500.0, "hi": 500.0,
+        "bounds": {"x": [0.2, 0.8], "y": [0.25, 0.75]},
+        "guide_mode": "4lines", "guides": True, "air_crop": True,
+        "pref_dirty": True, "long_view": "coronal", "axial_idx": 4,
+        "tab": "prefs",
+    }
+    restore_png_bytes = io.BytesIO()
+    Image.new("RGB", (8, 8), (72, 96, 120)).save(restore_png_bytes, format="PNG")
+    restore_png = ("data:image/png;base64," +
+                   base64.b64encode(restore_png_bytes.getvalue()).decode("ascii"))
+    restore_file = TEST_TMP / "checkpoint-generation.ctcheckpoint.json"
+    mw.checkpoint_file.save_checkpoint(
+        restore_file, mw.checkpoint_file.new_document(restore_state, restore_png))
+    restored = NoStartupIOWindow()
+    try:
+        generation_before = restored._preview_generation
+        restored.load_checkpoint_file(restore_file)
+        check("checkpoint restore invalidates previews still in flight",
+              restored._preview_generation > generation_before,
+              f"before={generation_before} after={restored._preview_generation}")
+    finally:
+        restored.close()
+        app.processEvents()
+
     # keep >= cut: every export-type action refuses before any job or export starts
     keepcut = NoStartupIOWindow()
     keepcut_tmp = Path(tempfile.mkdtemp(prefix="cleanct_keepcut_", dir=TEST_TMP))
