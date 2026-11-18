@@ -35,11 +35,34 @@ except ImportError:  # direct import (no package context)
 
 PIPELINE = ensure_engine_on_path()
 STATE = state_root()
+BUSY_NOTE = "Wait for the current job to finish."
+# Names for screen readers, taken from the visible labels of the controls
+ACCESSIBLE_NAMES = {
+    "spin_lo": "Minimum density, HU", "slider_lo": "Minimum density, HU",
+    "spin_hi": "Maximum density, HU", "slider_hi": "Maximum density, HU",
+    "spin_keep": "Top line, keep start", "slider_keep": "Top line, keep start",
+    "spin_cut": "Bottom line, platform cut", "slider_cut": "Bottom line, platform cut",
+    "spin_margin": "Margin above cut, slices", "slider_margin": "Margin above cut, slices",
+    "spin_left": "Left X boundary", "slider_left": "Left X boundary",
+    "spin_right": "Right X boundary", "slider_right": "Right X boundary",
+    "spin_top": "Top Y boundary", "slider_top": "Top Y boundary",
+    "spin_bottom": "Bottom Y boundary", "slider_bottom": "Bottom Y boundary",
+    "axial_slider": "Axial slice", "pref_slider": "Preview slice",
+}
+# Why a threshold preset or Reset is unavailable before a scan is loaded
+PRESET_TIP = "Available after a scan is loaded."
+TIPS = {
+    "btn_th_reset": "Restore the default density thresholds. " + PRESET_TIP,
+    "btn_th_full": "Show the full density range. " + PRESET_TIP,
+    "btn_th_wood": "Set the thresholds to the wood tissue range. " + PRESET_TIP,
+    "btn_th_contrast": "Set the thresholds for high contrast. " + PRESET_TIP,
+    "btn_th_metal": "Set the thresholds to the platform metal range. " + PRESET_TIP,
+}
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import viewer_core, custom_series as csx, bundle_export, \
-    checkpoint_file, auto_snap
+    checkpoint_file, auto_snap, user_messages
 import theme
 import tomograph as tg
 
@@ -72,7 +95,7 @@ def _b64_to_pixmap(data_url: str) -> QPixmap:
     pm = QPixmap()
     # Fast path: Qt's native decoder (~4x faster than the old PIL
     # round-trip).  Some PySide6 installs ship without the JPEG
-    # imageformat plugin — loadFromData then fails on VALID bytes, so
+    # imageformat plugin: loadFromData then fails on VALID bytes, so
     # fall back to decoding through PIL (always available here).
     if pm.loadFromData(raw):
         return pm
@@ -144,7 +167,7 @@ class MainWindow(QMainWindow):
         self.pref_default_hi: float = 350.0
         # True only while the JOB lines hold user edits made in this
         # session (slider/spin/viewer-line drags).  Every programmatic
-        # sync (load, auto-place) clears it — the combined Process &
+        # sync (load, auto-place) clears it: the combined Process &
         # Export stage 2 uses it to distinguish "deliver the lines the
         # user adjusted" from "deliver the freshly detected lines".
         self.pref_dirty: bool = False
@@ -203,7 +226,7 @@ class MainWindow(QMainWindow):
         self._filter_text: str = ""
         self._hidden_builtins: set[tuple[str, str]] = set()
         self._specimen_meta_generation = 0
-        # every size-scan thread stays referenced until it finishes — a
+        # every size-scan thread stays referenced until it finishes: a
         # running QThread garbage-collected mid-run hard-crashes (same
         # policy as the load workers above)
         self._specimen_meta_workers: list[WorkerThread] = []
@@ -213,7 +236,7 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._wrap_long_labels()
         # the app always opens centered (idempotent; main.py re-applies it
-        # before show() — this also covers direct construction, e.g. the
+        # before show(): this also covers direct construction, e.g. the
         # native test harness)
         self.center_on_screen()
         self._log_action("cleanCT native workstation application initialized")
@@ -246,7 +269,7 @@ class MainWindow(QMainWindow):
     def _select_sample(self, ds: str, sample: str, _async: bool = True):
         """Select a specimen.  The heavy payload build (DICOM reads + bounds
         detection) runs on a WORKER thread so the window paints immediately
-        and the GUI never blocks — the earlier synchronous build froze the
+        and the GUI never blocks: the earlier synchronous build froze the
         whole interface for seconds on the 24 µm volumes.  ``_async=False``
         drains synchronously (test harness only)."""
         if self._closing:
@@ -287,13 +310,13 @@ class MainWindow(QMainWindow):
 
     def _on_load_failed(self, err: str):
         self._loading = False
-        self._log_action(f"✗ specimen load failed: {err}")
+        self._log_action(f"specimen load failed: {err}")
         if self._checkpoint_snapshot_only:
             self._pending_view_restore = None
             self._pending_view_restore_kind = ""
             self.lbl_sample_sub.setText(
-                f"Checkpoint preview snapshot — source could not be loaded: {err}")
-            self.lbl_export_status.setText("Snapshot only · source unavailable")
+                f"Checkpoint preview snapshot: source could not be loaded: {err}")
+            self.lbl_export_status.setText("Snapshot only, source unavailable")
             self._set_empty_state(False)
             self._set_job_gates(process_ready=False)
             # Defensively repaint the saved preview so a snapshot-only
@@ -399,9 +422,9 @@ class MainWindow(QMainWindow):
                 ds_label = {"24um": "24 µm dataset",
                             "66um": "66.2 µm dataset"}.get(ds, "Custom specimen")
                 self.lbl_sample_sub.setText(
-                    f"{ds_label} — micro-CT reconstruction"
+                    f"{ds_label}: micro-CT reconstruction"
                     if ds != "custom"
-                    else f"{sample} — user-loaded specimen")
+                    else f"{sample}: user-loaded specimen")
                 self._log_action(f"Loaded specimen: {ds}/{sample}")
                 self._apply_payload_state(p)
             self._set_empty_state(False)
@@ -422,13 +445,13 @@ class MainWindow(QMainWindow):
         """Registered but not processed (fresh custom specimen): show the
         scan metadata, the ORIGINAL reconstruction viewers, and the
         PRE-PROCESS air-top / metal-top detection as auto-placed guide
-        lines — so the user can verify the detection BEFORE committing to
+        lines: so the user can verify the detection BEFORE committing to
         a processing run.  Export / Apply stay gated until the pipeline
         has run; the axial scrubber scrubs the raw scan."""
         self.dataset = ds
         self.sample = sample
         self.payload = p
-        # Programmatic line sync is the auto copy layer (0AG) — never a
+        # Programmatic line sync is the auto copy layer (0AG): never a
         # user edit; the outer payload apply clears the guard.
         self._applying_auto_snap = True
         self.lbl_sample_title.setText(sample)
@@ -474,7 +497,7 @@ class MainWindow(QMainWindow):
         # pinning large volumes at the old preview n).
         self.pref_viewer.setSliceCount(n)
 
-        # Detection guides — the payload carries the pre-process bounds
+        # Detection guides: the payload carries the pre-process bounds
         # (same shared detection the previews use).  Auto-place Keep ≡ air
         # top, Cut ≡ metal top exactly like a processed load, plus the
         # lateral Y/X envelope.
@@ -501,7 +524,7 @@ class MainWindow(QMainWindow):
                     {"x": (0.15, 0.85), "y": (0.15, 0.85)})
                 self._sync_lateral_sliders_from_viewer()
                 self._log_action(
-                    "auto snap OFF — detection guides shown; manual "
+                    "auto snap OFF: detection guides shown; manual "
                     "lines kept")
             self._update_lateral_panel_for_plane()
             ainfo = b.get("anchor") or {}
@@ -527,11 +550,11 @@ class MainWindow(QMainWindow):
             anch = ainfo.get("z")
             self.lbl_anchor_hint.setText(
                 f"detector anchor: slice {anch[0]}–{anch[1]} (pre-process)"
-                if anch else "detector anchor: — (pre-process estimate)")
+                if anch else "detector anchor:: (pre-process estimate)")
             # No-metal specimen: there is no metal-top line to place the
             # Cut on.  Default the Cut to just below the wood bottom (+2
             # safety slices) so the delivery keeps the whole specimen; the
-            # user adjusts the lines freely and processes — no metal is
+            # user adjusts the lines freely and processes: no metal is
             # REQUIRED for a successful run.
             if zbg.get("cut") is None and zbg.get("wood_bottom") is not None:
                 nb = int(rep.get("n_slices") or 0)
@@ -539,13 +562,13 @@ class MainWindow(QMainWindow):
                                   max(1, nb - 1))
                 self.spin_cut.setValue(default_cut)
                 self._log_action(
-                    f"no metal platform detected — Cut defaults to "
+                    f"no metal platform detected: Cut defaults to "
                     f"wood bottom + 2 (slice {default_cut}); "
                     "adjust the Top Keep / Bottom Cut lines and Process "
                     "as usual")
         else:
             self.lbl_anchor_hint.setText(
-                "detector anchor: — (detection unavailable pre-process)")
+                "detector anchor:: (detection unavailable pre-process)")
 
         # Threshold defaults: Reset (calibrated baseline) + Grayscale,
         # same lazy-adoption contract as a processed load.
@@ -567,8 +590,8 @@ class MainWindow(QMainWindow):
             self.axial_slider.setValue(n // 2)
         self._set_job_gates(process_ready=False)
         self._log_action(
-            f"{sample} registered ({n} slices @ {vox:.1f} µm) — "
-            "not processed yet; detection guides are live — verify them, "
+            f"{sample} registered ({n} slices @ {vox:.1f} µm): "
+            "not processed yet; detection guides are live: verify them, "
             "then run Process selected to detect and cut")
 
     def _boundary_widgets(self) -> list:
@@ -583,6 +606,13 @@ class MainWindow(QMainWindow):
     def _set_boundary_enabled(self, enabled: bool) -> None:
         for widget in self._boundary_widgets():
             widget.setEnabled(enabled)
+
+    def _gate_tip(self, btn, busy: bool) -> None:
+        """Say why a control is unavailable while a job runs. The control's own
+        tooltip is kept, and the busy reason is added below it."""
+        bases = self.__dict__.setdefault("_base_tips", {})
+        base = bases.setdefault(id(btn), btn.toolTip())
+        btn.setToolTip(f"{base}\n{BUSY_NOTE}".strip() if busy else base)
 
     def _set_job_gates(self, process_ready: bool):
         """Apply action availability from payload, processing, and load state."""
@@ -611,16 +641,24 @@ class MainWindow(QMainWindow):
                               self._checkpoint_snapshot_only))
         self.btn_export.setEnabled(bool(process_ready and has_payload and not busy))
         self.btn_export.setToolTip(
+            BUSY_NOTE if busy else
             "" if process_ready and has_payload else
             ("Load a specimen before exporting." if not has_payload else
-             "This specimen has not been processed yet — run ▶ Process "
-             "selected (or Apply & process) first."))
+             "This specimen has not been processed yet. Run Process selected "
+             "(or Apply & process) first."))
         self.btn_apply_prefs.setEnabled(bool(process_ready and has_payload and not busy))
         self.btn_apply_prefs.setToolTip(
+            BUSY_NOTE if busy else
             "" if process_ready and has_payload else
             ("Load a specimen before applying cut lines." if not has_payload else
-             "Process the specimen first — the detection needs the pipeline "
-             "outputs (report.json + stripped volume)."))
+             "Process the specimen first. The detection needs the pipeline "
+             "outputs (report.json and the stripped volume)."))
+        for btn in (self.btn_load, self.btn_process, self.btn_process_export,
+                    getattr(self, "btn_empty_load", None),
+                    getattr(self, "btn_load_checkpoint", None),
+                    getattr(self, "btn_save_checkpoint", None)):
+            if btn is not None:
+                self._gate_tip(btn, busy)
         self._set_boundary_enabled(not busy)
         if process_ready:
             self._update_range_summary()          # restores the enabled state
@@ -662,11 +700,13 @@ class MainWindow(QMainWindow):
         brand_text.setSpacing(2)
         brand_text.setAlignment(Qt.AlignVCenter)
 
-        lbl_title = QLabel("clean<span style='color:#f2b23c;'>CT</span>")
+        lbl_title = QLabel(self._brand_html())
+        self.lbl_brand = lbl_title
         lbl_title.setTextFormat(Qt.RichText)
         lbl_title.setFont(QFont("Segoe UI", 17, QFont.Bold))
 
-        lbl_sub = QLabel("Wood CT Metal-Base Removal")
+        lbl_sub = QLabel("Wood CT metal-base removal")
+        lbl_sub.setWordWrap(True)
         theme.set_role(lbl_sub, "secondary")
 
         brand_text.addWidget(lbl_title)
@@ -759,14 +799,14 @@ class MainWindow(QMainWindow):
             "Rename the selected loaded specimen (registry ID and link).\n"
             "Shortcut: F2. Built-in dataset specimens keep their names.")
         self.btn_duplicate.setToolTip(
-            "Register the same scan again under a new ID — no data is copied.\n"
+            "Register the same scan again under a new ID: no data is copied.\n"
             "Built-in dataset specimens cannot be duplicated.")
         self.btn_locate.setToolTip(
             "Show the specimen's source folder (loaded scans) or its\n"
             "processed-output folder (built-in datasets) in Explorer.")
         self.btn_remove.setToolTip(
             "Remove the selected specimen from the list. Shortcut: Del.\n"
-            "Loaded scans: unregistered — source, processed results, and\n"
+            "Loaded scans: unregistered: source, processed results, and\n"
             "exports are kept. Built-in specimens are hidden until restart.")
 
         # Sidebar Actions
@@ -805,7 +845,7 @@ class MainWindow(QMainWindow):
         checkpoint_row.addWidget(self.btn_load_checkpoint, 1)
         side_layout.addLayout(checkpoint_row)
 
-        history_label = QLabel("Preview history · this session")
+        history_label = QLabel("Preview history, this session")
         theme.set_role(history_label, "hint")
         side_layout.addWidget(history_label)
         self.combo_preview_history = QComboBox()
@@ -1014,9 +1054,9 @@ class MainWindow(QMainWindow):
             self.combo_export_format.addItem(label)
         self.combo_export_format.setToolTip(
             "Which artifacts to write into the bundle:\n"
-            "• DICOM + NIfTI — kept-slice series AND the volume (default)\n"
-            "• DICOM only — just the kept-slice .dcm series\n"
-            "• NIfTI only — just the .nii volume (fastest, smallest I/O)")
+            "• DICOM + NIfTI: kept-slice series AND the volume (default)\n"
+            "• DICOM only: just the kept-slice .dcm series\n"
+            "• NIfTI only: just the .nii volume (fastest, smallest I/O)")
         self.combo_export_format.setCurrentIndex(
             self._format_index(self.export_format))
         self.combo_export_format.currentIndexChanged.connect(
@@ -1084,7 +1124,7 @@ class MainWindow(QMainWindow):
         theme.set_role(lbl_ax_title, "section")
         ax_head.addWidget(lbl_ax_title)
         ax_head.addStretch()
-        lbl_legend = QLabel("<span style='color:#f2b23c;'>■ wood ROI</span>  <span style='color:#ff463c;'>■ metal</span>")
+        lbl_legend = QLabel("<span style='background-color:#0b0d10; color:#f2b23c;'>■ wood ROI</span>  <span style='background-color:#0b0d10; color:#ff463c;'>■ metal</span>")
         lbl_legend.setTextFormat(Qt.RichText)
         theme.set_role(lbl_legend, "hint")
         ax_head.addWidget(lbl_legend)
@@ -1298,7 +1338,7 @@ class MainWindow(QMainWindow):
 
         # Right: Control Panel (Colorspace, Thresholds, Overrides)
         # The controls live inside a scroll area so the control column never
-        # dictates the window's minimum height — the default window fits
+        # dictates the window's minimum height: the default window fits
         # 1080p entirely and maximizing gives the extra space to the viewer.
         ctrl_frame = QFrame()
         ctrl_frame.setProperty("class", "panel")
@@ -1363,7 +1403,7 @@ class MainWindow(QMainWindow):
         th_head.addWidget(self.lbl_th_head)
         th_head.addStretch()
 
-        self.btn_th_reset = QPushButton("↺ Reset")
+        self.btn_th_reset = QPushButton("Reset")
         self.btn_th_reset.setObjectName("btn_th_reset")
         # Reset is the DEFAULT-active threshold choice: the baseline window
         # renders until a preset is chosen; presets hand the highlight back
@@ -1446,7 +1486,7 @@ class MainWindow(QMainWindow):
         # Top Line: Keep From (Green)
         box_keep = QVBoxLayout()
         box_keep.setSpacing(2)
-        lbl_keep = QLabel("<span style='color:#37d67a;'>■</span> Top line: keep start")
+        lbl_keep = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Top line: keep start")
         lbl_keep.setTextFormat(Qt.RichText)
         theme.set_role(lbl_keep, "label")
         box_keep.addWidget(lbl_keep)
@@ -1465,7 +1505,7 @@ class MainWindow(QMainWindow):
         # Bottom Line: Cut Slice (Red)
         box_cut = QVBoxLayout()
         box_cut.setSpacing(2)
-        lbl_cut = QLabel("<span style='color:#ff463c;'>■</span> Bottom line: platform cut")
+        lbl_cut = QLabel("<span style='background-color:#0b0d10; color:#ff463c;'>■</span> Bottom line: platform cut")
         lbl_cut.setTextFormat(Qt.RichText)
         theme.set_role(lbl_cut, "label")
         box_cut.addWidget(lbl_cut)
@@ -1479,7 +1519,7 @@ class MainWindow(QMainWindow):
         self.slider_cut.valueChanged.connect(self._on_slider_cut_changed)
         row_cut.addWidget(self.slider_cut, 1)
         box_cut.addLayout(row_cut)
-        self.lbl_anchor_hint = QLabel("detector anchor: —")
+        self.lbl_anchor_hint = QLabel("detector anchor: not measured yet")
         theme.set_role(self.lbl_anchor_hint, "hint")
         box_cut.addWidget(self.lbl_anchor_hint)
         g_layout.addLayout(box_cut)
@@ -1487,7 +1527,7 @@ class MainWindow(QMainWindow):
         # Margin (Safety Buffer)
         box_margin = QVBoxLayout()
         box_margin.setSpacing(2)
-        lbl_margin = QLabel("<span style='color:#f2b23c;'>■</span> Margin above cut: slices kept")
+        lbl_margin = QLabel("<span style='background-color:#0b0d10; color:#f2b23c;'>■</span> Margin above cut: slices kept")
         lbl_margin.setTextFormat(Qt.RichText)
         theme.set_role(lbl_margin, "label")
         box_margin.addWidget(lbl_margin)
@@ -1509,7 +1549,7 @@ class MainWindow(QMainWindow):
         lat_layout = QVBoxLayout(self.box_lateral)
         lat_layout.setContentsMargins(4, 4, 4, 4)
         lat_layout.setSpacing(6)
-        lbl_lat = QLabel("<span style='color:#4f8cff;'>■</span> Lateral ROI Boundary Lines (4-Lines Mode):")
+        lbl_lat = QLabel("<span style='background-color:#0b0d10; color:#4f8cff;'>■</span> Lateral ROI Boundary Lines (4-Lines Mode):")
         lbl_lat.setTextFormat(Qt.RichText)
         theme.set_role(lbl_lat, "info")
         lat_layout.addWidget(lbl_lat)
@@ -1550,7 +1590,7 @@ class MainWindow(QMainWindow):
         # only in the axial plane where the box has a vertical extent.
         self.row_lat_top = QVBoxLayout()
         self.row_lat_top.setSpacing(2)
-        self.lbl_top = QLabel("<span style='color:#37d67a;'>■</span> Top Y (axial box):")
+        self.lbl_top = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Top Y (axial box):")
         self.lbl_top.setTextFormat(Qt.RichText)
         theme.set_role(self.lbl_top, "label")
         self.row_lat_top.addWidget(self.lbl_top)
@@ -1571,7 +1611,7 @@ class MainWindow(QMainWindow):
 
         self.row_lat_bottom = QVBoxLayout()
         self.row_lat_bottom.setSpacing(2)
-        self.lbl_bottom = QLabel("<span style='color:#37d67a;'>■</span> Bottom Y (axial box):")
+        self.lbl_bottom = QLabel("<span style='background-color:#0b0d10; color:#37d67a;'>■</span> Bottom Y (axial box):")
         self.lbl_bottom.setTextFormat(Qt.RichText)
         theme.set_role(self.lbl_bottom, "label")
         self.row_lat_bottom.addWidget(self.lbl_bottom)
@@ -1608,7 +1648,7 @@ class MainWindow(QMainWindow):
         ctrl_layout.addWidget(self.chk_air_crop)
 
         # Live Range Summary
-        self.lbl_range_summary = QLabel("delivery: —")
+        self.lbl_range_summary = QLabel("delivery: not calculated yet")
         self.lbl_range_summary.setObjectName("range_summary")
         theme.set_role(self.lbl_range_summary, "secondary")
         ctrl_layout.addWidget(self.lbl_range_summary)
@@ -1672,7 +1712,7 @@ class MainWindow(QMainWindow):
                 # 280 px sidebar; the tooltip carries the complete detail
                 short = (name.replace("NVIDIA GeForce ", "")
                          .replace("NVIDIA ", ""))
-                self.lbl_gpu.setText(f"GPU: {short} · CuPy CUDA")
+                self.lbl_gpu.setText(f"GPU: {short}, CuPy CUDA")
                 self.lbl_gpu.setToolTip(
                     f"GPU acceleration active: {name} via CuPy (CUDA 12.x)")
                 theme.set_role(self.lbl_gpu, "chip-ok")
@@ -1681,10 +1721,10 @@ class MainWindow(QMainWindow):
                 reason = str(res.get("reason") or "no usable CUDA framework")
                 self.lbl_gpu.setText("CPU processing (no CUDA GPU)")
                 self.lbl_gpu.setToolTip(
-                    f"CPU processing — {reason}; no GPU required")
+                    f"CPU processing: {reason}; no GPU required")
                 theme.set_role(self.lbl_gpu, "chip-warn")
                 self._log_action(
-                    f"CPU processing ({reason}) — multi-threaded CPU is "
+                    f"CPU processing ({reason}): multi-threaded CPU is "
                     "used; no GPU required")
 
         def _err(msg: str):
@@ -1807,7 +1847,7 @@ class MainWindow(QMainWindow):
             samples = [s for s in samples if (key, s) not in self._hidden_builtins]
             if not samples:
                 continue
-            add_header(f"{labels[key]} ({len(samples)} specimens)", "#f2b23c")
+            add_header(f"{labels[key]} ({len(samples)} specimens)", theme.color("accent"))
             for specimen in samples:
                 meta = self._meta_from_report(
                     self._builtin_specimen_dir(key, specimen) or Path())
@@ -1948,7 +1988,7 @@ class MainWindow(QMainWindow):
             act_dup = menu.addAction("Duplicate…")
             act_dup.setEnabled(not busy and is_custom)
             act_dup.setToolTip(
-                "Register the same scan again under a new ID — no data is "
+                "Register the same scan again under a new ID: no data is "
                 "copied." if is_custom else
                 "Built-in dataset specimens cannot be duplicated.")
             act_locate = menu.addAction("Show in Explorer")
@@ -1964,14 +2004,14 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
             act_remove = menu.addAction("Remove…  (Del)")
             act_remove.setToolTip(
-                "Loaded scans: unregistered — source, processed results, "
+                "Loaded scans: unregistered: source, processed results, "
                 "and exports are kept. Built-in specimens are hidden "
                 "until restart. Asks for confirmation.")
             act_remove.setEnabled(not busy)
             menu.addSeparator()
         elif not customs:
             # empty-state: a hint instead of a bare context menu
-            note = menu.addAction("No specimens yet — load a scan to begin")
+            note = menu.addAction("No specimens yet: load a scan to begin")
             note.setEnabled(False)
             menu.addSeparator()
         if customs:
@@ -2092,7 +2132,7 @@ class MainWindow(QMainWindow):
         if ds != "custom":
             QMessageBox.information(
                 self, "Duplicate specimen",
-                "Built-in dataset specimens cannot be duplicated — loaded "
+                "Built-in dataset specimens cannot be duplicated: loaded "
                 "scans can be registered again under a new ID.")
             return
         new, ok = QInputDialog.getText(
@@ -2145,7 +2185,7 @@ class MainWindow(QMainWindow):
             answer = QMessageBox.question(
                 self, "Hide specimen",
                 f"Hide “{sp}” from the sidebar?\n\n"
-                "Nothing is deleted — the built-in specimen returns the "
+                "Nothing is deleted: the built-in specimen returns the "
                 "next time cleanCT starts.",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if answer != QMessageBox.Yes:
@@ -2256,7 +2296,7 @@ class MainWindow(QMainWindow):
                     viewer_core.forget_specimen(sp)
                     removed += 1
             except OSError as e:
-                self._log_action(f"⚠ could not unregister {sp}: {e}")
+                self._log_action(f"could not unregister {sp}: {e}")
         if (not self._checkpoint_snapshot_only and self.dataset == "custom"
                 and customs.get(self.sample)):
             self._deselect_current()
@@ -2348,13 +2388,13 @@ class MainWindow(QMainWindow):
             self._select_sample(ds, sp)
 
     def _apply_payload_state(self, p: dict):
-        """(Continuation of _apply_sample_payload — the former synchronous
+        """(Continuation of _apply_sample_payload: the former synchronous
         _select_sample body, now fed the built payload instead of blocking
         the GUI thread on viewer_core.build_payload.)"""
         try:
             self.payload = p
             # Programmatic line sync below is the auto copy layer, never a
-            # user edit — guard it so it cannot suspend itself (0AG).
+            # user edit: guard it so it cannot suspend itself (0AG).
             self._applying_auto_snap = True
             self.kpi_banner.updateMetrics(p.get("report"))
 
@@ -2419,13 +2459,13 @@ class MainWindow(QMainWindow):
 
             anchor = rep.get("anchor")
             detected = rep.get("detected_cut_from")
-            hint = f"detector anchor: slice {anchor}" if anchor else "detector anchor: —"
+            hint = f"detector anchor: slice {anchor}" if anchor else "detector anchor: not measured yet"
             if detected is not None:
-                hint += f"  ·  auto-detected: {detected}"
+                hint += f", auto-detected: {detected}"
             self.lbl_anchor_hint.setText(hint)
 
             # Threshold defaults: Reset is the DEFAULT state on every
-            # specimen load — the calibrated baseline window (wood window
+            # specimen load: the calibrated baseline window (wood window
             # widened for context, the same formula the previews use) with
             # Grayscale as the colorspace, so air / metal / wood separate
             # cleanly from the first paint.
@@ -2450,12 +2490,12 @@ class MainWindow(QMainWindow):
                 self._wood_bounds = bf
                 self._wood_bounds_raw = b
                 # Auto z-guides (air top / metal base top) from the same
-                # metal-anchored evidence — dotted reference lines, always
+                # metal-anchored evidence: dotted reference lines, always
                 # shown so the detection stays visible even with auto snap
                 # off.
                 self.pref_viewer.setAutoZ(b.get("zb") or None)
                 # Auto Snap to Detection (audit 0AG): the copy layer puts
-                # the job lines onto the detected edges — Keep ≡ air top
+                # the job lines onto the detected edges: Keep ≡ air top
                 # (wood top when the air top deferred), Cut ≡ metal top,
                 # both lateral pairs ≡ the detected envelope.  Toggle OFF
                 # leaves manual lines untouched (neutral 15/85 pairs so no
@@ -2471,7 +2511,7 @@ class MainWindow(QMainWindow):
                         {"x": (0.15, 0.85), "y": (0.15, 0.85)})
                     self._sync_lateral_sliders_from_viewer()
                     self._log_action(
-                        "auto snap OFF — detection guides shown; manual "
+                        "auto snap OFF: detection guides shown; manual "
                         "lines kept")
                 self._sync_kpi_effective()
                 self._update_lateral_panel_for_plane()
@@ -2540,7 +2580,7 @@ class MainWindow(QMainWindow):
                 pm = _b64_to_pixmap(data_url)
                 self.axial_viewer.setPixmap(pm, self.payload.get("n_slices", 100))
             return
-        # Unprocessed specimen: scrub the RAW scan — one source slice per
+        # Unprocessed specimen: scrub the RAW scan: one source slice per
         # position, rendered on demand (nothing here needs report.json or
         # the stripped volume).
         if not self.dataset or not self.sample:
@@ -2703,7 +2743,7 @@ class MainWindow(QMainWindow):
         self._auto_snap_suspended = True
         if self._wood_bounds_raw:
             self._log_action(
-                f"auto snap paused by manual {what} edit — re-applies on "
+                f"auto snap paused by manual {what} edit: re-applies on "
                 "the next detection")
 
     def _apply_auto_snap(self, trigger: str, *, mark_clean: bool = True
@@ -2712,7 +2752,7 @@ class MainWindow(QMainWindow):
 
         Keep/Cut from the detected z lines (wood-top fallback when the air
         top deferred) plus BOTH lateral pairs from the detected envelope.
-        The detection core is never re-measured here — this is the pure
+        The detection core is never re-measured here: this is the pure
         copy layer.  ``mark_clean`` clears ``pref_dirty`` (auto-applied
         lines are the detection, not user edits).  Returns log labels.
         """
@@ -2753,14 +2793,14 @@ class MainWindow(QMainWindow):
         if on:
             placed = self._apply_auto_snap("toggle on")
             if placed:
-                self._log_action("auto snap enabled — detection applied: "
+                self._log_action("auto snap enabled: detection applied: "
                                  + ", ".join(placed))
             else:
                 self._log_action(
-                    "auto snap enabled — waiting for the next detection")
+                    "auto snap enabled: waiting for the next detection")
         else:
             self._log_action(
-                "auto snap disabled — manual lines stay untouched across "
+                "auto snap disabled: manual lines stay untouched across "
                 "loads")
 
     def _sync_kpi_effective(self):
@@ -2878,7 +2918,7 @@ class MainWindow(QMainWindow):
             b.setProperty("active", "true" if c == cmap else "false")
             b.style().unpolish(b)
             b.style().polish(b)
-        self.lbl_pref_head.setText(f"Original Reconstruction — {cmap.capitalize()} Colormap")
+        self.lbl_pref_head.setText(f"Original Reconstruction: {cmap.capitalize()} Colormap")
         self._schedule_prefs_preview()
 
     def _on_spin_lo_changed(self, v: int):
@@ -2912,7 +2952,7 @@ class MainWindow(QMainWindow):
 
         Re-applies the current baseline window (per-specimen, adopted from
         the calibrated report window) and highlights Reset.  Signals are
-        blocked so this never schedules a preview by itself — callers
+        blocked so this never schedules a preview by itself: callers
         fetch the preview explicitly.
         """
         blocked = [self.spin_lo, self.slider_lo, self.spin_hi, self.slider_hi]
@@ -3069,7 +3109,7 @@ class MainWindow(QMainWindow):
         err = self._valid_keep_cut()
         if err is None:
             return False
-        self.lbl_export_status.setText(f"✗ {err}")
+        self.lbl_export_status.setText(f"{err}")
         theme.set_role(self.lbl_export_status, "status-error")
         return True
 
@@ -3081,20 +3121,20 @@ class MainWindow(QMainWindow):
             return
         if (self.payload or {}).get("unprocessed"):
             self.lbl_range_summary.setText(
-                "specimen not processed yet — run Process selected")
+                "specimen not processed yet: run Process selected")
             theme.set_role(self.lbl_range_summary, "accent")
             self.btn_apply_prefs.setEnabled(False)
             return
         err = self._valid_keep_cut()
         if err:
-            self.lbl_range_summary.setText(f"✗ {err}")
+            self.lbl_range_summary.setText(f"{err}")
             theme.set_role(self.lbl_range_summary, "status-error")
             self.btn_apply_prefs.setEnabled(False)
             return
         kept = self.pref_cut - self.pref_keep
         base = f"delivery: slices {self.pref_keep}..{self.pref_cut - 1} ({kept} slices)"
         if self.pref_margin > 0:
-            base += f"  ·  margin +{self.pref_margin}"
+            base += f", margin +{self.pref_margin}"
         self.lbl_range_summary.setText(base)
         theme.set_role(self.lbl_range_summary, "status-ok")
         self.btn_apply_prefs.setEnabled(True)
@@ -3166,7 +3206,7 @@ class MainWindow(QMainWindow):
         self.lbl_pref_z.setText(f"z={actual_z}")
         self.pref_slider.blockSignals(False)
 
-        # The pixmap carries the real slice count — apply it FIRST, then
+        # The pixmap carries the real slice count: apply it FIRST, then
         # place the lines.  Applying the lines before setPixmap clamped
         # them to the previous coordinate space (the root cause of
         # "Snap to detection" leaving large volumes pinned mid-range).
@@ -3403,7 +3443,7 @@ class MainWindow(QMainWindow):
             self._job_stage = "export"
             self.job_progress.setValue(self._job_export_span[0])
             self.lbl_job_eta.setText("exporting…")
-            self.lbl_job_sub.setText("process complete — exporting bundle…")
+            self.lbl_job_sub.setText("process complete: exporting bundle…")
         if getattr(self, "_job_combined", False):
             if n <= 0:
                 self.lbl_job_sub.setText(
@@ -3416,7 +3456,7 @@ class MainWindow(QMainWindow):
             self.lbl_job_sub.setText(f"{base}  ({i:,} / {n:,})")
             if phase in ("dicom", "nifti"):
                 self.lbl_job_eta.setText(
-                    f"{phase} {int(frac * 100)}% · checking…")
+                    f"{phase} {int(frac * 100)}%, checking…")
             return
         if n <= 0:
             self.job_progress.setValue(5)
@@ -3430,7 +3470,7 @@ class MainWindow(QMainWindow):
         self.lbl_job_sub.setText(f"{base}  ({i:,} / {n:,})")
         if phase in ("dicom", "nifti"):
             self.lbl_job_eta.setText(
-                f"{phase} {int(frac * 100)}% · checking…")
+                f"{phase} {int(frac * 100)}%, checking…")
 
     def _run_pipeline_task(self, overrides=None, *, dataset=None, sample=None):
         # Capture the target at queue time so a delayed worker can never read
@@ -3469,7 +3509,7 @@ class MainWindow(QMainWindow):
 
         Curated datasets: measured fleet medians.  Custom series scale with
         slice count (measured 0.123 s/slice on the real 2-21: 1067 slices,
-        131 s including streamed delivery writes) — floored so tiny series
+        131 s including streamed delivery writes): floored so tiny series
         never show a near-zero countdown.
         """
         if self.dataset == "custom":
@@ -3505,7 +3545,7 @@ class MainWindow(QMainWindow):
 
     def _process_and_export(self):
         """One-pass delivery (audit 0O): Process selected followed by the
-        ⬇ Export bundle stage in a single job — same semantics, no second
+        ⬇ Export bundle stage in a single job: same semantics, no second
         click.  The export stage reuses the exact bundle path (fresh
         on-disk report, session Keep/Cut lines, selected Format), so the
         delivered artifacts are identical to running the two buttons
@@ -3541,15 +3581,15 @@ class MainWindow(QMainWindow):
             f"{dest_root} (format: {fmt_name})")
 
         def _task(job_progress=None):
-            # Stage 1 — process (identical to Process selected).
+            # Stage 1: process (identical to Process selected).
             proc_res = self._run_pipeline_task(dataset=dataset,
                                                sample=sample) or {}
-            # Stage 2 — export from the FRESH on-disk report (identical to
+            # Stage 2: export from the FRESH on-disk report (identical to
             # ⬇ Export bundle, including the session Keep/Cut lines).
             report_p = out_dir / "report.json"
             if not report_p.exists():
                 raise RuntimeError(
-                    "processing finished but report.json is missing — "
+                    "processing finished but report.json is missing: "
                     "export aborted")
             report = json.loads(report_p.read_text(encoding="utf-8"))
             stripped = out_dir / "stripped.nii"
@@ -3564,7 +3604,7 @@ class MainWindow(QMainWindow):
                 _eff_keep = (int(keep0) if keep0 is not None
                              else int(plat.get("keep_from") or 0))
             else:
-                # No user edits: deliver the freshly DETECTED lines — the
+                # No user edits: deliver the freshly DETECTED lines: the
                 # same values the GUI auto-places after processing (Keep ≡
                 # air top, Cut ≡ metal top).  Sliders captured at click time
                 # could be stale here (a specimen whose pre-process
@@ -3614,7 +3654,7 @@ class MainWindow(QMainWindow):
         """Log the process-job result lines (cut slice + air-crop)."""
         plat = rep.get("platform", {}) if isinstance(rep, dict) else {}
         cut_done = plat.get("cut_from", "—") if isinstance(plat, dict) else "—"
-        self._log_action(f"✓ Job finished successfully. Result cut slice: {cut_done}")
+        self._log_action(f"Job finished successfully. Result cut slice: {cut_done}")
         ac = (rep.get("wood_roi", {}) or {}).get("air_crop") \
             if isinstance(rep, dict) else None
         if isinstance(ac, dict) and ac.get("ok"):
@@ -3631,14 +3671,14 @@ class MainWindow(QMainWindow):
     def _log_export_result(self, exp: dict) -> None:
         """Set the export status line + log the delivered bundle."""
         sample = exp.get("sample") or self.sample
-        self.lbl_export_status.setText(f"✓ Bundle exported: {sample}")
+        self.lbl_export_status.setText(f"Bundle exported: {sample}")
         theme.set_role(self.lbl_export_status, "status-ok")
         fmt = exp.get("export_format", "both")
         _fmt_detail = ("DICOM + NIfTI" if fmt == "both"
                        else "DICOM series" if fmt == "dicom"
                        else "NIfTI volume")
         self._log_action(
-            f"✓ Extraction bundle exported ({_fmt_detail}): "
+            f"Extraction bundle exported ({_fmt_detail}): "
             f"{exp.get('bundle_dir', '')}")
         used = exp.get("session_lines")
         if used:
@@ -3652,8 +3692,8 @@ class MainWindow(QMainWindow):
         kind = self._job_kind
         was_export = kind in ("export", "process_export")
         self.lbl_job_phase.setText(
-            "✓ Process & Export Complete" if kind == "process_export"
-            else "✓ Export Complete" if was_export else "✓ Process Complete")
+            "Processing and export complete" if kind == "process_export"
+            else "Export complete" if was_export else "Processing complete")
         self.lbl_job_eta.setText("done")
         self.lbl_job_sub.setText(
             "payloads written; bundle exported & verified."
@@ -3711,12 +3751,14 @@ class MainWindow(QMainWindow):
         self._job_stage = ""
         self._set_boundary_enabled(True)
         if self._job_kind in ("export", "process_export"):
-            self.lbl_export_status.setText("✗ Export failed")
+            self.lbl_export_status.setText("Export failed")
             theme.set_role(self.lbl_export_status, "status-error")
         if self._closing:
             self._log_action(f"Operation failed while closing: {err}")
             return
-        QMessageBox.critical(self, "Processing Error", f"Operation failed:\n{err}")
+        plain = user_messages.pipeline_error(err)
+        QMessageBox.critical(self, "Processing Error",
+                             f"{plain}\n\nDetails: {err}")
 
     # ---------------------------------------------------------------- Export Bundle
     def _wrap_long_labels(self) -> None:
@@ -3730,12 +3772,27 @@ class MainWindow(QMainWindow):
         for box in self.findChildren(QCheckBox):
             if len(box.text()) > 28:
                 box.setSizePolicy(QSizePolicy.Ignored, box.sizePolicy().verticalPolicy())
+        for attr, name in ACCESSIBLE_NAMES.items():
+            widget = getattr(self, attr, None)
+            if widget is not None and not widget.accessibleName():
+                widget.setAccessibleName(name)
+        for attr, tip in TIPS.items():
+            widget = getattr(self, attr, None)
+            if widget is not None and not widget.toolTip():
+                widget.setToolTip(tip)
+
+    def _brand_html(self) -> str:
+        """The wordmark: the 'CT' takes the accent of the active theme."""
+        return f"clean<span style='color:{theme.color('accent')};'>CT</span>"
 
     def _on_theme_changed(self, index: int) -> None:
         """Switch the chrome between dark and light, and remember the choice."""
         chosen = self.cmb_theme.itemData(index) or "dark"
         theme.set_mode(chosen)
         theme.apply(QApplication.instance())
+        # colours written into rich text or built into rows must follow the theme too
+        self.lbl_brand.setText(self._brand_html())
+        self._refresh_sidebar()
         self.update()
         try:
             settings = bundle_export.load_settings(STATE)
@@ -3932,7 +3989,7 @@ class MainWindow(QMainWindow):
         report_p = out_dir / "report.json"
         if not report_p.exists():
             QMessageBox.warning(self, "Not Processed Yet",
-                                "This sample has not been processed yet — run Process first.")
+                                "This sample has not been processed yet: run Process first.")
             return
         report = json.loads(report_p.read_text(encoding="utf-8"))
         stripped = out_dir / "stripped.nii"
@@ -3940,7 +3997,7 @@ class MainWindow(QMainWindow):
             stripped = out_dir / "stripped.nii.gz"
 
         # Per-specimen lines: honor what the user adjusted in this session
-        # (Preferences) when they differ from the stored report — the export
+        # (Preferences) when they differ from the stored report: the export
         # must deliver exactly the validated cut/keep range on screen.
         plat = report.get("platform") or {}
         _eff_cut = (int(self.pref_cut) if self.pref_cut
@@ -4070,6 +4127,8 @@ class MainWindow(QMainWindow):
             raise checkpoint_file.CheckpointError(
                 "Wait for a preview to finish before saving a checkpoint.")
         source_path, source_kind = self._checkpoint_source_identity()
+        # the live preview can be a wide strip of slices: store a fitted thumbnail
+        png = checkpoint_file.fit_preview(png)
         return checkpoint_file.new_document(
             self._capture_checkpoint_state(), preview_png=png,
             source_path=source_path, source_kind=source_kind)
@@ -4095,7 +4154,7 @@ class MainWindow(QMainWindow):
             destination = destination.with_name(destination.name + ".ctcheckpoint.json")
         try:
             self.save_checkpoint_file(destination)
-            self.lbl_export_status.setText(f"Checkpoint saved · {destination.name}")
+            self.lbl_export_status.setText(f"Checkpoint saved, {destination.name}")
             self._log_action(f"Saved preview checkpoint: {destination}")
         except Exception as exc:
             QMessageBox.critical(self, "Checkpoint error", str(exc))
@@ -4204,7 +4263,7 @@ class MainWindow(QMainWindow):
 
         self.pref_viewer.setPlane(self.pref_plane)
         # the checkpoint's slice count may describe a different (larger)
-        # specimen when the source changed under the same ID — declare
+        # specimen when the source changed under the same ID: declare
         # the clamped real count so restored lines can never exceed it
         self.pref_viewer.setSliceCount(n)
         self.pref_viewer.setAxisBounds(state.get("bounds") or {})
@@ -4266,10 +4325,13 @@ class MainWindow(QMainWindow):
         try:
             if combo.count() == 1 and combo.itemData(0, Qt.UserRole) is None:
                 combo.clear()
-            title = (f"{datetime.now().strftime('%H:%M:%S')} · "
-                     f"{self.sample} · {self.pref_plane} · "
-                     f"z={state.get('z') if state.get('z') is not None else 'auto'}")
-            combo.addItem(title, entry)
+            slice_no = state.get("z")
+            full = (f"{datetime.now().strftime('%H:%M')}  {self.sample}, "
+                    f"{self.pref_plane}, slice {slice_no if slice_no is not None else 'auto'}")
+            # elide to the box, and keep the full text as the tooltip
+            shown = combo.fontMetrics().elidedText(full, Qt.ElideRight, 210)
+            combo.addItem(shown, entry)
+            combo.setItemData(combo.count() - 1, full, Qt.ToolTipRole)
             combo.setCurrentIndex(combo.count() - 1)
         finally:
             combo.blockSignals(False)
@@ -4290,7 +4352,7 @@ class MainWindow(QMainWindow):
                 (self.payload is not None or self._checkpoint_snapshot_only)):
             generation = self._apply_checkpoint_controls(state, schedule=True)
             self._history_restore_generation = generation
-            self.lbl_export_status.setText(f"Preview restored · {sample}")
+            self.lbl_export_status.setText(f"Preview restored, {sample}")
             return
         document = {
             "schema": checkpoint_file.SCHEMA, "version": checkpoint_file.VERSION,
@@ -4304,7 +4366,7 @@ class MainWindow(QMainWindow):
         self._pending_view_restore = state
         self._pending_view_restore_kind = "history"
         self._select_sample(dataset, sample)
-        self.lbl_export_status.setText(f"Restoring preview · {sample}")
+        self.lbl_export_status.setText(f"Restoring preview, {sample}")
 
     def _open_load_checkpoint(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -4361,13 +4423,13 @@ class MainWindow(QMainWindow):
             self._pending_view_restore = state
             self._pending_view_restore_kind = "checkpoint"
             self.lbl_sample_sub.setText(
-                "Checkpoint preview restored — reconnecting to source…")
+                "Checkpoint preview restored: reconnecting to source…")
             self._select_sample(state["dataset"], state["sample"])
         else:
             self.lbl_sample_sub.setText(
-                "Checkpoint snapshot only — its original source is unavailable. "
+                "Checkpoint snapshot only: its original source is unavailable. "
                 "Load the source again to process or export.")
-            self.lbl_export_status.setText("Snapshot only · source unavailable")
+            self.lbl_export_status.setText("Snapshot only, source unavailable")
         return document
 
     def _open_about_dialog(self):

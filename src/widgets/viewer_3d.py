@@ -232,7 +232,8 @@ class Viewer3D(QWidget):
 
         # Mode watermark overlay
         painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
-        mode_text = f"3D — {self._visual_mode.upper()} ({self._color_map if self._visual_mode == 'real' else 'amber/silver'})"
+        mode_text = (f"3D: {self._color_map} colour" if self._visual_mode == "real"
+                     else "3D: simple, amber and silver")
         painter.setPen(QColor("#6f7c91"))
         painter.drawText(16, h - 14, mode_text)
 

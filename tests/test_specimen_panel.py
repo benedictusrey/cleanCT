@@ -569,6 +569,31 @@ def main() -> int:
     check("a first export does not ask", absent is True and len(asked) == 1)
     shutil.rmtree(TEST_TMP / "replace-check", ignore_errors=True)
 
+    # ---- rendered states: glyph icons, middle dots, reasons, accessible names ----
+    from PySide6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLabel, QSlider
+    # every label and button, shown or not: copy rules apply to all of them
+    shown_labels = [lbl.text() for lbl in window.findChildren(QLabel) if lbl.text()]
+    shown_buttons = [b.text() for b in window.findChildren(QAbstractButton) if b.text()]
+    combo_items = [combo.itemText(i) for combo in window.findChildren(QComboBox)
+                   for i in range(combo.count())]
+    shown_text = shown_labels + shown_buttons + combo_items
+    glyphs = [t for t in shown_text
+              if any(0x2190 <= ord(c) <= 0x21FF or 0x2600 <= ord(c) <= 0x27BF for c in t)]
+    check("no arrow or check-mark glyphs stand in for icons", not glyphs, str(glyphs[:3]))
+    dotted = [t for t in shown_text if "·" in t]
+    check("no middle dots join fragments in visible text", not dotted, str(dotted[:3]))
+    # the landing state, before any scan: the presets and Reset are disabled
+    landing = mw.MainWindow()
+    silent = [b.text() for b in landing.findChildren(QAbstractButton)
+              if b.text() and not b.isEnabled() and not b.toolTip()]
+    landing.close()
+    check("every disabled button says why it is disabled (landing state)",
+          not silent, str(silent[:5]))
+    unnamed = [f"{type(w).__name__}:{w.objectName()}"
+               for w in window.findChildren(QAbstractSpinBox) + window.findChildren(QSlider)
+               if not w.accessibleName()]
+    check("every spin box and slider has an accessible name", not unnamed, str(unnamed[:5]))
+
     window.close()
     window2.close()
     app.processEvents()
