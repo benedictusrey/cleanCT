@@ -253,6 +253,17 @@ changelog of what changed and why.
   available. The launcher reports start-up failures with the log location.
 - Details, files and open items: `DEV_LOG.md` section 2.8.
 
+## 2026-11-18 — Audit pass and UI redesign
+
+- **Redesign:** dark (default) and light themes, switched under Preferences >
+  Appearance. Flat metrics strip, a separate export row, an Activity drawer, and
+  wrapped long text. The window can now shrink to about 1,250 px instead of about
+  2,500 px.
+- **Specimens and scans:** ids are capped at 48 characters; a scan on a network
+  share gets a plain message; only one window can run at a time.
+- **Build:** the builder removes the rollback of a killed build.
+- Details and open items: `DEV_LOG.md` section 2.9.
+
 ## 2026-11-18 — Post-audit fixes (WinError 448 report)
 
 - **Setup and elevation:** the setup starts cleanCT as the original user, and the

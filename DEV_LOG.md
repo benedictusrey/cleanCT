@@ -432,6 +432,48 @@ Open items and deliberate deviations:
 - The interactive checks in plan section D.7 were not run by hand. The same
   behaviour is covered offscreen by the gate and by `tests/capture_screens.py`.
 
+### 2.9 [2026-11-18] Installed-app investigation, audit fixes, UI redesign
+- **Release rebuilt (2026-11-18, after the redesign).** The builder's gate passed
+  and the launcher self-check passed. The portable ZIP has 6,690 entries under
+  `cleanCT-1.0.0`, CRCs are clean, and its SHA-256
+  (`82c3a5c0…d6a1`) equals the sidecar. The packaged sources contain the
+  redesign (activity drawer, light palette) and the single-window guard. The
+  setup (`cleanCT-1.0.0-setup.exe`, 208 MB, SHA-256 `71896b6c…22ec`) was compiled
+  from `installer\cleanct.iss`, which has `runasoriginaluser`. It has not been
+  installed in this session. The stale rollback from the killed build was removed
+  by the builder.
+- **Installed-app load failure (not reproduced; open).** The installed copy
+  (`C:\Program Files\cleanCT`, all fixes present) was tested from this PC with
+  its own runtime and engine, in a normal session, with the state folder
+  redirected to a temp folder: scan registration, junction reads and the full
+  process run (register, then `tomograph.process_sample`) all succeed. The
+  Start-menu and desktop shortcuts do not request administrator rights, and the
+  launcher manifest is `asInvoker`. `H:` is a local fixed NTFS drive, not a
+  network mapping. The failure the user reports therefore depends on a condition
+  this PC does not have: an elevated start, another account or PC, or another
+  start path. The exact error text and the start method are needed to settle it.
+- **Specimen ids capped at 48 characters** (`MAX_SPECIMEN_LEN`). Output paths add
+  about 70 characters; Windows refuses paths over 260 unless long paths are
+  enabled, which is not the default. This PC has `LongPathsEnabled=1`, so the
+  limit is not visible here (`src/core/custom_series.py`).
+- **Network-share scans refused with a plain message** (`is_local_folder`). A
+  junction must point to a folder on this PC; before, the user saw a raw
+  `[WinError 3]`. The mapped-drive case is covered by `GetDriveTypeW`.
+  Not tested against a live share: no share was reachable from this PC.
+- **One window at a time** (`src/core/single_instance.py`, a named mutex in
+  `main.py`). Two windows rewrite the same registry, so one could drop the
+  other's scan.
+- **Builder removes rollbacks of killed builds** (`prune_stale_rollbacks`). A
+  killed build left about 745 MB in `installer\_cache`.
+- **UI redesign** (`src/theme.py`, `src/main_window.py`, `DESIGN.md`,
+  `PRODUCT.md`). Two palettes, dark default and light, switched under
+  Preferences > Appearance and saved in `settings.json`. Teal is the one accent.
+  The metrics strip sits flat under the title; export controls have their own
+  row; the Activity log is a drawer; long text wraps; each page scrolls sideways
+  when narrower than the page needs. Window minimum width fell from about 2,486
+  px to about 1,250 px. Tests: `tests/test_theme.py` (WCAG AA for every text pair
+  in both themes), `tests/test_specimen_panel.py` (switch and saved choice).
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
