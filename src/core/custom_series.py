@@ -37,6 +37,10 @@ ensure_engine_on_path()
 from roi_delivery import read_dicom, sorted_source_files  # noqa: E402
 from volume_io import (VolumeInputError, detect_source_kind,
                        inspect_source)  # noqa: E402
+try:
+    from core.bundle_export import quarantine_corrupt
+except ImportError:  # direct import (no package context)
+    from bundle_export import quarantine_corrupt
 
 
 class LoadError(RuntimeError):
@@ -61,12 +65,20 @@ PREF_KEYS = ("cut_override", "keep_from", "cut_margin_slices")
 # registry
 # --------------------------------------------------------------------------
 def _read_registry() -> list[dict]:
-    if REGISTRY.exists():
-        try:
-            return json.loads(REGISTRY.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return []
+    if not REGISTRY.exists():
+        return []
+    try:
+        data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        quarantine_corrupt(REGISTRY, "not valid JSON")
+        return []
+    except OSError:
+        return []
+    if not isinstance(data, list):
+        quarantine_corrupt(REGISTRY, "not a JSON list")
+        return []
+    # skip entries a hand edit left without a specimen id, instead of raising
+    return [e for e in data if isinstance(e, dict) and e.get("specimen")]
 
 
 def _write_registry(entries: list[dict]) -> None:

@@ -281,14 +281,38 @@ def default_save_root() -> Path:
     return _STATE / "export"
 
 
+def quarantine_corrupt(path: Path, reason: str) -> None:
+    """Keep an unreadable per-user state file instead of overwriting it.
+
+    The file is renamed to ``<name>.corrupt-<timestamp>`` so the next save
+    starts clean while the damaged content stays on disk for recovery."""
+    dest = path.with_name(
+        f"{path.name}.corrupt-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}")
+    try:
+        os.replace(path, dest)
+    except OSError as exc:
+        print(f"cleanCT: {path.name} is unreadable ({reason}) and could not be "
+              f"kept aside: {exc}", file=sys.stderr)
+        return
+    print(f"cleanCT: {path.name} is unreadable ({reason}); kept as {dest.name}",
+          file=sys.stderr)
+
+
 def load_settings(app_root: Path | None = None) -> dict:
     p = (app_root or _STATE) / "settings.json"
-    if p.exists():
-        try:
-            return json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {}
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        quarantine_corrupt(p, "not valid JSON")
+        return {}
+    except OSError:
+        return {}
+    if not isinstance(data, dict):
+        quarantine_corrupt(p, "not a JSON object")
+        return {}
+    return data
 
 
 def save_settings(app_root: Path | None = None, settings: dict | None = None) -> None:
@@ -296,7 +320,9 @@ def save_settings(app_root: Path | None = None, settings: dict | None = None) ->
         raise TypeError("save_settings(settings=...) requires a dict")
     p = (app_root or _STATE) / "settings.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    os.replace(tmp, p)           # a crash mid-write never leaves a half file
 
 
 # --------------------------------------------------------------------------
