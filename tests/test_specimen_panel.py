@@ -417,6 +417,32 @@ def main() -> int:
     window._set_job_gates(process_ready=False)
     check("spinner stops when idle", not window.spec_spinner.isRunning())
 
+    # [10] natural sort, lateral boundaries and the job-box timer ----------
+    sort_key = getattr(mw, "_natural_key", None)
+    ordered = sorted(["1-10", "1-2", "1-1"], key=sort_key) if sort_key else []
+    check("sidebar sorts embedded numbers numerically",
+          ordered == ["1-1", "1-2", "1-10"], str(ordered))
+
+    window.spin_left.setValue(5)
+    window.slider_right.setValue(30)
+    check("right slider sets the spin, slider and viewer to the same value",
+          window.spin_right.value() == 30 and window.slider_right.value() == 30
+          and round(window.pref_viewer._x1 * 100) == 30,
+          f"spin={window.spin_right.value()} slider={window.slider_right.value()} "
+          f"viewer={round(window.pref_viewer._x1 * 100)}")
+    window.spin_right.setValue(3)
+    check("right boundary cannot pass the left boundary (4-point band)",
+          window.spin_right.value() == 9 and window.slider_right.value() == 9,
+          f"spin={window.spin_right.value()} slider={window.slider_right.value()}")
+    window.spin_left.setValue(40)
+    check("left boundary cannot pass the right boundary (4-point band)",
+          window.spin_left.value() == 5 and window.slider_left.value() == 5,
+          f"spin={window.spin_left.value()} slider={window.slider_left.value()}")
+    hide_timer = getattr(window, "_job_box_hide_timer", None)
+    check("job box hides on one timer created up front",
+          hide_timer is not None and hide_timer.isSingleShot()
+          and hide_timer.interval() == 2500)
+
     window.close()
     window2.close()
     app.processEvents()

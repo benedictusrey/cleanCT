@@ -6,6 +6,7 @@ import io
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -50,6 +51,16 @@ from dialogs.about_dialog import AboutDialog
 from dialogs.load_dialog import LoadDialog
 from dialogs.properties_dialog import SpecimenPropertiesDialog
 import icon_utils
+
+
+def _natural_key(value: str) -> list:
+    """Sort key that compares embedded numbers as numbers (1-2 before 1-10)."""
+    return [int(token) if token.isdigit() else token
+            for token in re.split(r"(\d+)", value)]
+
+
+# Minimum Left-to-Right band in percent: the viewer keeps the same gap.
+LATERAL_MIN_GAP_PCT = 4
 
 
 def _b64_to_pixmap(data_url: str) -> QPixmap:
@@ -790,6 +801,13 @@ class MainWindow(QMainWindow):
         self.job_box = QFrame()
         self.job_box.setStyleSheet("background: #141822; border: 1px solid #2b3447; border-radius: 8px; padding: 10px;")
         self.job_box.setVisible(False)
+        # one timer for the hide delay: a new job stops it instead of letting a
+        # stale single-shot hide the box while the next job runs
+        self._job_box_hide_timer = QTimer(self)
+        self._job_box_hide_timer.setSingleShot(True)
+        self._job_box_hide_timer.setInterval(2500)
+        self._job_box_hide_timer.timeout.connect(
+            lambda: self.job_box.setVisible(False))
         job_layout = QVBoxLayout(self.job_box)
         job_layout.setContentsMargins(4, 4, 4, 4)
         job_layout.setSpacing(6)
@@ -1473,8 +1491,8 @@ class MainWindow(QMainWindow):
         self.lbl_right = QLabel("Right X:")
         row_lat_r.addWidget(self.lbl_right)
         self.spin_right = QSpinBox()
-        self.spin_right.setRange(52, 100)
-        self.spin_right.setValue(85)
+        self.spin_right.setRange(0, 100)
+        self.spin_right.setValue(96)
         self.spin_right.setSuffix("%")
         self.spin_right.valueChanged.connect(self._on_spin_right_changed)
         row_lat_r.addWidget(self.spin_right)
@@ -1724,10 +1742,7 @@ class MainWindow(QMainWindow):
         self._header_items = []
         self._empty_row = None
 
-        import re
-        def nat_key(value):
-            return [int(token) if token.isdigit() else token
-                    for token in re.split(r'(\\d+)', value)]
+        nat_key = _natural_key
 
         # Show only specimens that are actually available on this machine.
         catalog = {}
@@ -2790,15 +2805,32 @@ class MainWindow(QMainWindow):
         self.pref_viewer.setGuideMode(mode)
         self.box_lateral.setVisible(mode == "4lines")
 
+    def _set_lateral(self, side: str, value: int) -> None:
+        """Set the Left or Right boundary. Left stays at least
+        LATERAL_MIN_GAP_PCT below Right, the band the viewer keeps; the spin,
+        the slider and the viewer all take the clamped value."""
+        if side == "left":
+            value = max(0, min(value, self.spin_right.value() - LATERAL_MIN_GAP_PCT))
+            widgets = (self.spin_left, self.slider_left)
+        else:
+            value = min(100, max(value, self.spin_left.value() + LATERAL_MIN_GAP_PCT))
+            widgets = (self.spin_right, self.slider_right)
+        for widget in widgets:
+            widget.blockSignals(True)
+            widget.setValue(value)
+            widget.blockSignals(False)
+        if side == "left":
+            self.pref_viewer.setLeft(value)
+        else:
+            self.pref_viewer.setRight(value)
+
     def _on_spin_left_changed(self, v: int):
         self._note_manual_lines_edit("Left")
-        self.slider_left.setValue(v)
-        self.pref_viewer.setLeft(v)
+        self._set_lateral("left", v)
 
     def _on_slider_left_changed(self, v: int):
         self._note_manual_lines_edit("Left")
-        self.spin_left.setValue(v)
-        self.pref_viewer.setLeft(v)
+        self._set_lateral("left", v)
 
     def _on_spin_top_changed(self, v: int):
         self._note_manual_lines_edit("Top")
@@ -2834,13 +2866,11 @@ class MainWindow(QMainWindow):
 
     def _on_spin_right_changed(self, v: int):
         self._note_manual_lines_edit("Right")
-        self.slider_right.setValue(v)
-        self.pref_viewer.setRight(v)
+        self._set_lateral("right", v)
 
     def _on_slider_right_changed(self, v: int):
         self._note_manual_lines_edit("Right")
-        self.spin_right.setValue(v)
-        self.pref_viewer.setRight(v)
+        self._set_lateral("right", v)
 
     def _on_pref_right_dragged(self, v: int):
         self._note_manual_lines_edit("Right")
@@ -3248,6 +3278,7 @@ class MainWindow(QMainWindow):
                    kind: str = "process", progress_mode: str = "staged",
                    combined_split: float | None = None,
                    proc_duration: float | None = None):
+        self._job_box_hide_timer.stop()      # a new job keeps the box visible
         if self._active_worker and self._active_worker.isRunning():
             QMessageBox.warning(self, "Busy", "Another operation is running.")
             return
@@ -3528,7 +3559,7 @@ class MainWindow(QMainWindow):
                 raise RuntimeError(
                     "processing finished but report.json is missing — "
                     "export aborted")
-            report = json.loads(report_p.read_text())
+            report = json.loads(report_p.read_text(encoding="utf-8"))
             stripped = out_dir / "stripped.nii"
             if not stripped.exists():
                 stripped = out_dir / "stripped.nii.gz"
@@ -3660,7 +3691,7 @@ class MainWindow(QMainWindow):
             self._log_process_result(res.get("report", {}))
         if self._closing:
             return      # window is going away: start no new load
-        QTimer.singleShot(2500, lambda: self.job_box.setVisible(False))
+        self._job_box_hide_timer.start()
         report = res.get("report", {}) or {}
         if (kind in ("process", "process_export")
                 and report.get("dataset", self.dataset) == self.dataset
@@ -3872,7 +3903,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Not Processed Yet",
                                 "This sample has not been processed yet — run Process first.")
             return
-        report = json.loads(report_p.read_text())
+        report = json.loads(report_p.read_text(encoding="utf-8"))
         stripped = out_dir / "stripped.nii"
         if not stripped.exists():
             stripped = out_dir / "stripped.nii.gz"
