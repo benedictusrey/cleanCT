@@ -472,6 +472,52 @@ def main() -> int:
         mw.viewer_core.CACHE_DIR = old_cache_dir
         mw.viewer_core._CACHE = old_payload_cache
 
+    # closing while a job finishes or fails: no new load, no modal box
+    closing = NoStartupIOWindow()
+    try:
+        closing.dataset, closing.sample = "synthetic", "slow"
+        select_calls: list[tuple] = []
+        boxes: list[str] = []
+        loads: list[tuple] = []
+        closing._select_sample = lambda ds, sample, _async=True: select_calls.append((ds, sample))
+
+        class _BoxSpy:
+            @staticmethod
+            def critical(*args, **kwargs):
+                boxes.append(str(args[-1]))
+
+        real_message_box = mw.QMessageBox
+        real_build = mw.viewer_core.build_payload
+        mw.QMessageBox = _BoxSpy
+        mw.viewer_core.build_payload = lambda *a, **k: (loads.append(a), {})[1]
+        try:
+            closing._closing = True
+            closing._job_kind = "process"
+            closing._on_job_finished({"report": {}})
+            closing._job_kind = "process"
+            closing._on_job_error("boom")
+            mw.MainWindow._select_sample(closing, "synthetic", "slow")
+            check("closing: finished job starts no reload",
+                  select_calls == [], str(select_calls))
+            check("closing: failed job opens no modal box",
+                  boxes == [], str(boxes))
+            check("closing: direct select starts no loader",
+                  not closing._loading and not closing._load_workers,
+                  f"loading={closing._loading} workers={len(closing._load_workers)}")
+            pump_until(app, lambda: not closing._load_workers, timeout=5.0)
+            select_calls.clear()
+            closing._closing = False
+            closing._job_kind = "process"
+            closing._on_job_finished({"report": {}})
+            check("control: the same finish reloads when not closing",
+                  select_calls == [("synthetic", "slow")], str(select_calls))
+        finally:
+            mw.QMessageBox = real_message_box
+            mw.viewer_core.build_payload = real_build
+    finally:
+        closing.close()
+        app.processEvents()
+
     print("RESULT: ALL PASS" if not failures else f"RESULT: {len(failures)} FAIL")
     return 1 if failures else 0
 

@@ -236,6 +236,8 @@ class MainWindow(QMainWindow):
         and the GUI never blocks — the earlier synchronous build froze the
         whole interface for seconds on the 24 µm volumes.  ``_async=False``
         drains synchronously (test harness only)."""
+        if self._closing:
+            return          # window is going away: no new loader thread
         if _async:
             if self._loading:
                 self._pending_select = (ds, sample)   # honor the LAST click
@@ -1642,14 +1644,12 @@ class MainWindow(QMainWindow):
                 self._log_action(
                     f"CPU processing ({reason}) — multi-threaded CPU is "
                     "used; no GPU required")
-            self._gpu_worker = None
 
         def _err(msg: str):
             self.lbl_gpu.setText("⚙ CPU processing (backend probe failed)")
             self.lbl_gpu.setToolTip("GPU probe failed; CPU processing in use")
             self.lbl_gpu.setStyleSheet(self._GPU_CHIP_STYLE_FALLBACK)
             self._log_action(f"GPU probe exception: {msg}; using CPU")
-            self._gpu_worker = None
 
         # the thread wrapper MUST outlive run(): a local would be
         # garbage-collected mid-flight ("QThread: Destroyed while thread
@@ -1657,7 +1657,14 @@ class MainWindow(QMainWindow):
         self._gpu_worker = WorkerThread(lambda: dict(_probe()))
         self._gpu_worker.succeeded.connect(_done)
         self._gpu_worker.failed.connect(_err)
+        self._gpu_worker.finished.connect(self._on_gpu_probe_finished)
         self._gpu_worker.start()
+
+    def _on_gpu_probe_finished(self):
+        # cleared only once the probe thread has finished: dropping the
+        # reference from succeeded/failed freed a QThread still inside run()
+        if self._gpu_worker is self.sender():
+            self._gpu_worker = None
 
     # ---- sidebar meta helpers -------------------------------------------
     @staticmethod
@@ -3631,6 +3638,8 @@ class MainWindow(QMainWindow):
             self._log_export_result(res)
         else:
             self._log_process_result(res.get("report", {}))
+        if self._closing:
+            return      # window is going away: start no new load
         QTimer.singleShot(2500, lambda: self.job_box.setVisible(False))
         report = res.get("report", {}) or {}
         if (kind in ("process", "process_export")
@@ -3661,6 +3670,9 @@ class MainWindow(QMainWindow):
             self.lbl_export_status.setText("✗ Export failed")
             self.lbl_export_status.setStyleSheet(
                 "color: #ff463c; font-size: 11px; font-weight: 600;")
+        if self._closing:
+            self._log_action(f"Operation failed while closing: {err}")
+            return
         QMessageBox.critical(self, "Processing Error", f"Operation failed:\n{err}")
 
     # ---------------------------------------------------------------- Export Bundle
