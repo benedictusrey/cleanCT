@@ -26,7 +26,7 @@ sys.path.insert(0, str(APP))
 sys.path.insert(0, str(APP / "src"))
 
 from PIL import Image  # noqa: E402
-from PySide6.QtGui import QColor  # noqa: E402
+from PySide6.QtGui import QColor, QPixmap  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 app = QApplication.instance() or QApplication(sys.argv)
@@ -64,9 +64,9 @@ frame_url = png_url(frame)
 
 # 14 slices of a wood/metal series, the same fixture as the plane scrub test
 ROWS, COLS, NZ = 24, 40, 14
-src = TEST_TMP / "results_src"
+src = TEST_TMP / "views_src"          # its own folder: test_results_sync writes results_src
 cs.write_wood_metal_series(src / "XY", n=NZ, rows=ROWS, cols=COLS, um=66.0)
-name = "results_spec"
+name = "views_spec"
 if name not in csx.registered_specimens():
     csx.register_series(src, name)
 
@@ -94,22 +94,6 @@ check("processed axial: the After panel is kept inside the L/R box",
 check("processed axial: the Before panel is untouched",
       rgb(ax, 100, 50) == LIGHT, str(rgb(ax, 100, 50)))
 
-# 1b. processed sagittal: the horizontal axis is Y, so the Y pair crops the After panel
-window.long_view = "sagittal"
-window.payload = {"sagittal": frame_url, "coronal": frame_url, "unprocessed": False,
-                  "report": {"n_slices": NZ}, "frames": []}
-window._update_long_view()
-lg = window.long_viewer._pixmap.toImage()
-check("processed sagittal: the After panel is cleared outside the Y box",
-      rgb(lg, 230, 50) == BG and rgb(lg, 380, 50) == BG, str((rgb(lg, 230, 50), rgb(lg, 380, 50))))
-check("processed sagittal: the Y box keeps the After panel",
-      rgb(lg, 300, 50) == LIGHT, str(rgb(lg, 300, 50)))
-window.long_view = "coronal"
-window._update_long_view()
-lg_c = window.long_viewer._pixmap.toImage()
-check("processed coronal: the X box crops the After panel (same pair, same frame)",
-      rgb(lg_c, 300, 50) == LIGHT and rgb(lg_c, 380, 50) == BG, str(rgb(lg_c, 380, 50)))
-
 # 1c. the Results lines are the Boundaries lines (the Wood Top and the Cut on screen), even
 # when the shown run was processed with other lines: the processed run used cut 9 and keep 0,
 # the lines on screen are cut 11 and keep 2; the stale marker flags the difference
@@ -123,6 +107,41 @@ check("Results draw the Boundaries lines: cut 11 on the long view",
       window.long_viewer._cut == 11, f"cut={window.long_viewer._cut}")
 check("the stale marker shows: the processed run differs from the lines on screen",
       not window.lbl_results_stale.isHidden())
+
+# 1d. the AFTER shows only the slices from Keep to Cut (the export keeps source[keep:cut]),
+# on the on-screen lines: keep 2 and cut 11 of 14 slices, the stripped planes are not cut at
+# the Keep line; the axial slice outside the kept slices is blank on the AFTER
+window.pref_cut, window.pref_keep = 11, 2
+window.long_view = "sagittal"
+window._long_pos = None
+window.long_viewer.setPixmap(QPixmap(), 1)
+window.payload = {"frames": [{"z": 1, "png": frame_url}, {"z": 5, "png": frame_url}],
+                  "unprocessed": False, "sagittal": frame_url,
+                  "report": {"n_slices": NZ, "cut_from": 9, "keep_from": 0}}
+window._update_long_view()
+cs.pump(app, lambda: window.long_viewer._pixmap is not None and not window.long_viewer._pixmap.isNull(), 240)
+kz = window.long_viewer._pixmap.toImage()
+kpw = (kz.width() - 10) // 2
+ax_mid = kpw + 10 + kpw // 2                      # the After panel, middle of the L/R box
+row_keep = round(2 / (NZ - 1) * (kz.height() - 1))
+row_cut = round(11 / (NZ - 1) * (kz.height() - 1))
+def dark(img, x, y):
+    c = img.pixelColor(x, y)
+    return max(c.red(), c.green(), c.blue()) < 40
+check("longitudinal AFTER is blank above the Keep line", dark(kz, ax_mid, row_keep - 25),
+      str(rgb(kz, ax_mid, row_keep - 25)))
+check("longitudinal AFTER is blank below the Cut line", dark(kz, ax_mid, row_cut + 25),
+      str(rgb(kz, ax_mid, row_cut + 25)))
+check("longitudinal AFTER is blank outside the Y box", dark(kz, kpw + 10 + 3, row_cut - 60),
+      str(rgb(kz, kpw + 10 + 3, row_cut - 60)))
+window._update_axial_frame(0)
+az = window.axial_viewer._pixmap.toImage()
+check("axial AFTER is blank for a slice above the Keep line (z 1 < keep 2)",
+      rgb(az, 300, 50) == BG, str(rgb(az, 300, 50)))
+window._update_axial_frame(1)
+az = window.axial_viewer._pixmap.toImage()
+check("axial AFTER keeps a slice between Keep and Cut (z 5)",
+      rgb(az, 300, 50) == LIGHT, str(rgb(az, 300, 50)))
 
 # 2. raw scan: the predicted longitudinal view arrives from the Boundaries preview
 window.payload = {"unprocessed": True, "report": {"n_slices": NZ}, "frames": []}

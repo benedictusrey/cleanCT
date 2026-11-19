@@ -203,14 +203,26 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
 
 ## 7b. The Results view: the L/R box, and the prediction on load
 
-- **Processed Results show only the L/R box on the After panel.** The axial frames and
-  the sagittal and coronal views are cropped to the box that is on screen in
-  Boundaries (the same lateral values the export keeps). The Before panel and the
-  saved frames are not changed. The crop is display only: `viewer_2d.crop_after_panel`.
+- **The longitudinal view has a position slider.** Sagittal has an X slider under it
+  (the columns), coronal a Y slider (the rows). It starts in the middle and reads `x=N`
+  or `y=N`, as the Boundaries label does. The view is `viewer_core.get_preview` at that
+  position, with the lines on screen, for processed and raw specimens alike. Moves are
+  debounced (150 ms), and a stale render is dropped.
+- **The After is the delivery.** It shows the L/R box and the slices from Keep to Cut
+  on screen, the same rule the export applies (`source[keep:cut]`). The stripped planes
+  equal the original inside Keep..Cut (checked on 2-5 and 2_666_5 at several positions,
+  no difference), so the preview's After is the processed result. Above the wood top the
+  stripped planes keep the air (about -1000 HU), which the crop removes.
+- **Palette.** The longitudinal view uses the bone palette, as the processed frames do.
+- **The axial After is blank outside Keep..Cut** for a slice outside the kept slices. The
+  Before panel and the saved frames are not changed. The crop is display only, in
+  `main_window._results_crop_axial` over `viewer_2d.crop_after_panel`.
+- The processed sagittal and coronal PNGs are no longer built or read. Older caches still
+  carry them, and they are ignored.
 - **A raw scan (registered, not processed) shows the prediction.** The axial slice
-  draws the predicted L/R box on its After panel. The longitudinal view is the
-  Boundaries preview for the sagittal or coronal plane: the predicted cut and keep
-  lines and the L/R box, drawn by `viewer_core.get_preview` on a worker thread. The
+  draws the predicted L/R box on its After panel. The longitudinal view is the same
+  preview as for a processed run (the predicted cut and keep lines and the L/R box), on
+  a worker thread. The
   latest request wins, and the view is refreshed when the Boundaries lines change
   (debounced, the same point as the Boundaries preview).
 - **The Results view labels both panels, in front of the image.** "BEFORE (Original)"
@@ -312,7 +324,7 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
 | Pre-process windows | `src/core/viewer_core.py`: `UNPROC_WIN`, `UNPROC_WOOD`, `_prev_source_unprocessed` |
 | Copy layer | `src/core/auto_snap.py`: `cut_target`, `detected_lines` |
 | Guide lines and labels on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` (guide labels on the Before panel, Keep and Cut on the After panel) |
-| Results view: labels, Before lines, L/R crop and the predicted view | `src/widgets/viewer_2d.py`: `crop_after_panel`, `setResultsOverlay`, `_paint_results`, `_paint_panel_label`; `src/core/viewer_core.py`: `_axial_pair`, `_longitudinal` (Before = original planes), `annotate` flag on `_ortho_panel`, `_axial_orig`, `get_preview`; `src/main_window.py`: `_refresh_results_sync` (planes, L/R box, guides), `_results_crop`, `_refresh_results_views` (load, Results tab, plane toggle), `_refresh_results_long`, `_on_results_long_ready`, `_update_axial_frame`, `_update_long_view` |
+| Results view: labels, Before lines, L/R crop, position sliders and the longitudinal preview | `src/widgets/viewer_2d.py`: `crop_after_panel`, `setResultsOverlay`, `_paint_results`, `_paint_panel_label`; `src/core/viewer_core.py`: `_axial_pair`, `annotate` flag on `_ortho_panel`, `_axial_orig`, `get_preview`, `_CMAP_STOPS["bone"]`; `src/main_window.py`: `_refresh_results_sync` (planes, L/R box, guides), `_results_crop_axial`, `_refresh_results_views`, `_refresh_results_long` (preview at the slider position), `_on_results_long_ready`, `_on_long_slider_changed`, `_update_axial_frame`, `_update_long_view` |
 | Apply and the lines in the window | `src/main_window.py`: `_apply_and_process`, `_apply_auto_snap`, `_apply_payload_state` |
 | Registry: overrides | `src/core/custom_series.py`: `set_specimen_overrides` |
 | Export: Z range, X/Y crop, self-check | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_lateral_box_px`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
@@ -329,6 +341,8 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
 - `tests/test_results_views.py`: the Results crop in the window and the predicted view.
 - `tests/test_results_overlay.py`: the Results overlay (lines on the Before panel only,
   the labels on their panels) and the original Before of the longitudinal view.
+- `tests/test_results_slider.py`: the X slider (sagittal) and the Y slider (coronal): the
+  range, the middle start, the x=N and y=N labels, and a moved slider re-rendering the plane.
 - `tests/test_axial_outline.py`: outline precision, the cache version and the
   pre-process window.
 - `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and a

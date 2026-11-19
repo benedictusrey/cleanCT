@@ -121,14 +121,15 @@ check("axial: the Top line is drawn on the Before panel only",
       count(a_img, a_left.left() + 30, a_left.right(), y_top - 1, y_top + 1, KEEP_GREEN) > 0
       and count(a_img, a_right.left(), a_right.right(), y_top - 1, y_top + 1, KEEP_GREEN) == 0)
 
-# 3. the longitudinal image: original Before, stripped After, no baked job lines
+# 3. the longitudinal view (the preview at the slider position): the Before is the
+# ORIGINAL plane, the metal base shows below the cut, the After is blank below the cut,
+# and the image carries no baked job lines
 n, ny, cut = 20, 30, 12
 orig = np.full((n, ny), -800.0, np.float32)
 orig[cut:] = 3000.0                          # the metal base below the cut
-strip = orig.copy()
-strip[cut:] = np.nan                         # the stripped plane has nothing there
-sag_img, _ = vc._longitudinal(orig, orig, strip, strip, cut, -950.0, 350.0, width=300)
-arr = np.asarray(sag_img.convert("RGB")).astype(int)
+img = vc._ortho_panel(orig, cut, 0, 0, None, -950.0, 350.0, 2000.0, 0, 300,
+                      cmap="grayscale", cols=None, annotate=False)
+arr = np.asarray(img.convert("RGB")).astype(int)
 h = arr.shape[0]
 pw = (arr.shape[1] - 10) // 2
 row = h - 6                                  # below the cut

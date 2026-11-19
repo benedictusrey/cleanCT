@@ -48,6 +48,7 @@ ACCESSIBLE_NAMES = {
     "spin_top": "Top Y boundary", "slider_top": "Top Y boundary",
     "spin_bottom": "Bottom Y boundary", "slider_bottom": "Bottom Y boundary",
     "axial_slider": "Axial slice", "pref_slider": "Preview slice",
+    "long_slider": "Longitudinal position",
 }
 # Why a threshold preset or Reset is unavailable before a scan is loaded
 PRESET_TIP = "Available after a scan is loaded."
@@ -229,6 +230,10 @@ class MainWindow(QMainWindow):
         self._results_long_key: tuple | None = None
         self._results_long_gen = 0
         self._results_workers: list = []
+        self._long_pos: int | None = None          # longitudinal position; None = middle
+        self._long_timer = QTimer(self)
+        self._long_timer.setSingleShot(True)
+        self._long_timer.timeout.connect(self._refresh_results_long)
         self._closing = False
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -458,6 +463,7 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._set_empty_text(bool(p.get("unprocessed")))
         self._results_long_key = None
+        self._long_pos = None
         self.long_viewer.setPixmap(QPixmap(), 1)   # never show the previous specimen's view
         try:
             if p.get("unprocessed"):
@@ -1290,6 +1296,17 @@ class MainWindow(QMainWindow):
         self.long_viewer.setGuideEnabled(False)
         self.long_viewer.setResultsOverlay(True)
         long_box.addWidget(self.long_viewer, 1)
+        # position scrubber: X for the sagittal plane, Y for the coronal one
+        long_scrub = QHBoxLayout()
+        self.long_slider = QSlider(Qt.Horizontal)
+        self.long_slider.setRange(0, 0)
+        self.long_slider.valueChanged.connect(self._on_long_slider_changed)
+        self.lbl_long_pos = QLabel("x=0")
+        self.lbl_long_pos.setFixedWidth(55)
+        theme.set_role(self.lbl_long_pos, "accent")
+        long_scrub.addWidget(self.long_slider)
+        long_scrub.addWidget(self.lbl_long_pos)
+        long_box.addLayout(long_scrub)
         m2d_layout.addLayout(long_box, 1)
 
         splitter.addWidget(merged_2d_frame)
@@ -2951,7 +2968,7 @@ class MainWindow(QMainWindow):
                 z = frame.get("z", idx)
                 self.lbl_axial_z.setText(f"z={z}")
                 data_url = frame.get("png", "")
-                pm = self._results_crop(_b64_to_pixmap(data_url), "axial")
+                pm = self._results_crop_axial(_b64_to_pixmap(data_url), z)
                 self.axial_viewer.setPixmap(pm, self._payload_slices())
                 self._refresh_results_sync()
             return
@@ -2986,6 +3003,7 @@ class MainWindow(QMainWindow):
 
     def _toggle_long_view(self, view: str):
         self.long_view = view
+        self._long_pos = None                      # the new plane starts in the middle
         self.btn_long_sag.setProperty("active", "true" if view == "sagittal" else "false")
         self.btn_long_cor.setProperty("active", "true" if view == "coronal" else "false")
         self.btn_long_sag.style().unpolish(self.btn_long_sag)
@@ -2997,14 +3015,8 @@ class MainWindow(QMainWindow):
     def _update_long_view(self):
         if not self.payload:
             return
-        if self.payload.get("unprocessed"):
-            self._refresh_results_sync()
-            self._refresh_results_long()
-            return
-        data_url = self.payload.get(self.long_view, "")
-        pm = self._results_crop(_b64_to_pixmap(data_url), self.long_view)
-        self.long_viewer.setPixmap(pm, self._payload_slices())
         self._refresh_results_sync()
+        self._refresh_results_long()
 
     def _refresh_results_views(self) -> None:
         """Results shown or loaded: re-crop the processed Results to the current
@@ -3019,23 +3031,31 @@ class MainWindow(QMainWindow):
             self._update_axial_frame(self.axial_idx)
             self._update_long_view()
 
-    def _results_crop(self, pm: QPixmap, plane: str) -> QPixmap:
-        """Results show only the L/R box on the After panel: the same box the
-        export keeps (the Boundaries lateral lines).  Display only."""
+    def _results_crop_axial(self, pm: QPixmap, z: int) -> QPixmap:
+        """Axial After: the L/R box, and blank outside the slices from Keep to Cut (the
+        export keeps source[keep:cut]), on the lines on screen.  Display only."""
+        if not self.pref_keep <= z < self.pref_cut:
+            return crop_after_panel(pm, (0.0, 0.0), None)   # (0, 0): the After is blank
         lat = self.pref_viewer.axisBounds()
-        if plane == "axial":
-            return crop_after_panel(pm, lat.get("x"), lat.get("y"))
-        # sagittal scrubs X, so its columns are Y; coronal's columns are X
-        return crop_after_panel(pm, lat.get("y" if plane == "sagittal" else "x"), None)
+        return crop_after_panel(pm, lat.get("x"), lat.get("y"))
+
+    def _long_label(self, v: int) -> str:
+        return f"{'x' if self.long_view == 'sagittal' else 'y'}={v}"
+
+    def _on_long_slider_changed(self, v: int) -> None:
+        self._long_pos = v
+        self.lbl_long_pos.setText(self._long_label(v))
+        self._long_timer.start(150)                # a drag renders once it settles
 
     def _refresh_results_long(self) -> None:
-        """Raw scan: the longitudinal view is the predicted cut, keep and L/R box,
-        drawn by the Boundaries preview on a worker thread; the latest request wins."""
-        if not (self.payload or {}).get("unprocessed") or not self.dataset or self._closing:
+        """The longitudinal view is the Boundaries preview at the slider position (X for
+        sagittal, Y for coronal), with the lines on screen, for processed and raw
+        specimens alike.  It draws on a worker thread; the latest request wins."""
+        if not self.payload or not self.dataset or self._closing:
             return
         lat = self.pref_viewer.axisBounds()
-        key = (self.long_view, self.pref_cut, self.pref_keep, self.pref_margin,
-               tuple(sorted(lat.items())))
+        key = (self.long_view, self._long_pos, self.pref_cut, self.pref_keep,
+               self.pref_margin, tuple(sorted(lat.items())))
         if key == self._results_long_key:
             return
         self._results_long_key = key
@@ -3043,20 +3063,32 @@ class MainWindow(QMainWindow):
         worker = WorkerThread(
             viewer_core.get_preview, self.dataset, self.sample, cut=self.pref_cut,
             margin=self.pref_margin, keep_from=self.pref_keep, plane=self.long_view,
-            width=640, cmap=self.pref_cmap, lo=self.pref_lo, hi=self.pref_hi, lateral=lat,
-            annotate=False)
+            pos=self._long_pos, width=640, cmap="bone", lo=self.pref_lo,
+            hi=self.pref_hi, lateral=lat, annotate=False)
         worker.generation = self._results_long_gen
         worker.succeeded.connect(self._on_results_long_ready)
+        worker.failed.connect(self._on_results_long_failed)
         self._results_workers = [w for w in self._results_workers if w.isRunning()] + [worker]
         worker.start()
 
     def _on_results_long_ready(self, prev: dict) -> None:
         worker = self.sender()
-        if (self._closing or getattr(worker, "generation", -1) != self._results_long_gen
-                or not (self.payload or {}).get("unprocessed")):
+        if self._closing or getattr(worker, "generation", -1) != self._results_long_gen:
             return
+        pos = int(prev.get("pos") or 0)
         self.long_viewer.setPixmap(_b64_to_pixmap(prev.get("png", "")),
                                    int(prev.get("n_slices") or 100))
+        # the slider shows the position that was drawn (clamped), without a new render
+        self.long_slider.blockSignals(True)
+        self.long_slider.setRange(0, max(0, int(prev.get("span") or 1) - 1))
+        self.long_slider.setValue(pos)
+        self.long_slider.blockSignals(False)
+        self.lbl_long_pos.setText(self._long_label(pos))
+
+    def _on_results_long_failed(self, error: str) -> None:
+        if not self._closing and getattr(self.sender(), "generation", -1) == self._results_long_gen:
+            self.long_viewer.setPixmap(QPixmap(), 1)
+            self.long_viewer.set_empty_text(f"Longitudinal view: {error}")
 
     @staticmethod
     def _set_row_visible(row_layout, visible: bool):
@@ -4583,12 +4615,6 @@ class MainWindow(QMainWindow):
                    if w is not None and w.isRunning()]
         running.extend(w for w in getattr(self, "_specimen_meta_workers", [])
                        if w is not None and w.isRunning())
-        # predicted Results views are short previews: let them end quietly (_closing
-        # stops their result handler from touching the window)
-        for w in self._results_workers:
-            while w.isRunning():
-                QApplication.processEvents()
-                time.sleep(0.02)
         if running:
             # the window stays on screen and says what it waits for: a processing
             # step cannot be stopped midway, so closing waits for the step to end
@@ -4598,6 +4624,12 @@ class MainWindow(QMainWindow):
             self.job_progress.setRange(0, 0)
             self.setEnabled(False)
             while any(w.isRunning() for w in running):
+                QApplication.processEvents()
+                time.sleep(0.02)
+        # predicted Results views are short previews: let them end quietly, after the
+        # label above is set (_closing stops their result handler from touching the window)
+        for w in self._results_workers:
+            while w.isRunning():
                 QApplication.processEvents()
                 time.sleep(0.02)
         self._specimen_meta_workers.clear()

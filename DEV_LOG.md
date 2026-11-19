@@ -889,6 +889,42 @@ Findings (audit, read-only on the user's 2_666_5 data):
   exit 0. SHA-256: setup `af7cc234181989a7f7e51a954c52096c4a035854a0ff8c8f23b48b3c380f197e`,
   portable `f978cba6495428290a2db4d02ded549c15028d129c510f96692fa460448f6422`.
 
+### 2.24 [2026-11-19] Results: X and Y position sliders; the Keep..Cut delivery; bone palette
+
+- **Request:** an X slider under the sagittal view and a Y slider under the coronal view.
+- **Design:** the longitudinal view is the Boundaries preview (`viewer_core.get_preview`) at the
+  slider position, for processed and raw specimens alike. The slider covers the plane's own axis
+  (X for sagittal, Y for coronal), starts in the middle, and reads `x=N` or `y=N`. Moves are
+  debounced (150 ms); a stale render is dropped. The processed sagittal and coronal PNGs are no
+  longer built or read; older caches keep them, and they are ignored (no cache bump).
+- **Why the preview is the processed result:** the stripped planes equal the original inside Keep
+  to Cut at three positions per plane on 2-5 and 2_666_5, with zero difference. So the preview's
+  After (the original, masked to the L/R box and Keep..Cut) is the processed After.
+- **Keep..Cut delivery (from the previous revision, included here):** the processed After showed
+  the air above the wood top, because the crop only cut the L/R box. The After now shows the L/R
+  box and the slices from Keep to Cut on screen, the rule the export applies. The axial After is
+  blank outside Keep..Cut.
+- **Palette:** the preview used the Boundaries grayscale, which changed the look. The longitudinal
+  view now uses the bone palette, the one the processed frames use (`_CMAP_STOPS["bone"]`).
+- **Fixes found while testing:**
+  - `test_results_views.py` and `test_results_sync.py` wrote their synthetic series into the same
+    folder, so the second write mixed slice sizes. The views test has its own folder.
+  - `closeEvent` waited for the Results previews before it set the "Finishing the current step"
+    label. The closing check samples 60 ms after `close()`, so it saw the old text. The label is
+    set first now.
+  - The new slider has an accessible name, as the other sliders do (a gate check).
+- **Tests:** `tests/test_results_slider.py` (new: the X range and middle start, the `x=N` label,
+  a moved slider re-renders, the coronal Y slider). `tests/test_results_views.py` checks the
+  preview's blank rows above Keep and below Cut, the blank columns outside the L/R box, and the
+  axial After blank outside Keep..Cut. `tests/test_results_overlay.py` checks the metal base in
+  the Before of the preview.
+- **Verified on the real 2-5 specimen:** the sliders show `x=150` (sagittal) and `y=229`
+  (coronal), with the Keep, Cut, L and R lines on the Before.
+- Gate: PASS (37 files), and the build's gate PASS. Release rebuilt: launcher `--selfcheck` PASS;
+  the extracted portable `cleanCT.exe --selfcheck` exit 0. SHA-256: setup
+  `8f89450ae25b3b2e9ddf5b4d1f9fce8a4eaaab0700946fb0b346726fbad280d5`, portable
+  `45a7f4f173bca1ca21bc4697493be00d79d73633320a7e693aabff011b738c71`.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

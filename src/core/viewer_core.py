@@ -528,31 +528,6 @@ def _axial_pair(orig_sl: np.ndarray, strip_sl: np.ndarray, lo, hi, metal_lo,
     return canvas
 
 
-def _longitudinal(sag_o: np.ndarray, cor_o: np.ndarray, sag_s: np.ndarray, cor_s: np.ndarray,
-                  cut_from: int, lo, hi, width: int = 980) -> tuple[Image.Image, Image.Image]:
-    """Before | After mid-plane images, sagittal and coronal.
-
-    Before is the ORIGINAL planes (the metal base shows); After is the stripped planes
-    below the cut only.  No text and no lines: the app draws them over the image."""
-    out = []
-    for orig, strip in ((sag_o, sag_s), (cor_o, cor_s)):
-        sl_orig = np.asarray(orig, np.float32)
-        sl_clean = np.where(np.arange(sl_orig.shape[0])[:, None] < cut_from,
-                            np.asarray(strip, np.float32), np.nan)
-
-        rgb_orig = _rgb(_u8(sl_orig, lo, hi))
-        rgb_clean = _rgb(_u8(sl_clean, lo, hi))
-
-        h, w = rgb_orig.shape[:2]
-        target_h = int(width * 0.45)
-        pw = int(w * target_h / h)
-        canvas = Image.new("RGB", (pw * 2 + 10, target_h), (13, 15, 20))
-        canvas.paste(_frame_img(rgb_orig, pw), (0, 0))
-        canvas.paste(_frame_img(rgb_clean, pw), (pw + 10, 0))
-        out.append(canvas)
-    return out[0], out[1]
-
-
 def _scan(proxy, metal_lo: float, target: int = CLOUD_MAX_POINTS):
     """One sequential sweep over the volume (disk order is (x, y, z), so
     z-blocks are contiguous): extracts the sagittal/coronal mid-plane lines
@@ -756,7 +731,7 @@ def _minimal_payload(dataset: str, sample: str, ds) -> dict:
                    "value_range": value_range,
                    "processed": False,
                    "win_lo": window[0], "win_hi": window[1]},
-        "frames": [], "sagittal": "", "coronal": "",
+        "frames": [],
         "cut_from": 0, "voxel_mm": voxel_um,
         "cloud": {"wood": [], "metal": [], "shape": [1, 1, 1], "step": 1},
         "gpu": {}, "bounds": None, "unprocessed": True,
@@ -897,7 +872,6 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
             frames.append({"z": int(z), "png": _b64(img)})
         del orig_map
 
-    sag, cor = _longitudinal(sag_o, cor_o, sag_lines, cor_lines, cut_from, lo, hi)
 
     cloud = {"wood": wood.astype(int).tolist(),
              "wood_vals": wood_vals.astype(int).tolist(),
@@ -908,7 +882,7 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
     payload = {
         "key": key, "sample": sample, "dataset": dataset,
         "report": _report_summary(report),
-        "frames": frames, "sagittal": _b64(sag), "coronal": _b64(cor),
+        "frames": frames,
         "cut_from": cut_from,
         "voxel_mm": float(report["meta"]["pixel_spacing_yx_mm"][0]) * 1000,
         "cloud": cloud,
@@ -964,6 +938,8 @@ _CMAP_STOPS = {
     "plasma": np.array([
         [13, 8, 135], [126, 3, 168], [204, 71, 120],
         [248, 149, 64], [240, 249, 33]], np.float32) / 255.0,
+    # Bone: the Results palette of the frames (the same stops as _rgb)
+    "bone": _STOPS,
 }
 
 
