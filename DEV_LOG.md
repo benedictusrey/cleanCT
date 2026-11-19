@@ -778,6 +778,12 @@ Findings (audit, read-only on the user's 2_666_5 data):
   origin moved by 6 columns (0.3973 mm) and 111 rows (7.3493 mm); the pixels equal the source box.
 - Tests: `tests/test_export_clip.py` (a full export with a box verifies and writes only the box).
 - Gate: PASS (33 files). Probe: no findings. UI audit: 402 steps, 0 findings.
+- Code commit `f7ed481`. Release rebuilt from it (gate PASS inside the build; launcher and
+  extracted portable health checks PASS). Release SHA-256: setup
+  `2d0e1ff0f51be4a1072b37a1e9fa0dbd1b098c4f19f3503c08852ea99cb15c14`, portable
+  `14726d3adf12f691e23e6f9ff68e41cfae2af2b859312ef69b8d534f15128e2b`. The
+  `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
+  refreshed from the new ZIP.
 
 ## 3. Current Known Bug (As of Now)
 
