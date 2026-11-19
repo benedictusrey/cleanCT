@@ -3719,8 +3719,6 @@ class MainWindow(QMainWindow):
                     "keep_from": self.pref_keep,
                     "cut_margin_slices": self.pref_margin,
                 })
-                # the L/R lines of both pairs: the export crops the wood box to them
-                csx.set_specimen_lateral(sample, self.pref_viewer.axisBounds())
             except Exception as e:
                 QMessageBox.critical(self, "Boundaries Error",
                                      f"Could not persist the preferences:\n{e}")
@@ -4414,11 +4412,11 @@ class MainWindow(QMainWindow):
         return answer == QMessageBox.Yes
 
     def _export_lateral(self, dataset: str, sample: str) -> dict | None:
-        """The L/R box the export crops to: the box applied on Apply, else the
-        detected box the copy layer placed on screen (the same fallback as Z)."""
+        """The L/R lines on screen, both pairs: the export crops the wood box to them,
+        as it takes the Keep and Cut lines on screen for Z."""
         if dataset != "custom":
             return None
-        return csx.lateral_box(sample) or auto_snap.lateral_pairs(self._wood_bounds_raw)
+        return self.pref_viewer.axisBounds()
 
     def _export_bundle(self):
         if not self.payload or self._loading:

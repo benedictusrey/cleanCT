@@ -402,14 +402,26 @@ def _delivery_tags(specimen: str, report: dict, provenance: str,
     }
 
 
-def _crop_slice(ds, y0: int, y1: int, x0: int, x1: int) -> None:
-    """Keep rows [y0, y1) and columns [x0, x1) of one slice in place.
+def _lateral_box_px(lateral, rows: int, cols: int) -> tuple[int, int, int, int] | None:
+    """(y0, y1, x0, x1) of the L/R box in pixels, or None when the slice is not cropped."""
+    ybox = lateral_range((lateral or {}).get("y"), rows)
+    xbox = lateral_range((lateral or {}).get("x"), cols)
+    if ybox is None and xbox is None:
+        return None
+    y0, y1 = ybox or (0, rows)
+    x0, x1 = xbox or (0, cols)
+    return (y0, y1, x0, x1)
+
+
+def _crop_slice(ds, box: tuple[int, int, int, int]) -> None:
+    """Keep the box (y0, y1, x0, x1) of one slice in place.
 
     The origin moves to the first kept row and column (DICOM: PixelSpacing is
     [row, column]; the orientation's first triplet runs along a row, the second
     along a column)."""
     if ds.file_meta.TransferSyntaxUID.is_compressed:
         raise BundleError("a compressed DICOM series cannot be cropped to the L/R lines")
+    y0, y1, x0, x1 = box
     pixels = ds.pixel_array
     crop = np.ascontiguousarray(pixels[y0:y1, x0:x1])
     ds.Rows, ds.Columns = int(crop.shape[0]), int(crop.shape[1])
@@ -470,8 +482,7 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
     tags["SeriesInstanceUID"] = generate_uid()
     mapping = []
     first = pydicom.dcmread(kept[0], stop_before_pixels=True)
-    ybox = lateral_range((lateral or {}).get("y"), int(first.Rows))
-    xbox = lateral_range((lateral or {}).get("x"), int(first.Columns))
+    box = _lateral_box_px(lateral, int(first.Rows), int(first.Columns))
 
     def _write_one(item):
         i, src = item
@@ -483,11 +494,8 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
         for key, value in tags.items():
             if value is not None:
                 setattr(ds, key, value)
-        if ybox is not None or xbox is not None:
-            rows, cols = int(ds.Rows), int(ds.Columns)
-            y0, y1 = ybox or (0, rows)
-            x0, x1 = xbox or (0, cols)
-            _crop_slice(ds, y0, y1, x0, x1)
+        if box is not None:
+            _crop_slice(ds, box)
         # each slice gets its own SOP instance and references its source slice
         new_sop = generate_uid()
         ds.SOPInstanceUID = new_sop
@@ -1164,7 +1172,11 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
             if outp is None:
                 problems.append(f"kept slice {idx} missing from the series")
                 continue
-            if src.PixelData != outp.PixelData:
+            # expected pixels come from the source, cropped to the same L/R box when one applies
+            box = _lateral_box_px(lateral, int(src.Rows), int(src.Columns))
+            expect = (src.PixelData if box is None else
+                      np.ascontiguousarray(src.pixel_array[box[0]:box[1], box[2]:box[3]]).tobytes())
+            if expect != outp.PixelData:
                 problems.append(f"pixel mismatch at kept slice {idx}")
             if str(outp.PatientName) != specimen:
                 problems.append(f"PatientName wrong at {idx}")

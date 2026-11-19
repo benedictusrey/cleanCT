@@ -413,38 +413,6 @@ def set_specimen_overrides(specimen: str, overrides: dict) -> dict:
     return entry
 
 
-def set_specimen_lateral(specimen: str, box: dict | None) -> dict:
-    """Persist the lateral box the export crops to: ``{"x": (lo, hi), "y": (lo, hi)}``,
-    fractions of the width and height.  ``None`` clears it.
-
-    Kept outside ``config_overrides``: the pipeline rejects unknown keys there,
-    and the crop is applied at export time only."""
-    entries = _read_registry()
-    entry = next((e for e in entries if e["specimen"] == specimen), None)
-    if entry is None:
-        raise LoadError(f"unknown specimen {specimen}")
-    if box is None:
-        entry.pop("lateral", None)
-    else:
-        clean = {}
-        for axis in ("x", "y"):
-            lo, hi = (float(v) for v in box[axis])
-            if not (0.0 <= lo < hi <= 1.0):
-                raise LoadError(f"lateral {axis} must satisfy 0 <= lo < hi <= 1, got {lo}, {hi}")
-            clean[axis] = [lo, hi]
-        entry["lateral"] = clean
-    _write_registry(entries)
-    return entry
-
-
-def lateral_box(specimen: str) -> dict | None:
-    """The lateral box applied to a registered specimen, or None."""
-    lateral = (registered_specimens().get(specimen) or {}).get("lateral")
-    if not lateral:
-        return None
-    return {axis: (float(lateral[axis][0]), float(lateral[axis][1])) for axis in ("x", "y")}
-
-
 def remove_specimen(specimen: str) -> bool:
     """Unregister the ID, then remove its link (pipeline outputs are kept).
 

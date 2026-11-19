@@ -146,17 +146,12 @@ the processed run.
 
 - `config_overrides`: `cut_override`, `keep_from`, `cut_margin_slices`. These go
   to the pipeline. Unknown keys are refused there.
-- `lateral`: `{"x": [lo, hi], "y": [lo, hi]}`, the lateral box of section 2.5.
-  Kept outside `config_overrides` because the pipeline rejects unknown keys. It is
-  read at export time only (`lateral_box(specimen)`).
-
 Lines change the processed result only after Apply, the same as the cut and keep
 before this round.
 
-If nothing was applied, the export uses the detected L/R pairs of the loaded specimen
-(`auto_snap.lateral_pairs`), which are the lines the copy layer placed on screen. This
-is the same fallback the Z range has when no Apply was made. A box dragged but not
-applied is not exported; the AFTER panel does show it.
+The export takes the L/R lines on screen (both pairs, `pref_viewer.axisBounds()`),
+as it takes the Keep and Cut lines on screen for Z. The L/R box is not stored in the
+registry, so the export always matches the AFTER panel.
 
 ## 6. Export: what the DICOM series keeps
 
@@ -166,9 +161,9 @@ but it does not clip X or Y (section 9.4).
 1. **Z (Wood top and Metal top).** `core/bundle_export.py`, `_export_bundle_into`
    takes the source slices `[keep_from, cut_from)`. The slices above the Wood top and
    at or below the Metal top are never written. This was already the behaviour.
-2. **X and Y (L/R lines).** `_write_kept_dicoms` reads the stored box and converts
-   it to pixels with `lateral_range(pair, n)`. `None` means the whole axis. For each
-   kept slice `_crop_slice(ds, y0, y1, x0, x1)`:
+2. **X and Y (L/R lines).** `_write_kept_dicoms` takes the on-screen L/R lines and
+   converts them to pixels with `_lateral_box_px`, which uses `lateral_range(pair, n)`.
+   `None` means the whole axis. For each kept slice `_crop_slice(ds, (y0, y1, x0, x1))`:
    - copies the box of pixels into `PixelData` and sets `Rows` and `Columns`;
    - moves `ImagePositionPatient` to the first kept row and column, using
      `PixelSpacing` ([row, column]) and the two direction triplets of
@@ -244,8 +239,10 @@ slice.
 5. **The slider follows the plane and the AFTER panel follows the L/R box.** Section
    7a. Tests: `tests/test_plane_scrub.py` (the slider ranges, the plane reader, the KEPT
    mask, the colour top).
-6. **Export falls back to the detected L/R pairs** when no box was applied. Section 5.
-   Test: `tests/test_export_clip.py`.
+6. **The export takes the on-screen L/R lines** (both pairs), as it takes the Keep and
+   Cut lines. The stored registry box and the detected fallback were removed. Section 5.
+   The bundle's own pixel check now expects the cropped pixels, so a cropped export no
+   longer aborts. Test: `tests/test_export_clip.py`.
 
 ## 10. Known limits
 
@@ -253,8 +250,8 @@ slice.
 - The processed bounds of 2_666_5 use the report window (−990). They have not been
   checked on screen after a Process. Check the Keep and the L/R lines after the first
   run.
-- Apply is the only way the L/R box reaches the export. A box dragged but not
-  applied is not exported.
+- The export takes the lines on screen, so the processed run and the export can
+  differ. The "Lines changed" marker shows that case on the Results view.
 - The Y pair (sagittal L/R) is clipped in the DICOM export only. The NIfTI export
   clips Z only.
 - A running pipeline cannot be stopped. This is an engine change and is not part of
@@ -269,8 +266,8 @@ slice.
 | Copy layer | `src/core/auto_snap.py`: `cut_target`, `detected_lines` |
 | Guide lines on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` |
 | Apply and the lines in the window | `src/main_window.py`: `_apply_and_process`, `_apply_auto_snap`, `_apply_payload_state` |
-| Registry: overrides and the lateral box | `src/core/custom_series.py`: `set_specimen_overrides`, `set_specimen_lateral`, `lateral_box` |
-| Export: Z range, X/Y crop | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
+| Registry: overrides | `src/core/custom_series.py`: `set_specimen_overrides` |
+| Export: Z range, X/Y crop, self-check | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_lateral_box_px`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
 | Boundaries preview: planes, slider, AFTER mask | `src/core/viewer_core.py`: `_ortho_plane`, `_series_dims`, `_lateral_box`, `_ortho_panel`, `_axial_orig`, `get_preview`, `_apply_cmap`; `src/main_window.py`: `_fetch_prefs_preview`, `_on_pref_slider_changed`, `_pref_slider_for_plane`, `_on_prefs_preview_ready`, `_export_lateral` |
 
 ## 12. Tests that protect this
@@ -281,8 +278,8 @@ slice.
 - `tests/test_auto_z_guides.py`: the guides, no halo line, the layering by pixel.
 - `tests/test_axial_outline.py`: outline precision, the cache version and the
   pre-process window.
-- `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and
-  the stored box.
+- `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and a
+  full export with a box that verifies and writes only the box.
 - `tests/test_results_sync.py`: the Results view and the "Lines changed" marker.
 - `tests/test_plane_scrub.py`: the slider scrubs X, Y and Z by plane; the plane reader;
   the AFTER mask to the L/R box; full-scale colour.

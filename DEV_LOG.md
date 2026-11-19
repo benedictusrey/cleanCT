@@ -764,6 +764,21 @@ Findings (audit, read-only on the user's 2_666_5 data):
 - Tests: `tests/test_plane_scrub.py` (new). `tests/test_export_clip.py` (fallback).
 - Gate: PASS (33 files). Probe: no findings. UI audit: 402 steps, 0 findings.
 
+### 2.20 [2026-11-19] The export crops to the inner ROI; the self-check accepts the crop
+
+- **The L/R crop never reached a written file.** The bundle's own self-check compared each
+  exported slice byte-for-byte with the uncropped source, so every cropped export raised
+  "pixel mismatch" and nothing was written. The check now expects the same box. Shortcut:
+  the check reads the spot slices back, so it does not re-check every slice.
+- **The export takes the L/R lines on screen**, as it takes the Keep and Cut lines (Z). The
+  registry box (written on Apply) and the detected fallback were removed, so the export always
+  matches the AFTER panel.
+- **Verified on the real 2_666_5 scratch export** (session Wood top 89, Metal top 515, the
+  detected L/R): 426 files, XY0089 to XY0514; 425 rows by 622 columns, which is the L/R box; the
+  origin moved by 6 columns (0.3973 mm) and 111 rows (7.3493 mm); the pixels equal the source box.
+- Tests: `tests/test_export_clip.py` (a full export with a box verifies and writes only the box).
+- Gate: PASS (33 files). Probe: no findings. UI audit: 402 steps, 0 findings.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

@@ -1,14 +1,14 @@
 """The DICOM export keeps only the wood between the Wood top, Metal top and the L/R lines.
 
-Z is clipped by the Keep and Cut lines (the export already takes the kept slices
-only).  The two lateral pairs clip each kept slice: X (columns) by the vertical
-L/R lines of the axial and coronal views, and Y (rows) by the L/R lines of the
-sagittal view.  The box is stored per registered specimen when it is applied,
-and the origin moves to the first kept row and column.
+Z is clipped by the Keep and Cut lines (the export takes the kept slices only).
+The two lateral pairs clip each kept slice: X (columns) by the vertical L/R lines
+of the axial and coronal views, and Y (rows) by the L/R lines of the sagittal
+view.  The origin moves to the first kept row and column, and the bundle's own
+pixel check expects the cropped pixels.
 
-1. ``bundle_export.lateral_range``: fractions -> pixels, or None for the whole axis.
+1. ``core.lateral.lateral_range``: fractions -> pixels, or None for the whole axis.
 2. ``bundle_export._crop_slice``: pixels, size and origin of a cropped slice.
-3. ``custom_series.set_specimen_lateral`` / ``lateral_box``: the box persists.
+3. ``bundle_export.export_bundle`` with a box: verifies and writes the box only.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from pydicom.dataset import FileDataset, FileMetaDataset  # noqa: E402
 from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid  # noqa: E402
 
 from core import bundle_export as be  # noqa: E402
-from core import custom_series as csx  # noqa: E402
+
 
 failures: list[str] = []
 
@@ -74,7 +74,7 @@ def slice_ds(rows: int = 12, cols: int = 20):
 
 
 ds, arr = slice_ds()
-be._crop_slice(ds, 2, 9, 5, 15)
+be._crop_slice(ds, (2, 9, 5, 15))
 check("the cropped slice keeps rows 2..8 and columns 5..14",
       ds.Rows == 7 and ds.Columns == 10, f"rows={ds.Rows} cols={ds.Columns}")
 check("the cropped pixels are the source box", np.array_equal(ds.pixel_array, arr[2:9, 5:15]))
@@ -83,31 +83,32 @@ origin = [float(v) for v in ds.ImagePositionPatient]
 check("the origin moves to the first kept row and column",
       np.allclose(origin, [10.0 + 5 * 0.25, 20.0 + 2 * 0.5, 5.0]), str(origin))
 
-# 3. the box persists per registered specimen
+# 3. a full export with a lateral box: the bundle verifies and every slice is the box
+import json  # noqa: E402
+
 import capture_screens as cs  # noqa: E402
+import pydicom  # noqa: E402
 
-src = TEST_TMP / "clip_src"
-cs.write_wood_metal_series(src / "XY", n=14, rows=32, cols=32, um=66.0)
-name = "clip_spec"
-if name not in csx.registered_specimens():
-    csx.register_series(src, name)
-check("the lateral box starts unset", csx.lateral_box(name) is None)
-box = {"x": (0.2, 0.8), "y": (0.1, 0.9)}
-csx.set_specimen_lateral(name, box)
-check("the lateral box persists", csx.lateral_box(name) == box, str(csx.lateral_box(name)))
-csx.set_specimen_lateral(name, None)
-check("the lateral box clears", csx.lateral_box(name) is None)
-
-# 4. with nothing applied, the export crops to the detected L/R pairs (the lines on screen)
-from core import auto_snap  # noqa: E402
-
-bounds = {"zb": {"cut": 500, "keep": 90, "wood_top": 90}, "x0": 40, "x1": 599,
-          "y0": 60, "y1": 599, "W": 648, "H": 648}
-pairs = auto_snap.lateral_pairs(bounds)
-check("the detected pairs are the export box when nothing was applied",
-      pairs is not None and np.allclose(pairs["x"], (40 / 648, 600 / 648))
-      and np.allclose(pairs["y"], (60 / 648, 600 / 648)), str(pairs))
-check("no detected pairs means no crop", auto_snap.lateral_pairs(None) is None)
+exp_src = TEST_TMP / "clip_export_src"
+cs.write_wood_metal_series(exp_src / "XY", n=14, rows=32, cols=40, um=66.0)
+report = {"platform": {"cut_from": 12, "keep_from": 3}, "config": {}, "wood_roi": {},
+          "metrics": {"removed_fraction": 0.1},
+          "meta": {"n_slices": 14, "pixel_spacing_yx_mm": [0.066, 0.066],
+                   "slice_thickness_mm": 0.066, "source_kind": "dicom"}}
+out_root = TEST_TMP / "clip_export_out"
+try:
+    res = be.export_bundle("custom", "clip_export", exp_src, json.loads(json.dumps(report)),
+                           exp_src / "missing_stripped.nii", out_root,
+                           export_format=be.FORMAT_DICOM, source_kind="dicom",
+                           lateral={"x": (0.25, 0.75), "y": (0.125, 0.875)})
+    series = Path(res["bundle_dir"]) / be.series_dir_name("clip_export")
+    exported = sorted(series.glob("*.dcm"))
+    sizes = {(d.Rows, d.Columns) for d in (pydicom.dcmread(p, stop_before_pixels=True) for p in exported)}
+    # Y 0.125..0.875 of 32 rows = rows 4..27 (24 rows); X 0.25..0.75 of 40 columns = 10..29 (20 columns)
+    check("the export with a lateral box verifies and writes the box",
+          len(exported) == 9 and sizes == {(24, 20)}, f"files={len(exported)} sizes={sizes}")
+except be.BundleError as exc:
+    check("the export with a lateral box verifies and writes the box", False, str(exc))
 
 if failures:
     print("FAILURES: " + ", ".join(failures))

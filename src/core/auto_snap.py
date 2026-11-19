@@ -95,14 +95,3 @@ def detected_lines(bounds: dict | None, *,
     out["x"] = _pair(bounds.get("x0"), bounds.get("x1"), bounds.get("W"))
     out["y"] = _pair(bounds.get("y0"), bounds.get("y1"), bounds.get("H"))
     return out
-
-
-def lateral_pairs(bounds: dict | None) -> dict | None:
-    """The detected L/R pairs as {"x": (lo, hi), "y": (lo, hi)}, or None when either is missing.
-
-    The export uses these when no box was applied, so it crops to the same lines the
-    copy layer placed on screen."""
-    tg = detected_lines(bounds)
-    if tg["x"] is None or tg["y"] is None:
-        return None
-    return {"x": tg["x"], "y": tg["y"]}
