@@ -129,6 +129,8 @@ def check_output_root_default() -> None:
 
 
 def main() -> int:
+    # the test is about a normal session; a CI runner may itself be elevated
+    launcher.is_elevated = lambda: False
     check_output_root_default()
     local = run_launcher({"LOCALAPPDATA": "C:/users/test/AppData/Local"})
     check("launcher routes packaged outputs to per-user state",
