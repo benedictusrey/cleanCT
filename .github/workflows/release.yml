@@ -1,0 +1,88 @@
+name: release
+
+# Builds the Windows release (gate, package, launcher, portable ZIP, installer).
+# A tag push (v1.0.0) or a manual run with "publish" creates the GitHub Release;
+# a manual run without it only keeps the files as workflow artifacts.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Create the GitHub Release (otherwise keep the files as artifacts only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows x64 (portable ZIP and installer)
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup 6
+        run: choco install innosetup --yes --no-progress --limit-output
+
+      - name: Build the pinned environment and PyInstaller
+        shell: pwsh
+        run: |
+          python -m venv tests\venv_notorch
+          & .\installer\setup_env.ps1 .\tests\venv_notorch\Scripts\python.exe
+          if ($LASTEXITCODE -ne 0) { throw "setup_env.ps1 failed" }
+          python -m pip install "pyinstaller==6.22.2"
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller install failed" }
+
+      - name: Build the release (gate, package, launcher, ZIP, installer)
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup 6\ISCC.exe" | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found" }
+          python installer\build_installer.py --iscc $iscc.FullName
+          if ($LASTEXITCODE -ne 0) { throw "build_installer.py failed with exit code $LASTEXITCODE" }
+
+      - name: Upload the release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanCT-windows-x64
+          path: |
+            installer/out/cleanCT-*-portable.zip
+            installer/out/cleanCT-*-portable.zip.sha256
+            installer/out/cleanCT-*-setup.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = python -c "import sys; sys.path.insert(0, 'installer'); import build_installer; print(build_installer.APP_VERSION)"
+          if ($LASTEXITCODE -ne 0) { throw "could not read APP_VERSION" }
+          $tag = "v$version"
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne $tag) {
+            throw "tag $($env:GITHUB_REF_NAME) does not match APP_VERSION $version"
+          }
+          $files = @(
+            "installer\out\cleanCT-$version-portable.zip",
+            "installer\out\cleanCT-$version-portable.zip.sha256",
+            "installer\out\cleanCT-$version-setup.exe"
+          )
+          foreach ($f in $files) { if (-not (Test-Path $f)) { throw "missing $f" } }
+          gh release create $tag @files --title "cleanCT $version" --notes-file docs\RELEASE_NOTES.md --target $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
