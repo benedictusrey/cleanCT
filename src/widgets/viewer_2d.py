@@ -320,6 +320,7 @@ class Viewer2D(QWidget):
             self._paint_results(painter, img_rect)
             return
         if not self._guide_enabled:
+            self._paint_labels(painter, img_rect)
             return
 
         # Resolve Left (Original) and Right (After) panel rects
@@ -526,6 +527,7 @@ class Viewer2D(QWidget):
             painter.drawRoundedRect(badge, 4, 4)
             painter.setPen(color)
             painter.drawText(badge, Qt.AlignCenter, label)
+        self._paint_labels(painter, img_rect)
 
     def _paint_results(self, painter: QPainter, img_rect: QRectF) -> None:
         """Results: the Boundaries lines on the Before panel (no handles, no line
@@ -555,6 +557,11 @@ class Viewer2D(QWidget):
             painter.setPen(QPen(QColor("#4f8cff"), 2, Qt.DashLine))
             for x in (x0, x1):
                 painter.drawLine(QPointF(x, r_left.top()), QPointF(x, r_left.bottom()))
+        self._paint_labels(painter, img_rect)
+
+    def _paint_labels(self, painter: QPainter, img_rect: QRectF) -> None:
+        """The panel names in front of the image: Before, and After when there is one."""
+        r_left, r_right = self._panel_rects(img_rect)
         self._paint_panel_label(painter, r_left, "BEFORE (Original)", after=False)
         if r_right is not None:
             self._paint_panel_label(painter, r_right, "AFTER (Stripped)", after=True)

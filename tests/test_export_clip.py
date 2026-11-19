@@ -110,6 +110,66 @@ try:
 except be.BundleError as exc:
     check("the export with a lateral box verifies and writes the box", False, str(exc))
 
+# 4. the NIfTI volume clips X and Y to the same box as the DICOM series
+import nibabel as nib  # noqa: E402
+
+from core.auto_snap import delivered_cut  # noqa: E402
+
+vol = np.arange(40 * 32 * 14, dtype=np.float32).reshape(40, 32, 14)   # disk order (x, y, z)
+vol_path = TEST_TMP / "clip_nifti_stripped.nii"
+nib.save(nib.Nifti1Image(vol, np.eye(4)), vol_path)
+box = {"x": (0.25, 0.75), "y": (0.125, 0.875)}   # X 10..29, Y 4..27; Z keeps 3..11
+full_out, box_out = TEST_TMP / "clip_nifti_full", TEST_TMP / "clip_nifti_box"
+try:
+    full = be.export_bundle("custom", "clip_nifti", exp_src, json.loads(json.dumps(report)),
+                            vol_path, full_out, export_format=be.FORMAT_NIFTI, source_kind="dicom")
+    boxed = be.export_bundle("custom", "clip_nifti", exp_src, json.loads(json.dumps(report)),
+                             vol_path, box_out, export_format=be.FORMAT_NIFTI,
+                             source_kind="dicom", lateral=box)
+    img_b = nib.load(boxed["nifti"])
+    img_f = nib.load(full["nifti"])
+    data_ok = np.array_equal(np.asarray(img_b.dataobj, np.float32), vol[10:30, 4:28, 3:12])
+    check("the NIfTI keeps the box: shape 20 x 24 x 9 and the same voxels",
+          img_b.shape == (20, 24, 9) and data_ok, f"shape={img_b.shape}")
+    shift = np.asarray(img_f.affine)[:3, 0] * 10 + np.asarray(img_f.affine)[:3, 1] * 4
+    check("the NIfTI origin moves to the box corner",
+          np.allclose(np.asarray(img_b.affine)[:3, 3], np.asarray(img_f.affine)[:3, 3] + shift, atol=1e-4))
+    sidecar = json.loads(Path(boxed["json"]).read_text(encoding="utf-8"))
+    check("the sidecar records the L/R box", sidecar.get("lateral_box") is not None
+          and sidecar["lateral_box"]["x"] == [0.25, 0.75])
+except be.BundleError as exc:
+    check("the NIfTI keeps the box: shape 20 x 24 x 9 and the same voxels", False, str(exc))
+
+# 5. a blank plane inside Keep..Cut is refused, never written
+blank = vol.copy()
+blank[:, :, 5] = np.nan                     # the processed run has no data at slice 5
+blank_path = TEST_TMP / "clip_nifti_blank.nii"
+nib.save(nib.Nifti1Image(blank, np.eye(4)), blank_path)
+try:
+    be.export_bundle("custom", "clip_blank", exp_src, json.loads(json.dumps(report)),
+                     blank_path, TEST_TMP / "clip_blank_out", export_format=be.FORMAT_NIFTI,
+                     source_kind="dicom")
+    check("a blank plane inside Keep..Cut is refused", False, "export was written")
+except be.BundleError:
+    check("a blank plane inside Keep..Cut is refused", True)
+
+# 6. a TIFF/NIfTI source: the volume export clips the same box
+src_nii = TEST_TMP / "clip_source.nii"
+nib.save(nib.Nifti1Image(vol, np.eye(4)), src_nii)
+try:
+    vb = be.export_bundle("custom", "clip_vol", src_nii, json.loads(json.dumps(report)),
+                          vol_path, TEST_TMP / "clip_vol_out", export_format=be.FORMAT_NIFTI,
+                          source_kind="nifti", source_path=src_nii, source_metadata={},
+                          lateral=box)
+    check("the volume export keeps the box: shape 20 x 24 x 9",
+          nib.load(vb["nifti"]).shape == (20, 24, 9), str(nib.load(vb["nifti"]).shape))
+except be.BundleError as exc:
+    check("the volume export keeps the box: shape 20 x 24 x 9", False, str(exc))
+
+# 7. the delivered cut is the Cut line pulled back by the margin, never below 0
+check("the delivered cut is the Cut minus the margin",
+      delivered_cut(20, 5) == 15 and delivered_cut(12, 0) == 12 and delivered_cut(3, 9) == 0)
+
 if failures:
     print("FAILURES: " + ", ".join(failures))
     raise SystemExit(1)

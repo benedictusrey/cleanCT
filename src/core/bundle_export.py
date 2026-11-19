@@ -413,6 +413,12 @@ def _lateral_box_px(lateral, rows: int, cols: int) -> tuple[int, int, int, int] 
     return (y0, y1, x0, x1)
 
 
+def _box_text(lateral) -> str:
+    if not lateral:
+        return "whole field"
+    return "  ".join(f"{k.upper()} {v[0]:.0%}-{v[1]:.0%}" for k, v in lateral.items())
+
+
 def _crop_slice(ds, box: tuple[int, int, int, int]) -> None:
     """Keep the box (y0, y1, x0, x1) of one slice in place.
 
@@ -546,7 +552,7 @@ STREAM_BLOCK_SLICES = 8
 def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                               dest: Path, specimen: str, dataset_key: str,
                               source_files: list, meta_report: dict,
-                              progress=None) -> dict:
+                              progress=None, lateral=None) -> dict:
     """Block-wise kept-slices NIfTI — sequential fd writes (audit 0M).
 
     The output is an (x, y, z) volume with x the FASTEST file axis, matching
@@ -583,13 +589,15 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
             f"stripped NIfTI XY shape {(ny_, nx_)} does not match source "
             f"DICOM {(int(first.Rows), int(first.Columns))}")
     affine = nifti_affine(source_files[:cut_from], (0, cut_from - 1, 0, 0, 0, 0))
+    y0, y1, x0, x1 = _lateral_box_px(lateral, ny_, nx_) or (0, ny_, 0, nx_)
+    affine[:3, 3] += affine[:3, 0] * x0 + affine[:3, 1] * y0   # origin moves to the box corner
     out = dest / nifti_name(specimen)
     tmp = out.with_suffix(".nii.tmp")
     tmp.unlink(missing_ok=True)          # orphan from a previously killed run
     img = nib.Nifti1Image(np.zeros((1, 1, 1), np.float32), affine)
     hdr = img.header
     hdr.set_xyzt_units("mm")
-    hdr.set_data_shape((nx_, ny_, n_keep))
+    hdr.set_data_shape((x1 - x0, y1 - y0, n_keep))
     hdr.set_data_dtype(np.float32)
     # deterministic single-file layout: 348-byte header + 4 zero extension
     # bytes, data at vox_offset=352 (the layout nibabel itself writes)
@@ -611,9 +619,13 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                 z1 = min(n_keep, z0 + block)
                 # src z ranges over the full stripped volume; the kept window
                 # is [keep_from, keep_from + cut_from) in disk (x, y, z) order
-                blk = np.asarray(proxy[:, :, keep_from + z0:keep_from + z1],
+                blk = np.asarray(proxy[x0:x1, y0:y1, keep_from + z0:keep_from + z1],
                                  dtype=np.float32)
                 for j in range(z1 - z0):
+                    if not np.isfinite(blk[:, :, j]).any():
+                        raise BundleError(
+                            f"processed volume slice {keep_from + z0 + j} is blank: the Cut is "
+                            "past the processed run; process the specimen again")
                     # (x, y) plane -> (y, x) so x is the fastest file axis
                     f.write(np.ascontiguousarray(blk[:, :, j].T).tobytes())
                 # Bound the destination's dirty-page cache: without a periodic
@@ -637,7 +649,7 @@ def _write_kept_nifti_streamed(proxy, keep_from: int, cut_from: int,
                f"dataset={dataset_key}; "
                f"voxel_um={float(meta_report['meta']['pixel_spacing_yx_mm'][0]) * 1000:.3f}; "
                f"slices={keep_from}..{keep_from + cut_from - 1}")[:79]
-    return {"nii": str(out), "shape": [nx_, ny_, n_keep], "descrip": describ}
+    return {"nii": str(out), "shape": [x1 - x0, y1 - y0, n_keep], "descrip": describ}
 
 
 def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
@@ -750,7 +762,7 @@ def _write_kept_nifti_from_dicoms(source_files: list, cut_from: int,
 def _write_kept_nifti(stripped_nii: Path, dest: Path, specimen: str,
                      dataset_key: str, cut_from: int, source_files: list,
                      meta_report: dict, progress=None,
-                     wanted: bool = True) -> dict:
+                     wanted: bool = True, lateral=None) -> dict:
     """Full-FOV kept-slices volume with descriptive header + sidecar JSON.
 
     Prefers the pipeline's stripped.nii; falls back to rebuilding the kept
@@ -777,7 +789,10 @@ def _write_kept_nifti(stripped_nii: Path, dest: Path, specimen: str,
         # path, a few slices of RAM instead of the full volume.
         return _write_kept_nifti_streamed(
             proxy, keep_from, cut_from, dest, specimen, dataset_key,
-            source_files, meta_report, progress=progress)
+            source_files, meta_report, progress=progress, lateral=lateral)
+    if lateral:
+        raise BundleError("this processed run has no stripped volume; process the "
+                          "specimen again to export the L/R box")
     # Older outputs without stripped.nii use a bounded, disk-backed path.
     return _write_kept_nifti_from_dicoms(
         source_files, cut_from, dest, specimen, dataset_key,
@@ -790,7 +805,7 @@ def _write_sidecar(dest: Path, specimen: str, dataset_key: str,
                    provenance: str,
                    n_slices_original: int | None = None,
                    tags: dict | None = None,
-                   collection_from: int | None = None) -> dict:
+                   collection_from: int | None = None, lateral=None) -> dict:
     # one header read serves both capture date and time (audit 0M: the
     # previous code re-read and re-decoded the full header twice)
     _ds0 = read_dicom(source_files[0], stop_before_pixels=True)
@@ -815,6 +830,7 @@ def _write_sidecar(dest: Path, specimen: str, dataset_key: str,
         "slice_thickness_mm": report["meta"].get("slice_thickness_mm"),
         "removed_fraction": report["metrics"]["removed_fraction"],
         "platform": report["platform"],
+        "lateral_box": lateral or None,
         "file_mapping": mapping,
         "nifti": (nii_info if nii_info.get("skipped") else {
             "nii": Path(nii_info["nii"]).name,
@@ -841,7 +857,7 @@ def _write_sidecar(dest: Path, specimen: str, dataset_key: str,
 def _write_info_txt(dest: Path, specimen: str, dataset_key: str,
                     source_files: list, cut_from: int, report: dict,
                     sidecar: dict, provenance: str,
-                    n_slices_original: int | None = None) -> dict:
+                    n_slices_original: int | None = None, lateral=None) -> dict:
     meta = report["meta"]
     r = report["platform"]
     orig_total = n_slices_original if n_slices_original is not None else len(source_files)
@@ -866,6 +882,7 @@ def _write_info_txt(dest: Path, specimen: str, dataset_key: str,
         f"  cut from slice   : {cut_from}  (platform anchor "
         f"{r.get('anchor_slice')}, accepted by {r.get('accepted_by')})",
         f"  kept slices      : {cut_from}",
+        f"  L/R box          : {_box_text(lateral)}",
         f"  removed fraction : {report['metrics']['removed_fraction']:.2%}",
         f"  baseline HU      : {float(r.get('baseline_hu') or 0.0):.2f}",
         f"  gpu              : {report.get('gpu', {}).get('name', 'CPU')}",
@@ -908,9 +925,8 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
                                source_path: Path, source_metadata: dict,
                                report: dict, stripped_nii: Path, dest: Path,
                                source_override: str | None = None,
-                               keep_from: int | None = None,
                                export_format: str = FORMAT_NIFTI,
-                               progress=None) -> dict:
+                               progress=None, lateral=None) -> dict:
     """Stream a geometry-preserving NIfTI bundle for TIFF/NIfTI inputs."""
     if export_format != FORMAT_NIFTI:
         raise BundleError(
@@ -921,7 +937,7 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
     report = json.loads(json.dumps(report, default=str))
     platform = report.setdefault("platform", {})
     cut_from = int(platform.get("cut_from") or 0)
-    keep = int(platform.get("keep_from") or 0) if keep_from is None else int(keep_from)
+    keep = int(platform.get("keep_from") or 0)
     if cut_from <= keep:
         raise BundleError(f"keep_from {keep} must be below cut_from {cut_from}")
     try:
@@ -935,10 +951,11 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
         affine = np.asarray(img.affine, dtype=np.float64)
         if affine.shape != (4, 4) or not np.isfinite(affine).all():
             raise BundleError("processed NIfTI has invalid spatial geometry")
+        y0, y1, x0, x1 = _lateral_box_px(lateral, ny, nx) or (0, ny, 0, nx)
         out_affine = affine.copy()
-        out_affine[:3, 3] += affine[:3, 2] * keep
+        out_affine[:3, 3] += affine[:3, 0] * x0 + affine[:3, 1] * y0 + affine[:3, 2] * keep
         n_keep = cut_from - keep
-        shape_xyz = (nx, ny, n_keep)
+        shape_xyz = (x1 - x0, y1 - y0, n_keep)
         out_img = nib.Nifti1Image(np.zeros((1, 1, 1), np.float32), out_affine)
         out_img.set_qform(out_affine, code=1)
         out_img.set_sform(out_affine, code=1)
@@ -959,8 +976,8 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
         with open(tmp_path, "wb") as stream:
             stream.write(prefix)
             for out_z, source_z in enumerate(range(keep, cut_from)):
-                plane = np.asarray(proxy[:, :, source_z], dtype=np.float32).T
-                if plane.shape != (ny, nx) or not np.isfinite(plane).any():
+                plane = np.asarray(proxy[x0:x1, y0:y1, source_z], dtype=np.float32).T
+                if plane.shape != (y1 - y0, x1 - x0) or not np.isfinite(plane).any():
                     raise BundleError(f"processed NIfTI slice {source_z} is invalid")
                 stream.write(np.ascontiguousarray(plane).tobytes())
                 if (out_z + 1) % 256 == 0:
@@ -980,7 +997,7 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
             raise BundleError("NIfTI bundle geometry verification failed")
         for offset in sorted({0, n_keep // 2, n_keep - 1}):
             actual = np.asarray(delivered.dataobj[:, :, offset], dtype=np.float32)
-            expected = np.asarray(proxy[:, :, keep + offset], dtype=np.float32)
+            expected = np.asarray(proxy[x0:x1, y0:y1, keep + offset], dtype=np.float32)
             if not np.array_equal(actual, expected, equal_nan=True):
                 raise BundleError(f"NIfTI voxel verification failed at slice {offset}")
     except BundleError:
@@ -1020,6 +1037,7 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
             "thresholds": report.get("config"),
         },
         "export_formats": FORMAT_NIFTI,
+        "lateral_box": lateral or None,
         "generated": datetime.now().isoformat(timespec="seconds"),
     }
     json_path = dest / sidecar_name(specimen)
@@ -1036,6 +1054,7 @@ def _export_volume_bundle_into(dataset_key: str, specimen: str,
         f"{source_metadata.get('intensity_unit', 'stored values')}",
         f"Geometry assumed: {bool(geometry.get('geometry_assumed'))}",
         f"Slices kept: {keep}..{cut_from - 1} ({n_keep})",
+        f"L/R box: {_box_text(lateral)}",
         f"NIfTI: {out_path.name}",
         f"Metadata: {json_path.name}",
         "Source voxel values are preserved in the delivered volume.",
@@ -1060,7 +1079,6 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
                         report: dict, stripped_nii: Path,
                         dest: Path,
                         source_override: str | None = None,
-                        keep_from: int | None = None,
                         export_format: str = FORMAT_BOTH,
                         progress=None,
                         source_kind: str = "dicom",
@@ -1089,13 +1107,11 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
             Path(source_path or source_dir),
             dict(source_metadata or report.get("meta") or {}),
             report, stripped_nii, dest,
-            source_override=source_override, keep_from=keep_from,
-            export_format=export_format, progress=progress)
+            source_override=source_override,
+            export_format=export_format, progress=progress, lateral=lateral)
     report.setdefault("export_formats", export_format)
     cut_from = int(report["platform"]["cut_from"])
-    if keep_from is None:
-        keep_from = int(report["platform"].get("keep_from") or 0)
-    keep_from = int(keep_from)
+    keep_from = int(report["platform"].get("keep_from") or 0)
     report.setdefault("platform", {})["keep_from"] = keep_from
     source_files = sorted_source_files(source_dir)
     n_orig_slices = len(source_files)
@@ -1131,7 +1147,7 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
         progress(0, 1, "nifti")
     nii = _write_kept_nifti(stripped_nii, dest, specimen, dataset_key,
                            cut_from, source_files, report,
-                           wanted=want_nii,
+                           wanted=want_nii, lateral=lateral,
                            progress=(lambda i, n: progress(i, n, "nifti")
                                      if progress else None))
     if progress:
@@ -1140,10 +1156,10 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
                              cut_from, report, dcm["mapping"], nii,
                              provenance, n_slices_original=n_orig_slices,
                              tags=dcm.get("tags"),
-                             collection_from=keep_from)
+                             collection_from=keep_from, lateral=lateral)
     txt = _write_info_txt(dest, specimen, dataset_key, source_files,
                           cut_from, report, sidecar, provenance,
-                          n_slices_original=n_orig_slices)
+                          n_slices_original=n_orig_slices, lateral=lateral)
     if progress:
         progress(1, 1, "verify")
     # ---- self verification (adapted to the requested artifacts) ----------
@@ -1212,7 +1228,6 @@ def export_bundle(dataset_key: str, specimen: str, source_dir: Path,
                   report: dict, stripped_nii: Path,
                   save_root: Path,
                   source_override: str | None = None,
-                  keep_from: int | None = None,
                   export_format: str = FORMAT_BOTH,
                   progress=None,
                   source_kind: str = "dicom",
@@ -1244,7 +1259,7 @@ def export_bundle(dataset_key: str, specimen: str, source_dir: Path,
         _seed_preserved_bundle_entries(final, staging, specimen, export_format)
         result = _export_bundle_into(
             dataset_key, specimen, source_dir, report, stripped_nii,
-            staging, source_override=source_override, keep_from=keep_from,
+            staging, source_override=source_override,
             export_format=export_format, progress=progress,
             source_kind=source_kind, source_path=source_path,
             source_metadata=source_metadata, lateral=lateral)

@@ -52,6 +52,11 @@ ACCESSIBLE_NAMES = {
 }
 # Why a threshold preset or Reset is unavailable before a scan is loaded
 PRESET_TIP = "Available after a scan is loaded."
+AIR_CROP_TIP = ("Trims near-pure-air margins (HU ≤ −900) from the wood box in the processing "
+                "output (wood_roi.nii). The bundle is cut to the Keep, Cut and L/R lines, "
+                "not to this box.\n"
+                "Wood touching the scan edge keeps that axis untouched; heavy fog disables "
+                "trimming for safety; the result never grows beyond the tracked wood ROI.")
 TIPS = {
     "btn_th_reset": "Restore the default density thresholds. " + PRESET_TIP,
     "btn_th_full": "Show the full density range. " + PRESET_TIP,
@@ -1796,12 +1801,7 @@ class MainWindow(QMainWindow):
         # exported ROI spans the wood itself in XY, XZ and YZ.
         self.chk_air_crop = QCheckBox("Auto-crop to wood (air detection)")
         self.chk_air_crop.setChecked(True)
-        self.chk_air_crop.setToolTip(
-            "Detect the air envelope (HU ≤ −900) around the specimen and trim "
-            "near-pure-air margins so the exported ROI contains the wood only.\n"
-            "Wood touching the scan edge keeps that axis untouched; heavy fog "
-            "disables trimming for safety; the result never grows beyond the "
-            "tracked wood ROI.")
+        self.chk_air_crop.setToolTip(AIR_CROP_TIP)
         lateral_layout.addWidget(self.chk_air_crop)
         lateral_layout.addStretch()
 
@@ -2991,7 +2991,9 @@ class MainWindow(QMainWindow):
             arr = _np.asarray(sl, _np.float32)
             img = viewer_core._axial_orig(
                 arr, lo, hi, viewer_core.UNPROC_WIN[2],
-                cmap="grayscale", is_kept=(self.pref_keep <= zi < self.pref_cut),
+                cmap="bone",
+                is_kept=(self.pref_keep <= zi < auto_snap.delivered_cut(
+                    self.pref_cut, self.pref_margin)),
                 box=viewer_core._lateral_box(self.pref_viewer.axisBounds(), arr.shape),
                 annotate=False)
             pm = _b64_to_pixmap(viewer_core._b64(img))
@@ -3034,7 +3036,7 @@ class MainWindow(QMainWindow):
     def _results_crop_axial(self, pm: QPixmap, z: int) -> QPixmap:
         """Axial After: the L/R box, and blank outside the slices from Keep to Cut (the
         export keeps source[keep:cut]), on the lines on screen.  Display only."""
-        if not self.pref_keep <= z < self.pref_cut:
+        if not self.pref_keep <= z < auto_snap.delivered_cut(self.pref_cut, self.pref_margin):
             return crop_after_panel(pm, (0.0, 0.0), None)   # (0, 0): the After is blank
         lat = self.pref_viewer.axisBounds()
         return crop_after_panel(pm, lat.get("x"), lat.get("y"))
@@ -3044,6 +3046,7 @@ class MainWindow(QMainWindow):
 
     def _on_long_slider_changed(self, v: int) -> None:
         self._long_pos = v
+        self._results_long_gen += 1                # a render started before this move is stale
         self.lbl_long_pos.setText(self._long_label(v))
         self._long_timer.start(150)                # a drag renders once it settles
 
@@ -3282,7 +3285,8 @@ class MainWindow(QMainWindow):
         p = self.payload or {}
         if p.get("report"):
             self.kpi_banner.updateMetrics(
-                p.get("report"), effective=(self.pref_keep, self.pref_cut))
+                p.get("report"), effective=(
+                    self.pref_keep, auto_snap.delivered_cut(self.pref_cut, self.pref_margin)))
 
     def _snap_lines_to_detection(self):
         """Snap the interactive Keep/Cut lines onto the detected edges.
@@ -3597,7 +3601,7 @@ class MainWindow(QMainWindow):
 
     def _valid_keep_cut(self) -> str | None:
         """Why the current Keep/Cut lines cannot be exported, or None."""
-        if self.pref_keep >= self.pref_cut:
+        if self.pref_keep >= auto_snap.delivered_cut(self.pref_cut, self.pref_margin):
             return "Keep line must be above the Cut line (keep < cut)."
         return None
 
@@ -3642,7 +3646,8 @@ class MainWindow(QMainWindow):
             viewer.setKeep(keep)
             viewer.setAxisBounds(lat)
         self.long_viewer.setAutoZ(zb)                # the Wood Top and Metal Top guides
-        stale = done is not None and done != (self.pref_cut, self.pref_keep)
+        stale = done is not None and done != (
+            auto_snap.delivered_cut(self.pref_cut, self.pref_margin), self.pref_keep)
         self.lbl_results_stale.setVisible(stale)
         if stale:
             self.lbl_results_stale.setToolTip(
@@ -3668,10 +3673,11 @@ class MainWindow(QMainWindow):
             theme.set_role(self.lbl_range_summary, "status-error")
             self.btn_apply_prefs.setEnabled(False)
             return
-        kept = self.pref_cut - self.pref_keep
-        base = f"Delivery: slices {self.pref_keep}–{self.pref_cut - 1}, {kept} slices"
+        cut = auto_snap.delivered_cut(self.pref_cut, self.pref_margin)
+        kept = cut - self.pref_keep
+        base = f"Delivery: slices {self.pref_keep}–{cut - 1}, {kept} slices"
         if self.pref_margin > 0:
-            base += f", margin +{self.pref_margin}"
+            base += f", {self.pref_margin} held back from the Cut"
         self.lbl_range_summary.setText(base)
         theme.set_role(self.lbl_range_summary, "status-ok")
         self.btn_apply_prefs.setEnabled(True)
@@ -3722,7 +3728,7 @@ class MainWindow(QMainWindow):
             keep_from=request["keep_from"], plane=request["plane"],
             z=request["z"], width=request["width"], cmap=request["cmap"],
             lo=request["lo"], hi=request["hi"],
-            pos=request["pos"], lateral=request["lateral"],
+            pos=request["pos"], lateral=request["lateral"], annotate=False,
         )
         worker.preview_generation = request["generation"]
         self._preview_worker = worker
@@ -3807,14 +3813,9 @@ class MainWindow(QMainWindow):
                 f"reset to auto-detected cut: slice {detected} "
                 f"(delivered cut was {rep.get('cut_from')})")
 
-    def _apply_and_process(self):
-        # Override and re-process with cut / keep / margin
-        if not self.payload or self._loading:
-            self.lbl_export_status.setText("Load a specimen before applying cut lines.")
-            return
-        if self._block_on_keep_cut():
-            return
-        dataset, sample = self.dataset, self.sample
+    def _lines_overrides(self, dataset: str, sample: str) -> dict | None:
+        """The lines on screen as a processing job's overrides. A loaded specimen keeps
+        them, so Process later uses the same lines. None when they cannot be saved."""
         overrides = {
             "cut_override": self.pref_cut,
             "cut_margin_slices": self.pref_margin,
@@ -3823,16 +3824,24 @@ class MainWindow(QMainWindow):
         }
         if dataset == "custom":
             try:
-                csx.set_specimen_overrides(sample, {
-                    "cut_override": self.pref_cut,
-                    "keep_from": self.pref_keep,
-                    "cut_margin_slices": self.pref_margin,
-                })
+                csx.set_specimen_overrides(sample, {k: overrides[k] for k in csx.PREF_KEYS})
             except Exception as e:
                 QMessageBox.critical(self, "Boundaries Error",
                                      f"Could not persist the preferences:\n{e}")
-                return
+                return None
+        return overrides
 
+    def _apply_and_process(self):
+        # Override and re-process with cut / keep / margin
+        if not self.payload or self._loading:
+            self.lbl_export_status.setText("Load a specimen before applying cut lines.")
+            return
+        if self._block_on_keep_cut():
+            return
+        dataset, sample = self.dataset, self.sample
+        overrides = self._lines_overrides(dataset, sample)
+        if overrides is None:
+            return
         self._log_action(
             f"Applying cut override: cut={self.pref_cut}, keep={self.pref_keep}, "
             f"margin={self.pref_margin}, "
@@ -4035,6 +4044,9 @@ class MainWindow(QMainWindow):
                     cfg_dict[k] = int(overrides[k])
             if overrides.get("air_crop") is not None:
                 cfg_dict["air_crop"] = bool(overrides["air_crop"])
+        if cfg_dict.get("cut_override") is not None:      # the delivery stops above the margin
+            cfg_dict["cut_override"] = auto_snap.delivered_cut(
+                cfg_dict["cut_override"], cfg_dict.get("cut_margin_slices") or 0)
 
         cfg = tg.DEFAULTS.overridden(cfg_dict)
         cfg.io_workers = 16
@@ -4063,9 +4075,10 @@ class MainWindow(QMainWindow):
             self.lbl_export_status.setText("Load a specimen before processing.")
             return
         dataset, sample = self.dataset, self.sample
+        air = bool(self.chk_air_crop.isChecked())    # read here: the worker never touches widgets
         self._log_action(f"Triggered processing on {dataset}/{sample}")
         self._start_job(f"Processing {sample}",
-                        lambda: self._run_pipeline_task(dataset=dataset,
+                        lambda: self._run_pipeline_task({"air_crop": air}, dataset=dataset,
                                                         sample=sample),
                         expected_duration=self._expected_process_s(),
                         kind="process")
@@ -4084,13 +4097,8 @@ class MainWindow(QMainWindow):
         return 4.0 if self.dataset == "66um" else 15.0
 
     def _process_and_export(self):
-        """One-pass delivery (audit 0O): Process selected followed by the
-        ⬇ Export bundle stage in a single job: same semantics, no second
-        click.  The export stage reuses the exact bundle path (fresh
-        on-disk report, session Keep/Cut lines, selected Format), so the
-        delivered artifacts are identical to running the two buttons
-        separately.  Failure is atomic: if processing fails, nothing is
-        exported."""
+        """Process and export in one job. The lines on screen are applied first (as Apply
+        lines does), so the export delivers exactly the run it processed."""
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load a specimen before processing and export.")
             return
@@ -4108,11 +4116,12 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Export Error",
                                  f"Specimen {sample} not found.")
             return
+        overrides = self._lines_overrides(dataset, sample)
+        if overrides is None:
+            return
         _ds, src_dir, src_over, out_dir = srcs
         fmt = (self.export_format if _ds.source_kind == "dicom"
                else bundle_export.FORMAT_NIFTI)
-        cut0, keep0 = self.pref_cut, self.pref_keep
-        lines_dirty = bool(self.pref_dirty)
         fmt_name = self._EXPORT_FORMAT_ITEMS[self._format_index(fmt)][0]
         proc_s = self._expected_process_s()
         exp_s = self._expected_export_s()
@@ -4122,11 +4131,9 @@ class MainWindow(QMainWindow):
             f"{dest_root} (format: {fmt_name})")
 
         def _task(job_progress=None):
-            # Stage 1: process (identical to Process selected).
-            proc_res = self._run_pipeline_task(dataset=dataset,
+            # Stage 1: process with the lines on screen. Stage 2: export the fresh report.
+            proc_res = self._run_pipeline_task(overrides, dataset=dataset,
                                                sample=sample) or {}
-            # Stage 2: export from the FRESH on-disk report (identical to
-            # ⬇ Export bundle, including the session Keep/Cut lines).
             report_p = out_dir / "report.json"
             if not report_p.exists():
                 raise RuntimeError(
@@ -4136,53 +4143,14 @@ class MainWindow(QMainWindow):
             stripped = out_dir / "stripped.nii"
             if not stripped.exists():
                 stripped = out_dir / "stripped.nii.gz"
-            plat = report.get("platform") or {}
-            if lines_dirty:
-                # The user explicitly adjusted the job lines this session —
-                # deliver exactly those (same semantics as ⬇ Export bundle).
-                _eff_cut = (int(cut0) if cut0
-                            else int(plat.get("cut_from") or 0))
-                _eff_keep = (int(keep0) if keep0 is not None
-                             else int(plat.get("keep_from") or 0))
-            else:
-                # No user edits: deliver the freshly DETECTED lines: the
-                # same values the GUI auto-places after processing (Keep ≡
-                # air top, Cut ≡ metal top).  Sliders captured at click time
-                # could be stale here (a specimen whose pre-process
-                # detection deferred still holds whole-scan defaults, and a
-                # fresh registration holds another specimen's lines).  The
-                # payload rebuild is mtime-keyed on the report stage 1 just
-                # wrote, so this is the post-process detection exactly as
-                # the GUI's completion re-select sees it.
-                zb = {}
-                try:
-                    _pl = viewer_core.build_payload(dataset, sample)
-                    zb = (_pl.get("bounds") or {}).get("zb") or {}
-                except Exception:
-                    zb = {}
-                _dtg = auto_snap.detected_lines({"zb": zb})   # the copy layer's lines
-                _dcut, _dkeep = _dtg["cut"], _dtg["keep"]
-                _eff_cut = (int(_dcut) if _dcut is not None
-                            else int(plat.get("cut_from") or 0))
-                _eff_keep = (int(_dkeep) if _dkeep is not None
-                             else int(plat.get("keep_from") or 0))
-                if _eff_keep and _eff_cut > 0:
-                    _eff_keep = min(_eff_keep, _eff_cut - 1)  # auto-place invariant
-            used_lines = None
-            if _eff_cut > 0 and (_eff_cut != int(plat.get("cut_from") or 0)
-                                 or _eff_keep != int(plat.get("keep_from") or 0)):
-                plat["cut_from"] = _eff_cut
-                plat["keep_from"] = _eff_keep
-                used_lines = (_eff_cut, _eff_keep)
             exp_res = bundle_export.export_bundle(
-                dataset, sample, src_dir, report, stripped,
-                dest_root, source_override=src_over,
+                dataset, sample, src_dir, report, stripped, dest_root,
+                source_override=src_over,
                 export_format=fmt, progress=job_progress,
                 source_kind=_ds.source_kind,
                 source_path=_ds.source_path,
                 source_metadata=_ds.source_metadata,
                 lateral=lateral) or {}
-            exp_res["session_lines"] = used_lines
             exp_res["sample"] = sample
             return {"report": proc_res.get("report", {}),
                     "export": exp_res, "sample": sample,
@@ -4224,10 +4192,6 @@ class MainWindow(QMainWindow):
         self._log_action(
             f"Extraction bundle exported ({_fmt_detail}): "
             f"{exp.get('bundle_dir', '')}")
-        used = exp.get("session_lines")
-        if used:
-            self._log_action(
-                f"  exported with session lines: cut {used[0]}, keep {used[1]}")
 
     def _on_job_finished(self, res: dict):
         if hasattr(self, "_job_timer") and self._job_timer.isActive():
@@ -4426,12 +4390,7 @@ class MainWindow(QMainWindow):
         is_hu = unit.strip().upper() == "HU"
         self._intensity_display_unit = "HU" if is_hu else "stored intensity"
         if is_hu:
-            self.chk_air_crop.setToolTip(
-                "Detect the air envelope (HU ≤ −900) around the specimen and trim "
-                "near-pure-air margins so the exported ROI contains the wood only.\n"
-                "Wood touching the scan edge keeps that axis untouched; heavy fog "
-                "disables trimming for safety; the result never grows beyond the "
-                "tracked wood ROI.")
+            self.chk_air_crop.setToolTip(AIR_CROP_TIP)
         else:
             self.chk_air_crop.setToolTip(
                 "Use the source's low-intensity percentile as the background/air "
@@ -4564,8 +4523,14 @@ class MainWindow(QMainWindow):
         # (Preferences) when they differ from the stored report: the export
         # must deliver exactly the validated cut/keep range on screen.
         plat = report.get("platform") or {}
-        _eff_cut = (int(self.pref_cut) if self.pref_cut
-                    else int(plat.get("cut_from") or 0))
+        processed_cut = int(plat.get("cut_from") or 0)
+        _eff_cut = (auto_snap.delivered_cut(self.pref_cut, self.pref_margin) if self.pref_cut
+                    else processed_cut)
+        if _eff_cut > processed_cut:       # the processed run holds no data past its own cut
+            self.lbl_export_status.setText(
+                "The Cut is past the processed run. Apply lines and process again, then export.")
+            theme.set_role(self.lbl_export_status, "status-error")
+            return
         _eff_keep = (int(self.pref_keep)
                      if self.pref_keep is not None
                      else int(plat.get("keep_from") or 0))

@@ -119,6 +119,17 @@ inside = arr[int(y), kx + int(30 * 5)].sum()         # lateral column 30: inside
 check("the KEPT panel hides material outside L", outside < 90, f"sum={outside}")
 check("the KEPT panel shows material inside L and R", inside > 200, f"sum={inside}")
 
+# 4. the margin pulls the delivered end back: the KEPT panel stops at Cut minus margin
+canvas = vc._ortho_panel(line, cut=30, margin=5, keep_from=5, roi_z=None,
+                         lo=0.0, hi=1.0, metal_lo=2.0, z_line=10, width=200,
+                         cmap="grayscale", cols=None, annotate=False)
+arr = np.asarray(canvas.convert("RGB")).astype(int)
+kx = pw + 10
+kept_row = arr[int(20 * (200 / 40)), kx + 150].sum()     # row 20: inside 5..24
+margin_row = arr[int(27 * (200 / 40)), kx + 150].sum()   # row 27: the margin band 25..29
+check("the KEPT panel stops at Cut minus the margin", kept_row > 200 and margin_row < 90,
+      f"kept={kept_row} margin={margin_row}")
+
 # a full-scale value is drawn with the top colour, not the darkest (it used to be the darkest)
 from core.viewer_core import _apply_cmap  # noqa: E402
 

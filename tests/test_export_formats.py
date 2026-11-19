@@ -120,7 +120,7 @@ def bundle_state(dest: Path):
 dest_both = tmp / "out_both"
 calls = []
 res_both = be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                            stripped, dest_both, keep_from=4,
+                            stripped, dest_both, 
                             export_format="both",
                             progress=lambda i, n, ph: calls.append((i, n, ph)))
 st = bundle_state(dest_both)
@@ -186,7 +186,7 @@ check("UID: StudyInstanceUID is kept from the source",
           for o in _out_heads))
 _dest_again = tmp / "out_dcm_again"
 be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                 stripped, _dest_again, keep_from=4, export_format="dicom")
+                 stripped, _dest_again, export_format="dicom")
 _again = {str(pydicom.dcmread(p, stop_before_pixels=True).SeriesInstanceUID)
           for p in bundle_state(_dest_again)["dcm"]}
 check("UID: a re-export of the same specimen gets a new SeriesInstanceUID",
@@ -212,7 +212,7 @@ def _spy_dcmread(fp, *args, **kwargs):
 _pyd.dcmread = _spy_dcmread
 try:
     be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                     stripped, _dest_mem, keep_from=4, export_format="dicom")
+                     stripped, _dest_mem, export_format="dicom")
 finally:
     _pyd.dcmread = _real_dcmread
 _pixel_reads = sum(1 for header_only in _verify_reads if not header_only)
@@ -242,7 +242,7 @@ check("BOTH: nifti (x, y, z) shape (64, 64, 14)",
 # ================================================================ 2) DICOM only
 dest_dcm = tmp / "out_dcm"
 res_dcm = be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                           stripped, dest_dcm, keep_from=4,
+                           stripped, dest_dcm, 
                            export_format="dicom")
 st2 = bundle_state(dest_dcm)
 check("DICOM: series written, NO nifti anywhere",
@@ -261,7 +261,7 @@ check("DICOM: info txt adapted",
 # ================================================================ 3) NIfTI only
 dest_nii = tmp / "out_nii"
 res_nii = be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                           stripped, dest_nii, keep_from=4,
+                           stripped, dest_nii, 
                            export_format="nifti")
 st3 = bundle_state(dest_nii)
 check("NIFTI: volume written, NO series dir",
@@ -286,7 +286,7 @@ check("NIfTI bytes identical across export modes",
 # ================================================================ 5) DICOM-rebuild fallback (no stripped.nii)
 dest_fb = tmp / "out_fb"
 res_fb = be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                          tmp / "missing.nii", dest_fb, keep_from=4,
+                          tmp / "missing.nii", dest_fb, 
                           export_format="nifti")
 img_fb = nib.load(res_fb["nifti"])
 check("FALLBACK: volume rebuilt from DICOMs, atomic tmp rename",
@@ -342,14 +342,14 @@ if sha(res_fb["nifti"]) != sha(_nib_ref):
 # ================================================================ 6) tmp hygiene + update-in-place
 dest_hyg = tmp / "out_hyg"
 be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                 stripped, dest_hyg, keep_from=4, export_format="both")
+                 stripped, dest_hyg, export_format="both")
 # plant killed-run leftovers: exact-stem dicom tmp dir + nii tmp file
 (tmp_hyg_dir := dest_hyg / SPEC / (be.series_dir_name(SPEC) + ".tmp")).mkdir(parents=True)
 (tmp_hyg_dir / "junk.dcm").write_bytes(b"x")
 (dest_hyg / SPEC / (be.nifti_name(SPEC) + ".tmp")).write_bytes(b"x")
 # re-export DICOM-ONLY: tmp cleanup must happen even for skipped artifacts
 be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                 stripped, dest_hyg, keep_from=4, export_format="dicom")
+                 stripped, dest_hyg, export_format="dicom")
 check("HYGIENE: tmp leftovers cleaned even when artifacts are skipped",
       not tmp_hyg_dir.exists()
       and not (dest_hyg / SPEC / (be.nifti_name(SPEC) + ".tmp")).exists())
@@ -375,7 +375,7 @@ be._write_kept_nifti = fail_nifti_write
 try:
     try:
         be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                         stripped, dest_hyg, keep_from=4,
+                         stripped, dest_hyg, 
                          export_format="both")
         interrupted_export = False
     except OSError as exc:
@@ -394,7 +394,7 @@ check("TRANSACTION: failed re-export preserves previous complete bundle",
 # ================================================================ 7) format validation
 try:
     be.export_bundle("syn", SPEC, tmp, json.loads(json.dumps(report)),
-                     stripped, tmp / "out_bad", keep_from=4,
+                     stripped, tmp / "out_bad", 
                      export_format="parquet")
     check("FORMAT: invalid format rejected", False)
 except be.BundleError as e:

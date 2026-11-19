@@ -42,9 +42,11 @@ from roi_delivery import sorted_source_files as _sorted_source_files
 from volume_io import inspect_source as _inspect_source_volume
 from volume_io import read_source_slices as _read_source_volume_slices
 try:                                    # package import (app) or direct (tools)
+    from core.auto_snap import delivered_cut
     from core.lateral import lateral_range
     from core.wood_bounds import wood_bounds
 except ImportError:                     # pragma: no cover
+    from auto_snap import delivered_cut
     from lateral import lateral_range
     from wood_bounds import wood_bounds
 
@@ -1412,7 +1414,7 @@ def _ortho_panel(orig_line, cut: int, margin: int,
     lines (the Results view draws them itself)."""
     orig_line = np.asarray(orig_line, np.float32)
     in_z = ((np.arange(orig_line.shape[0])[:, None] >= keep_from) &
-            (np.arange(orig_line.shape[0])[:, None] < cut))
+            (np.arange(orig_line.shape[0])[:, None] < delivered_cut(cut, margin)))
     in_x = np.ones((1, orig_line.shape[1]), bool)
     if cols is not None:
         in_x[:] = False
@@ -1554,7 +1556,7 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
         default_z = (keep_from + cut) // 2 if cut > keep_from else n // 2
         zi = int(max(0, min(n - 1, z if z is not None else default_z)))
         orig_map = _source_slices(ds, sample, [zi])
-        is_kept = (keep_from <= zi < cut)
+        is_kept = (keep_from <= zi < delivered_cut(cut, margin))
         box = _lateral_box(lateral, orig_map[zi].shape)
         img = _axial_orig(orig_map[zi], win_lo, win_hi, src["metal_lo"], cmap=cmap,
                           is_kept=is_kept, box=box, annotate=annotate)

@@ -95,3 +95,8 @@ def detected_lines(bounds: dict | None, *,
     out["x"] = _pair(bounds.get("x0"), bounds.get("x1"), bounds.get("W"))
     out["y"] = _pair(bounds.get("y0"), bounds.get("y1"), bounds.get("H"))
     return out
+
+
+def delivered_cut(cut: int, margin: int) -> int:
+    """The slice the delivery stops at: the Cut line pulled back by the safety margin."""
+    return max(0, int(cut) - int(margin))
