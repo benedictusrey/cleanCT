@@ -170,6 +170,27 @@ except be.BundleError as exc:
 check("the delivered cut is the Cut minus the margin",
       delivered_cut(20, 5) == 15 and delivered_cut(12, 0) == 12 and delivered_cut(3, 9) == 0)
 
+# 8. the NIfTI and the DICOM of one box export hold the same voxels, slice for slice
+srcs = be.sorted_source_files(exp_src)
+src_ds = [pydicom.dcmread(f) for f in srcs]
+hu = [d.pixel_array.astype(np.float64) * float(getattr(d, "RescaleSlope", 1))
+      + float(getattr(d, "RescaleIntercept", 0)) for d in src_ds]
+same_src = TEST_TMP / "clip_same_stripped.nii"
+nib.save(nib.Nifti1Image(np.stack([h.T for h in hu], axis=2).astype(np.float32), np.eye(4)), same_src)
+both = be.export_bundle("custom", "clip_same", exp_src, json.loads(json.dumps(report)),
+                        same_src, TEST_TMP / "clip_same_out", export_format=be.FORMAT_BOTH,
+                        source_kind="dicom", source_metadata={}, lateral=box)
+out_ds = sorted((pydicom.dcmread(f) for f in
+                 (Path(both["bundle_dir"]) / be.series_dir_name("clip_same")).glob("*.dcm")),
+                key=lambda d: float(d.ImagePositionPatient[2]))
+nv = np.asarray(nib.load(both["nifti"]).dataobj, np.float64)
+same = len(out_ds) == nv.shape[2] and all(
+    np.array_equal(d.pixel_array.astype(np.float64) * float(getattr(d, "RescaleSlope", 1))
+                   + float(getattr(d, "RescaleIntercept", 0)), nv[:, :, k].T)
+    for k, d in enumerate(out_ds))
+check("the NIfTI and the DICOM of one box export hold the same voxels", same,
+      f"dicom={len(out_ds)} nifti_z={nv.shape[2]}")
+
 if failures:
     print("FAILURES: " + ", ".join(failures))
     raise SystemExit(1)

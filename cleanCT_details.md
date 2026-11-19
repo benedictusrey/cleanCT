@@ -538,6 +538,7 @@ A TIFF or NIfTI export refuses a destination that already holds a DICOM bundle w
 - The volume is the stripped volume (stripped.nii) for the kept slices, cropped to the L/R box when one is set. Its header carries a description with the specimen ID and the dataset.
 - If stripped.nii is missing (older outputs), the slices are rebuilt from the source DICOM files in bounded batches.
 - The NIfTI volume is cropped to the same L/R box as the DICOM series, in X and Y. Its origin moves to the box corner, so the NIfTI and the DICOM describe the same region.
+- The NIfTI and the DICOM of one export hold the same voxels in the box, slice for slice. Checked on 2-5_aft: 383 slices, zero difference, and a test in tests/test_export_clip.py.
 - A kept plane with no data (blank, NaN) stops the export with an error, and no bundle is written.
 
 ### 11.6 Volume sources (TIFF and NIfTI)
