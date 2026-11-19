@@ -739,7 +739,13 @@ top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
 - **Details note.** `cleanCT_details.md` and `cleanCT_details.docx` record how each line is
   detected and placed, the constants, the pre-process and processed differences, the export
   clip, the decisions to review, and a code map.
-- Gate: PASS (32 files).
+- Gate: PASS (32 files). Probe: no findings. UI audit: 402 steps, 0 findings.
+- Code commit `f87d8e5`. Release rebuilt from it (gate PASS inside the build; launcher and
+  extracted portable health checks PASS). Release SHA-256: setup
+  `bef877990b583f6444bd3dfa6645c66e4379d7d034d2722fe21373688b8c47af`, portable
+  `d500cc871a893f60b933722352ad2bda6291b8823d43750dcfc202e62ecdcf74`. The
+  `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
+  refreshed from the new ZIP.
 
 ## 3. Current Known Bug (As of Now)
 
