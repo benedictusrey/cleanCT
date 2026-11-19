@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="docs/RELEASE_NOTES.md"><img src="https://img.shields.io/badge/version-1.0.0-2f81f7?style=flat-square" alt="Version 1.0.0"></a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011%20x64-0078d4?style=flat-square" alt="Platform: Windows 10/11 x64">
+  <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-0078d4?style=flat-square" alt="Platform: Windows, Linux, macOS">
   <img src="https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Qt-PySide6%20%2F%20Qt%206-41cd52?style=flat-square&logo=qt&logoColor=white" alt="PySide6 / Qt 6">
   <img src="https://img.shields.io/badge/GPU-CUDA%2012%20%28optional%29-76b900?style=flat-square&logo=nvidia&logoColor=white" alt="CUDA 12, optional">
@@ -23,7 +23,7 @@
 
 ## Abstract
 
-cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of wood specimens mounted on a metal base. It locates the metal base and the wood, shows four guide lines for review, removes the base with a metal-removal engine, and exports the inner wood region as DICOM and NIfTI with a verified bundle. Source scans are never modified.
+cleanCT is a native desktop application for Windows, Linux and macOS (PySide6 / Qt 6) for micro-CT scans of wood specimens mounted on a metal base. It locates the metal base and the wood, shows four guide lines for review, removes the base with a metal-removal engine, and exports the inner wood region as DICOM and NIfTI with a verified bundle. Source scans are never modified.
 
 ## Features
 
@@ -34,7 +34,7 @@ cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of w
 - **Inner-ROI export.** The delivered region is the kept slices between Keep and Cut, clipped to the L/R box. The DICOM and NIfTI outputs hold the same voxels.
 - **Verified bundles.** A bundle is staged, checked (UIDs, pixel values, geometry) and only then promoted. A failed check writes nothing.
 - **Checkpoints.** A preview with its lines and settings can be saved as `.ctcheckpoint.json` and reopened. Applied previews are kept as a history for the session.
-- **Compute.** NVIDIA GPU through CuPy (CUDA 12) when available; the validated CPU path otherwise, with the same algorithm.
+- **Compute.** NVIDIA GPU through CuPy (CUDA 12) on Windows and Linux when available; the validated CPU path otherwise (always on macOS), with the same algorithm.
 
 ## Gallery
 
@@ -48,14 +48,17 @@ cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of w
 
 ## Installation
 
-| Package | File | Notes |
+| Platform | File | Notes |
 |---|---|---|
-| Portable | `cleanCT-1.0.0-portable.zip` | Extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
-| Installer | `cleanCT-1.0.0-setup.exe` | Per-machine setup; asks for administrator approval. |
+| Windows, installer | `cleanCT-1.0.0-setup.exe` | Per-machine setup; asks for administrator approval. |
+| Windows, portable | `cleanCT-1.0.0-portable.zip` | Extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
+| Linux x86_64, portable | `cleanCT-1.0.0-linux-x86_64.tar.gz` | Extract and run `./cleanCT`. `./install.sh` adds a per-user install, a `cleanct` command and a menu entry. |
+| macOS, Apple silicon | `cleanCT-1.0.0-macos-arm64.dmg` | Open the DMG and drag cleanCT to Applications. |
+| macOS, Intel | `cleanCT-1.0.0-macos-x86_64.dmg` | The same, for Intel Macs. |
 
-Both files are attached to the GitHub Release, with a SHA-256 sidecar for the ZIP.
+Every file is attached to the GitHub Release with a SHA-256 sidecar; `SHA256SUMS` lists all of them. The macOS app is not notarized: on first launch, Control-click it and choose Open (macOS 15 and later: System Settings › Privacy & Security › Open Anyway).
 
-**Requirements:** Windows 10 or 11, 64-bit. An NVIDIA GPU with a CUDA 12 driver is optional. Keep free disk space for results and exports; a `.nii.gz` source is expanded to temporary storage at about its uncompressed size.
+**Requirements:** Windows 10 or 11 (64-bit); Linux x86_64 (tested in clean Ubuntu 22.04 and Debian 12 containers with `libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0` installed, as on a desktop system); macOS 12 or newer. An NVIDIA GPU with a CUDA 12 driver is optional (Windows and Linux). Keep free disk space for results and exports; a `.nii.gz` source is expanded to temporary storage at about its uncompressed size.
 
 ## Quick start
 
@@ -97,7 +100,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\run_cleanct_regression
 python installer\build_installer.py --iscc "<path to ISCC.exe>"
 ```
 
-The release build needs PyInstaller 6.22.2 and Inno Setup 6.
+```sh
+# Linux and macOS packages: runtime, gate, self-check, tarball or DMG
+python3 installer/build_posix.py linux-x86_64
+python3 installer/build_posix.py macos-arm64
+```
+
+The Windows release build needs PyInstaller 6.22.2 and Inno Setup 6. The Linux and macOS builds need PowerShell 7 (`pwsh`) for the regression gate, plus `hdiutil`, `iconutil` and `codesign` on macOS.
 
 ## Repository structure
 
@@ -107,7 +116,7 @@ The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 | `src/` | Application: `core/` (logic), `widgets/`, `dialogs/`, `main_window.py`, `theme.py`. |
 | `assets/` | `banner/` (gallery), `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
 | `engine/` | Processing engine: the six modules the application imports. |
-| `installer/` | Build script, launcher source, Inno Setup script, environment setup. |
+| `installer/` | Windows build (`build_installer.py`, launcher source, Inno Setup script); Linux and macOS build (`build_posix.py`, `posix/install.sh`); pinned requirements. |
 | `tests/` | Regression suites and test tools. |
 | `docs/` | User guide, implementation details, release notes and change records. |
 | `version/` | Release folders (not versioned). |
@@ -129,7 +138,9 @@ The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 - A running pipeline cannot be stopped.
 - The longitudinal Results view reads the source folders; a moved source shows an error.
 - Auto-crop trims the processing output only; bundles are cut to the lines on screen.
-- Windows only.
+- Linux and macOS are checked in CI and headless only: their GUIs and the Linux CUDA path have not run on physical machines.
+- The macOS app is not notarized (see Installation).
+- The Intel macOS build is tested under Rosetta 2 on Apple silicon runners.
 
 ## How to cite
 

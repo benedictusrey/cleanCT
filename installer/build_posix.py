@@ -118,7 +118,7 @@ def write_launcher(path: Path, res_rel: str) -> None:
         "# cleanCT launcher: runs the bundled CPython 3.12 with the app.\n"
         f'here=$(cd "$(dirname "$0")/{res_rel}" && pwd)\n'
         'exec "$here/runtime/bin/python3" -X utf8 "$here/app/main.py" "$@"\n',
-        encoding="utf-8")
+        encoding="utf-8", newline="\n")  # LF on every host: a CRLF shebang breaks the launcher
     path.chmod(0o755)
 
 
@@ -136,6 +136,7 @@ def build_linux(target: str, runtime: Path, name: str, pkg: Path) -> Path:
     copy_payload(root, runtime)
     write_launcher(root / "cleanCT", ".")
     shutil.copy2(HERE / "posix" / "install.sh", root / "install.sh")
+    (root / "install.sh").chmod(0o755)
     selfcheck(root / "cleanCT")
     OUT.mkdir(parents=True, exist_ok=True)
     archive = OUT / f"{name}.tar.gz"

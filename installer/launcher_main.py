@@ -73,6 +73,8 @@ def open_log(app_dir: str):
 
 def fail_box(msg: str) -> None:
     print(msg, file=sys.stderr)
+    if "--selfcheck" in sys.argv[1:]:
+        return  # headless health check (the build runs it on CI): never wait on a dialog
     try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(

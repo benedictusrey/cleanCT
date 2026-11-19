@@ -1,16 +1,19 @@
 # cleanCT 1.0.0 — Release notes
 
-**Release date:** 2026-11-19 · **Platform:** Windows 10 or 11, 64-bit · **Engine:** `engine/` at 2a53ba6
+**Release date:** 2026-11-19 · **Platforms:** Windows 10 or 11 (64-bit) · Linux x86_64 · macOS 12 or newer (Apple silicon and Intel) · **Engine:** `engine/` at 2a53ba6
 
 ## Packages
 
 | File | Use |
 |---|---|
-| `cleanCT-1.0.0-portable.zip` | Extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
-| `cleanCT-1.0.0-portable.zip.sha256` | SHA-256 of the ZIP. |
-| `cleanCT-1.0.0-setup.exe` | Per-machine installer (Program Files; asks for administrator approval). |
+| `cleanCT-1.0.0-setup.exe` | Windows: per-machine installer (Program Files; asks for administrator approval). |
+| `cleanCT-1.0.0-portable.zip` | Windows: extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
+| `cleanCT-1.0.0-linux-x86_64.tar.gz` | Linux x86_64: extract and run `./cleanCT`; `./install.sh` adds a per-user install and a menu entry. |
+| `cleanCT-1.0.0-macos-arm64.dmg` | macOS, Apple silicon: drag cleanCT to Applications. |
+| `cleanCT-1.0.0-macos-x86_64.dmg` | macOS, Intel: drag cleanCT to Applications. |
+| `SHA256SUMS` | SHA-256 of every file above. |
 
-Check a download with `Get-FileHash <file> -Algorithm SHA256` and compare the value with the `.sha256` file.
+Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS).
 
 ## Highlights
 
@@ -33,7 +36,8 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` and compare the va
 
 ## Verification
 
-- Regression gate: 37 suites, PASS.
+- Regression gate (37 suites) and the packaged self-check run in each platform build.
+- The Linux package also self-checks in clean Ubuntu 22.04 and Debian 12 containers.
 - Packaged launcher self-check: PASS. Extracted portable self-check: PASS, GPU active.
 - The application sources in the package are identical to the source tree.
 
@@ -42,7 +46,9 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` and compare the va
 - The processed axial view steps through 16 stored frames, not every slice.
 - A running pipeline cannot be stopped.
 - The longitudinal Results view reads the source folders; a moved source shows an error.
-- Windows only.
+- macOS builds are not notarized; Gatekeeper asks for approval on first launch.
+- The Linux and macOS GUIs and the Linux CUDA path were verified headless in CI, not on physical machines.
+- No NVIDIA GPU runs in CI, so the GPU path is verified on Windows only.
 
 ## Documentation
 

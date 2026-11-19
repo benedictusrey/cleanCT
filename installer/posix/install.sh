@@ -1,21 +1,28 @@
 #!/bin/sh
 # Installs cleanCT for the current user: the app goes to ~/.local/share/cleanCT-app
 # (never the data folder, which is ~/.local/share/cleanCT), a `cleanct` command in
-# ~/.local/bin, and an application-menu entry.
+# ~/.local/bin, and an application-menu entry. Run it from the extracted package.
 set -e
 src=$(cd "$(dirname "$0")" && pwd)
 share="${XDG_DATA_HOME:-$HOME/.local/share}"
 dst="$share/cleanCT-app"
+if [ "$src" = "$dst" ]; then
+    echo "run install.sh from the extracted package folder, not from the installed copy" >&2
+    exit 1
+fi
 rm -rf "$dst"
 mkdir -p "$dst" "$HOME/.local/bin" "$share/applications"
 cp -a "$src"/. "$dst"/
-ln -sf "$dst/cleanCT" "$HOME/.local/bin/cleanct"
+# a wrapper, not a symlink: the launcher finds its runtime from its own folder
+echo '#!/bin/sh' > "$HOME/.local/bin/cleanct"
+echo 'exec "'"$dst"'/cleanCT" "$@"' >> "$HOME/.local/bin/cleanct"
+chmod 755 "$HOME/.local/bin/cleanct"
 cat > "$share/applications/cleanct.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=cleanCT
 Comment=Metal-base removal for micro-CT wood scans
-Exec=$dst/cleanCT
+Exec="$dst/cleanCT"
 Icon=$dst/app/icons/icon_256x256.png
 Terminal=false
 Categories=Science;

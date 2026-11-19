@@ -128,6 +128,36 @@ def check_output_root_default() -> None:
         shutil.rmtree(data_dir, ignore_errors=True)
 
 
+def check_selfcheck_never_blocks() -> None:
+    """A headless --selfcheck prints its error and never opens a modal dialog."""
+    import ctypes
+    calls: list[tuple] = []
+
+    class _User32:
+        @staticmethod
+        def MessageBoxW(*args):
+            calls.append(args)
+
+    real = getattr(ctypes, "windll", None)
+    ctypes.windll = type("WinDll", (), {"user32": _User32})()
+    previous = sys.argv
+    try:
+        sys.argv = ["cleanCT.exe", "--selfcheck"]
+        launcher.fail_box("headless problem")
+        headless_calls = len(calls)
+        sys.argv = ["cleanCT.exe"]
+        launcher.fail_box("gui problem")
+        gui_calls = len(calls) - headless_calls
+    finally:
+        sys.argv = previous
+        if real is None:
+            del ctypes.windll
+        else:
+            ctypes.windll = real
+    check("selfcheck prints its error without a dialog", headless_calls == 0, str(calls))
+    check("a normal launch still shows its error dialog", gui_calls == 1, str(calls))
+
+
 def main() -> int:
     # the test is about a normal session; a CI runner may itself be elevated
     launcher.is_elevated = lambda: False
@@ -195,6 +225,7 @@ def main() -> int:
             os.environ["LOCALAPPDATA"] = previous_local
         shutil.rmtree(local_root, ignore_errors=True)
 
+    check_selfcheck_never_blocks()
     print("RESULT: ALL PASS" if not failures
           else f"RESULT: {len(failures)} failed", flush=True)
     return 1 if failures else 0

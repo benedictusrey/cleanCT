@@ -1,10 +1,11 @@
 name: release
 
-# One release for three systems: Windows (installer and portable ZIP), Linux
-# (portable tarball) and macOS (DMG for Apple silicon and for Intel). Each build
-# runs the regression gate and a self-check before packaging. A tag push (v1.0.0)
-# or a manual run with "publish" creates the GitHub Release, and only after all
-# builds pass; a manual run without it only keeps the files as workflow artifacts.
+# Linux and macOS are built here: a portable tarball, and a DMG for Apple silicon
+# and for Intel. Each build runs the regression gate and a self-check before it
+# packages. Windows is built on the maintainer's PC (installer and portable ZIP)
+# and added to the same release by hand, so the Windows job below is optional.
+# A tag push (v1.0.0) or a manual run with "publish" creates a DRAFT release, and
+# only after both platform builds pass. Publishing is a separate, manual step.
 on:
   push:
     tags:
@@ -12,7 +13,11 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Create the GitHub Release (otherwise keep the files as artifacts only)"
+        description: "Create the draft GitHub Release (otherwise keep the files as artifacts only)"
+        type: boolean
+        default: false
+      include_windows:
+        description: "Also build the Windows files in CI (normally built on the maintainer's PC)"
         type: boolean
         default: false
 
@@ -25,7 +30,8 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows x64 (installer and portable ZIP)
+    name: Windows x64 (optional CI build)
+    if: inputs.include_windows
     runs-on: windows-latest
     timeout-minutes: 150
     steps:
@@ -81,6 +87,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install the Qt system libraries (OpenGL/EGL, X11 xkbcommon, dbus, fontconfig)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0
+
       - name: Build the Linux package (runtime, gate, self-check, tarball)
         run: python3 installer/build_posix.py linux-x86_64
 
@@ -92,7 +103,7 @@ jobs:
             echo "== $image"
             docker run --rm -e QT_QPA_PLATFORM=offscreen \
               -v "$GITHUB_WORKSPACE/installer/out:/pkg:ro" "$image" \
-              sh -c "tar -xzf /pkg/$archive -C /tmp && /tmp/cleanCT-${version}-linux-x86_64/cleanCT --selfcheck"
+              sh -c "apt-get update -qq && apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0 >/dev/null && tar -xzf /pkg/$archive -C /tmp && /tmp/cleanCT-${version}-linux-x86_64/cleanCT --selfcheck"
           done
 
       - name: Upload the Linux files
@@ -144,8 +155,8 @@ jobs:
           retention-days: 30
 
   release:
-    name: Publish the GitHub Release
-    needs: [windows, linux, macos]
+    name: Create the draft GitHub Release
+    needs: [linux, macos]
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -153,13 +164,13 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
-      - name: Download every build
+      - name: Download the Linux and macOS builds
         uses: actions/download-artifact@v4
         with:
           path: files
           merge-multiple: true
 
-      - name: Check the tag and the files, then create the release
+      - name: Check the tag and the files, then create a draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -169,13 +180,11 @@ jobs:
             echo "tag $GITHUB_REF_NAME does not match APP_VERSION $version"; exit 1
           fi
           cd files
-          for f in "cleanCT-${version}-setup.exe" \
-                   "cleanCT-${version}-portable.zip" \
-                   "cleanCT-${version}-linux-x86_64.tar.gz" \
+          for f in "cleanCT-${version}-linux-x86_64.tar.gz" \
                    "cleanCT-${version}-macos-arm64.dmg" \
                    "cleanCT-${version}-macos-x86_64.dmg"; do
             if [ ! -f "$f" ]; then echo "missing $f"; exit 1; fi
           done
           sha256sum * > SHA256SUMS
-          gh release create "$tag" * --title "cleanCT ${version}" \
+          gh release create "$tag" * --draft --title "cleanCT ${version}" \
             --notes-file "$GITHUB_WORKSPACE/docs/RELEASE_NOTES.md" --target "$GITHUB_SHA"

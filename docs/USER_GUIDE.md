@@ -4,9 +4,11 @@ cleanCT reviews and processes micro-CT scans from DICOM, TIFF, or NIfTI sources,
 
 ## 1. Start the app
 
-1. Extract the complete portable ZIP to a folder on your PC. Keep the files together inside the `cleanCT-1.0.0` folder.
-2. Open the `cleanCT-1.0.0` folder and double-click `cleanCT.exe`. The first launch may take a little longer while the app prepares its runtime. No Python installation or administrator setup is needed.
-3. Use a local drive with enough free space for processing results and exports. An NVIDIA GPU is used automatically when a compatible driver is available; otherwise cleanCT uses the CPU, which may take longer.
+1. **Windows:** install with `cleanCT-1.0.0-setup.exe`, or extract the complete portable ZIP and open `cleanCT.exe` from the `cleanCT-1.0.0` folder.
+2. **Linux:** extract `cleanCT-1.0.0-linux-x86_64.tar.gz` and run `./cleanCT` in the extracted folder. For a per-user install with an application-menu entry, run `./install.sh` instead.
+3. **macOS:** open the DMG and drag cleanCT to Applications. The app is not notarized, so the first launch needs approval: Control-click cleanCT and choose Open. On macOS 15 and later, open System Settings › Privacy & Security and choose Open Anyway.
+
+The first launch may take a little longer while the app prepares its runtime. No Python installation or administrator setup is needed. Use a local drive with enough free space for processing results and exports. An NVIDIA GPU is used automatically on Windows and Linux when a compatible driver is available; otherwise cleanCT uses the CPU, which may take longer. macOS always uses the CPU.
 
 ## 2. Choose a scan
 
@@ -63,8 +65,9 @@ The bundle is saved in a subfolder named for the specimen. It includes the reque
 
 ## 5. Where files are stored
 
-- Processing results: `%LOCALAPPDATA%\cleanCT\pipeline_output`
-- Default exported bundles: `%LOCALAPPDATA%\cleanCT\export`
+- Windows: `%LOCALAPPDATA%\cleanCT\` (processing results in `pipeline_output`, default exports in `export`).
+- Linux: `~/.local/share/cleanCT/` (or `$XDG_DATA_HOME/cleanCT/` when that is set).
+- macOS: `~/Library/Application Support/cleanCT/`.
 - If you change **Export to**, exports go to that folder instead.
 
 The original scan remains at its source location. DICOM exports retain source metadata; review that metadata and follow your organization’s data-handling rules before sharing an export. TIFF/NIfTI bundles include source format, intensity, geometry, and threshold notes; missing TIFF spacing is identified as assumed.
