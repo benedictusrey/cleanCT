@@ -98,6 +98,17 @@ check("the lateral box persists", csx.lateral_box(name) == box, str(csx.lateral_
 csx.set_specimen_lateral(name, None)
 check("the lateral box clears", csx.lateral_box(name) is None)
 
+# 4. with nothing applied, the export crops to the detected L/R pairs (the lines on screen)
+from core import auto_snap  # noqa: E402
+
+bounds = {"zb": {"cut": 500, "keep": 90, "wood_top": 90}, "x0": 40, "x1": 599,
+          "y0": 60, "y1": 599, "W": 648, "H": 648}
+pairs = auto_snap.lateral_pairs(bounds)
+check("the detected pairs are the export box when nothing was applied",
+      pairs is not None and np.allclose(pairs["x"], (40 / 648, 600 / 648))
+      and np.allclose(pairs["y"], (60 / 648, 600 / 648)), str(pairs))
+check("no detected pairs means no crop", auto_snap.lateral_pairs(None) is None)
+
 if failures:
     print("FAILURES: " + ", ".join(failures))
     raise SystemExit(1)

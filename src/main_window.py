@@ -181,6 +181,7 @@ class MainWindow(QMainWindow):
         # user adjusted" from "deliver the freshly detected lines".
         self.pref_dirty: bool = False
         self._pref_z_explicit: int | None = None
+        self._pref_pos: int | None = None      # X (sagittal) or Y (coronal) of the preview
         self._job_kind: str = "process"
         self._job_progress_mode: str = "staged"   # "staged" | "real" (0M)
         # Default export folder: user preference persisted in settings.json
@@ -533,6 +534,7 @@ class MainWindow(QMainWindow):
         self.pref_viewer.setKeep(self.pref_keep)
         self.pref_viewer.setPlane(self.pref_plane)
         self._pref_z_explicit = None
+        self._pref_pos = None
 
         # Declare the REAL slice count before any preview lands: Keep/Cut
         # placement (and later snaps) must never be clamped to the stale
@@ -2813,8 +2815,9 @@ class MainWindow(QMainWindow):
             self.pref_viewer.setKeep(self.pref_keep)
             self.pref_viewer.setPlane(self.pref_plane)
 
-            # Reset any explicit preview z: the new specimen has its own axis
+            # Reset any explicit preview z and X/Y: the new specimen has its own axes
             self._pref_z_explicit = None
+            self._pref_pos = None
 
             anchor = rep.get("anchor")
             detected = rep.get("detected_cut_from")
@@ -3225,6 +3228,7 @@ class MainWindow(QMainWindow):
             self.pref_viewer.setLeft(value)
         else:
             self.pref_viewer.setRight(value)
+        self._schedule_prefs_preview()        # the AFTER panel follows the L/R box
 
     def _on_spin_left_changed(self, v: int):
         self._note_manual_lines_edit("Left")
@@ -3238,21 +3242,25 @@ class MainWindow(QMainWindow):
         self._note_manual_lines_edit("Top")
         self.slider_top.setValue(v)
         self.pref_viewer.setTop(v)
+        self._schedule_prefs_preview()
 
     def _on_slider_top_changed(self, v: int):
         self._note_manual_lines_edit("Top")
         self.spin_top.setValue(v)
         self.pref_viewer.setTop(v)
+        self._schedule_prefs_preview()
 
     def _on_spin_bottom_changed(self, v: int):
         self._note_manual_lines_edit("Bottom")
         self.slider_bottom.setValue(v)
         self.pref_viewer.setBottom(v)
+        self._schedule_prefs_preview()
 
     def _on_slider_bottom_changed(self, v: int):
         self._note_manual_lines_edit("Bottom")
         self.spin_bottom.setValue(v)
         self.pref_viewer.setBottom(v)
+        self._schedule_prefs_preview()
 
     def _on_pref_left_dragged(self, v: int):
         self._note_manual_lines_edit("Left")
@@ -3457,13 +3465,32 @@ class MainWindow(QMainWindow):
         self._schedule_prefs_preview()
 
     def _on_pref_slice_scrubbed(self, z: int):
+        # a drag on the preview sets Z (the cursor); the slider follows only in axial
         self._pref_z_explicit = z
-        self.pref_slider.setValue(z)
+        if self.pref_plane == "axial":
+            self.pref_slider.setValue(z)
+            self.lbl_pref_z.setText(f"z={z}")
 
-    def _on_pref_slider_changed(self, z: int):
-        self.lbl_pref_z.setText(f"z={z}")
-        self._pref_z_explicit = z
+    def _on_pref_slider_changed(self, v: int):
+        # the slider scrubs the plane's own axis: X (sagittal), Y (coronal), Z (axial)
+        if self.pref_plane == "axial":
+            self._pref_z_explicit = v
+        else:
+            self._pref_pos = v
+        self.lbl_pref_z.setText(self._pref_label(v))
         self._schedule_prefs_preview()
+
+    def _pref_label(self, v: int) -> str:
+        axis = {"sagittal": "x", "coronal": "y"}.get(self.pref_plane, "z")
+        return f"{axis}={v}"
+
+    def _pref_slider_for_plane(self, span: int, value: int) -> None:
+        """Set the Boundaries slider to the axis the current plane scrubs."""
+        self.pref_slider.blockSignals(True)
+        self.pref_slider.setRange(0, max(0, span - 1))
+        self.pref_slider.setValue(value)
+        self.pref_slider.blockSignals(False)
+        self.lbl_pref_z.setText(self._pref_label(value))
 
     def _valid_keep_cut(self) -> str | None:
         """Why the current Keep/Cut lines cannot be exported, or None."""
@@ -3562,6 +3589,8 @@ class MainWindow(QMainWindow):
             "keep_from": self.pref_keep,
             "plane": self.pref_plane,
             "z": self._pref_z_explicit,
+            "pos": self._pref_pos,
+            "lateral": self.pref_viewer.axisBounds(),
             "width": 640,
             "cmap": self.pref_cmap,
             "lo": self.pref_lo,
@@ -3584,6 +3613,7 @@ class MainWindow(QMainWindow):
             keep_from=request["keep_from"], plane=request["plane"],
             z=request["z"], width=request["width"], cmap=request["cmap"],
             lo=request["lo"], hi=request["hi"],
+            pos=request["pos"], lateral=request["lateral"],
         )
         worker.preview_generation = request["generation"]
         self._preview_worker = worker
@@ -3600,12 +3630,12 @@ class MainWindow(QMainWindow):
             return
 
         n_slices = prev.get("n_slices", 100)
-        self.pref_slider.blockSignals(True)
-        self.pref_slider.setRange(0, max(0, n_slices - 1))
         actual_z = int(prev.get("z") or 0)
-        self.pref_slider.setValue(actual_z)
-        self.lbl_pref_z.setText(f"z={actual_z}")
-        self.pref_slider.blockSignals(False)
+        if prev.get("plane") == "axial":
+            self._pref_slider_for_plane(n_slices, actual_z)
+        else:                                  # sagittal X / coronal Y from the render
+            self._pref_pos = int(prev.get("pos") or 0)
+            self._pref_slider_for_plane(int(prev.get("span") or n_slices), self._pref_pos)
 
         # The pixmap carries the real slice count: apply it FIRST, then
         # place the lines.  Applying the lines before setPixmap clamped
@@ -3960,6 +3990,7 @@ class MainWindow(QMainWindow):
         if self._block_on_keep_cut():
             return
         dataset, sample = self.dataset, self.sample
+        lateral = self._export_lateral(dataset, sample)
         dest_root = self._validated_dest_root()
         if dest_root is None:
             return
@@ -4043,7 +4074,7 @@ class MainWindow(QMainWindow):
                 source_kind=_ds.source_kind,
                 source_path=_ds.source_path,
                 source_metadata=_ds.source_metadata,
-                lateral=(csx.lateral_box(sample) if dataset == "custom" else None)) or {}
+                lateral=lateral) or {}
             exp_res["session_lines"] = used_lines
             exp_res["sample"] = sample
             return {"report": proc_res.get("report", {}),
@@ -4382,6 +4413,13 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         return answer == QMessageBox.Yes
 
+    def _export_lateral(self, dataset: str, sample: str) -> dict | None:
+        """The L/R box the export crops to: the box applied on Apply, else the
+        detected box the copy layer placed on screen (the same fallback as Z)."""
+        if dataset != "custom":
+            return None
+        return csx.lateral_box(sample) or auto_snap.lateral_pairs(self._wood_bounds_raw)
+
     def _export_bundle(self):
         if not self.payload or self._loading:
             self.lbl_export_status.setText("Load and process a specimen before exporting.")
@@ -4389,6 +4427,7 @@ class MainWindow(QMainWindow):
         if self._block_on_keep_cut():
             return
         dataset, sample = self.dataset, self.sample
+        lateral = self._export_lateral(dataset, sample)
         dest_root = self._validated_dest_root()
         if dest_root is None:
             return
@@ -4446,7 +4485,7 @@ class MainWindow(QMainWindow):
                 source_kind=_ds.source_kind,
                 source_path=_ds.source_path,
                 source_metadata=_ds.source_metadata,
-                lateral=(csx.lateral_box(sample) if dataset == "custom" else None),
+                lateral=lateral,
                 progress=job_progress)
             result["sample"] = sample
             return result
@@ -4712,11 +4751,7 @@ class MainWindow(QMainWindow):
         self.axial_slider.setRange(0, n - 1)
         self.axial_slider.setValue(self.axial_idx)
         self.axial_slider.blockSignals(False)
-        self.pref_slider.blockSignals(True)
-        self.pref_slider.setRange(0, n - 1)
-        self.pref_slider.setValue(self._pref_z_explicit or 0)
-        self.pref_slider.blockSignals(False)
-        self.lbl_pref_z.setText(f"z={self._pref_z_explicit or 0}")
+        self._pref_slider_for_plane(n, self._pref_z_explicit or 0)
         self._switch_tab(state.get("tab", "auto"), schedule=False)
         self._update_range_summary()
         self._set_job_gates(process_ready=bool(

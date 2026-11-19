@@ -153,6 +153,11 @@ the processed run.
 Lines change the processed result only after Apply, the same as the cut and keep
 before this round.
 
+If nothing was applied, the export uses the detected L/R pairs of the loaded specimen
+(`auto_snap.lateral_pairs`), which are the lines the copy layer placed on screen. This
+is the same fallback the Z range has when no Apply was made. A box dragged but not
+applied is not exported; the AFTER panel does show it.
+
 ## 6. Export: what the DICOM series keeps
 
 The export is DICOM only in this round. The NIfTI export clips Z the same way,
@@ -191,6 +196,22 @@ Cut lines and labels, so the job line never crosses a guide label. Before this
 round the Cut line crossed the "metal top" label whenever both sat on the same
 slice.
 
+## 7a. The Boundaries preview: the slider and the AFTER panel
+
+- **The slider scrubs the plane's own axis.** Sagittal scrubs X (a column of every
+  slice), coronal scrubs Y (a row of every slice), and axial scrubs Z. The slider
+  range is the length of that axis, and its label says `x=`, `y=` or `z=`.
+- **The plane is read from the source.** `viewer_core._ortho_plane` reads the column
+  or row of each slice in batches and keeps the last 12 planes. One plane takes about
+  0.5 s on a 576-slice series. Non-DICOM sources keep the old mid-plane.
+- **The AFTER (KEPT) panel is cropped to the L/R box as well as to Keep and Cut.**
+  Sagittal uses the Y pair, coronal the X pair, and axial both. Material outside the
+  box is not drawn. Dragging or typing an L/R or top/bottom value refreshes the panel.
+- **Full-scale values had the darkest colour.** The colour lookup took the segment
+  from a fraction that was zero at the top of the scale, so a value at the window top
+  (for example the metal above the window) was drawn in the lowest colour. The lookup
+  now uses the segment from `floor(t)`, and full scale is the top colour.
+
 ## 8. Decisions made in this round (to review)
 
 1. **Cut = metal top.** The Cut follows the metal base (the detector anchor), not
@@ -220,6 +241,11 @@ slice.
    `tests/test_auto_z_guides.py` (layering, by pixel).
 4. **Export clipped to the L/R lines.** Section 6. Tests: `tests/test_export_clip.py`.
    The NIfTI export does not clip X or Y yet.
+5. **The slider follows the plane and the AFTER panel follows the L/R box.** Section
+   7a. Tests: `tests/test_plane_scrub.py` (the slider ranges, the plane reader, the KEPT
+   mask, the colour top).
+6. **Export falls back to the detected L/R pairs** when no box was applied. Section 5.
+   Test: `tests/test_export_clip.py`.
 
 ## 10. Known limits
 
@@ -244,7 +270,8 @@ slice.
 | Guide lines on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` |
 | Apply and the lines in the window | `src/main_window.py`: `_apply_and_process`, `_apply_auto_snap`, `_apply_payload_state` |
 | Registry: overrides and the lateral box | `src/core/custom_series.py`: `set_specimen_overrides`, `set_specimen_lateral`, `lateral_box` |
-| Export: Z range, X/Y crop | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `lateral_range`, `_crop_slice` |
+| Export: Z range, X/Y crop | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
+| Boundaries preview: planes, slider, AFTER mask | `src/core/viewer_core.py`: `_ortho_plane`, `_series_dims`, `_lateral_box`, `_ortho_panel`, `_axial_orig`, `get_preview`, `_apply_cmap`; `src/main_window.py`: `_fetch_prefs_preview`, `_on_pref_slider_changed`, `_pref_slider_for_plane`, `_on_prefs_preview_ready`, `_export_lateral` |
 
 ## 12. Tests that protect this
 
@@ -257,3 +284,5 @@ slice.
 - `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and
   the stored box.
 - `tests/test_results_sync.py`: the Results view and the "Lines changed" marker.
+- `tests/test_plane_scrub.py`: the slider scrubs X, Y and Z by plane; the plane reader;
+  the AFTER mask to the L/R box; full-scale colour.

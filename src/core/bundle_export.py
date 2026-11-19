@@ -59,8 +59,10 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
+    from core.lateral import lateral_range
     from core.paths import ensure_engine_on_path, state_root
 except ImportError:  # direct import (no package context)
+    from lateral import lateral_range
     from paths import ensure_engine_on_path, state_root
 
 _PIPELINE = ensure_engine_on_path()
@@ -398,16 +400,6 @@ def _delivery_tags(specimen: str, report: dict, provenance: str,
         "DerivationDescription": "cleanCT metal-base removal",
         **(acq_time or {}),
     }
-
-
-def lateral_range(pair, n: int) -> tuple[int, int] | None:
-    """Pixels [a, b) inside a lateral pair (fractions), or None for the whole axis."""
-    if not pair:
-        return None
-    lo, hi = (float(v) for v in pair)
-    a = max(0, min(n - 1, int(round(lo * n))))
-    b = max(a + 1, min(n, int(round(hi * n))))
-    return None if (a == 0 and b == n) else (a, b)
 
 
 def _crop_slice(ds, y0: int, y1: int, x0: int, x1: int) -> None:

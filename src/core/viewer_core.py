@@ -42,8 +42,10 @@ from roi_delivery import sorted_source_files as _sorted_source_files
 from volume_io import inspect_source as _inspect_source_volume
 from volume_io import read_source_slices as _read_source_volume_slices
 try:                                    # package import (app) or direct (tools)
+    from core.lateral import lateral_range
     from core.wood_bounds import wood_bounds
 except ImportError:                     # pragma: no cover
+    from lateral import lateral_range
     from wood_bounds import wood_bounds
 
 _CACHE: dict[str, dict] = {}
@@ -401,8 +403,9 @@ _STOPS = np.array([[16, 18, 24], [48, 54, 70], [96, 102, 122],
 def _rgb(u: np.ndarray) -> np.ndarray:
     """Bone-like colormap, u in [0,1]."""
     t = np.clip(u, 0, 1)[..., None] * (len(_STOPS) - 1)
-    i0 = np.clip(t.astype(np.int32), 0, len(_STOPS) - 2)[..., 0]
-    f = (t - np.floor(t))[..., 0]
+    # the segment is found from floor(t) and the fraction taken from it, so u = 1 gives the last stop
+    i0 = np.clip(np.floor(t).astype(np.int32), 0, len(_STOPS) - 2)[..., 0]
+    f = (t - i0[..., None])[..., 0]
     return _STOPS[i0] * (1 - f[..., None]) + _STOPS[i0 + 1] * f[..., None]
 
 
@@ -983,8 +986,9 @@ def _apply_cmap(u: np.ndarray, cmap: str = "spectral", gamma: float = 0.85) -> n
     # Perceptual gamma boost: lifts wood anatomical details out of shadow
     u_lifted = np.clip(u, 0.0, 1.0) ** gamma
     t = u_lifted[..., None] * (len(stops) - 1)
-    i0 = np.clip(t.astype(np.int32), 0, len(stops) - 2)[..., 0]
-    f = (t - np.floor(t))[..., 0]
+    # u = 1 must give the last stop (the old fraction was 0 there, so full-scale values rendered darkest)
+    i0 = np.clip(np.floor(t).astype(np.int32), 0, len(stops) - 2)[..., 0]
+    f = (t - i0[..., None])[..., 0]
     return stops[i0] * (1 - f[..., None]) + stops[i0 + 1] * f[..., None]
 
 
@@ -1337,6 +1341,59 @@ def _prev_source(dataset: str, sample: str) -> dict:
     return src
 
 
+_ORTHO_PLANE_CACHE: dict = {}
+_ORTHO_PLANE_MAX = 12        # planes kept; one plane is 576 x 648 float32 (~1.5 MB)
+
+
+def _series_dims(ds, sample: str) -> tuple[int, int] | None:
+    """(rows, columns) of a DICOM series from its first header; None if not DICOM."""
+    files = _xy_files(ds, sample) if getattr(ds, "source_kind", "dicom") == "dicom" else []
+    if not files:
+        return None
+    import pydicom
+    first = pydicom.dcmread(str(files[0]), stop_before_pixels=True)
+    return int(first.Rows), int(first.Columns)
+
+
+def _ortho_plane(ds, sample: str, plane: str, index: int) -> np.ndarray | None:
+    """The sagittal column x = index (rows = Y) or the coronal row y = index
+    (columns = X) of every slice, z down the image.  Read from the source series
+    in batches, so any X or Y can be scrubbed.  None for a non-DICOM source
+    (the mid-plane preview is kept then)."""
+    files = _xy_files(ds, sample) if getattr(ds, "source_kind", "dicom") == "dicom" else []
+    if not files:
+        return None
+    key = (_source_cache_key(ds, sample), plane, int(index))
+    hit = _ORTHO_PLANE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    rows = []
+    for start in range(0, len(files), 32):
+        zs = list(range(start, min(len(files), start + 32)))
+        arrs = _source_slices(ds, sample, zs, cache=False)
+        for z in zs:
+            a = np.asarray(arrs[z], np.float32)
+            rows.append(a[:, index] if plane == "sagittal" else a[index, :])
+    img = np.stack(rows)
+    if len(_ORTHO_PLANE_CACHE) >= _ORTHO_PLANE_MAX:
+        _ORTHO_PLANE_CACHE.pop(next(iter(_ORTHO_PLANE_CACHE)))
+    _ORTHO_PLANE_CACHE[key] = img
+    return img
+
+
+def _lateral_box(lateral: dict | None, shape) -> tuple[int, int, int, int] | None:
+    """(y0, y1, x0, x1) inside the L/R box for an axial slice of ``shape``, or None."""
+    if not lateral:
+        return None
+    ys = lateral_range(lateral.get("y"), int(shape[0]))
+    xs = lateral_range(lateral.get("x"), int(shape[1]))
+    if ys is None and xs is None:
+        return None
+    y0, y1 = ys or (0, int(shape[0]))
+    x0, x1 = xs or (0, int(shape[1]))
+    return (y0, y1, x0, x1)
+
+
 def _ortho_columns_cached(ds, sample: str, sdir: Path,
                           ncols: int = ORTHO_COL_COUNT
                           ) -> tuple[np.ndarray, np.ndarray,
@@ -1381,16 +1438,21 @@ def _ortho_columns_cached(ds, sample: str, sdir: Path,
 
 def _ortho_panel(orig_line, cut: int, margin: int,
                  keep_from: int, roi_z, lo, hi, metal_lo, z_line: int,
-                 width: int, cmap: str = "spectral") -> Image.Image:
+                 width: int, cmap: str = "spectral",
+                 cols: tuple[int, int] | None = None) -> Image.Image:
     """ORIG | KEPT side-by-side ortho panel with cut / range annotations.
 
-    The KEPT panel previews the delivery exactly: original slices below the
-    requested cut, voided above it (that is what the bundle will contain)."""
+    The KEPT panel previews the delivery exactly: original slices between Keep
+    and Cut, and columns inside the L/R box (`cols`, or all), as the bundle
+    will contain them."""
     orig_line = np.asarray(orig_line, np.float32)
-    strip_line = np.where(
-        (np.arange(orig_line.shape[0])[:, None] >= keep_from) &
-        (np.arange(orig_line.shape[0])[:, None] < cut),
-        orig_line, np.nan)
+    in_z = ((np.arange(orig_line.shape[0])[:, None] >= keep_from) &
+            (np.arange(orig_line.shape[0])[:, None] < cut))
+    in_x = np.ones((1, orig_line.shape[1]), bool)
+    if cols is not None:
+        in_x[:] = False
+        in_x[0, cols[0]:cols[1]] = True
+    strip_line = np.where(in_z & in_x, orig_line, np.nan)
     def render(line, is_orig):
         rgb = _apply_cmap(_u8(line, lo, hi), cmap)
         met = np.isfinite(line) & (line > metal_lo)
@@ -1435,10 +1497,17 @@ def _ortho_panel(orig_line, cut: int, margin: int,
 
 def _axial_orig(orig_sl: np.ndarray, lo, hi, metal_lo,
                 size: int = 480, cmap: str = "spectral",
-                is_kept: bool = True) -> Image.Image:
-    """Axial slice side-by-side: BEFORE (Original) | AFTER (Kept / Clean preview)."""
+                is_kept: bool = True,
+                box: tuple[int, int, int, int] | None = None) -> Image.Image:
+    """Axial slice side-by-side: BEFORE (Original) | AFTER (Kept / Clean preview).
+
+    ``box`` = (y0, y1, x0, x1) is the L/R box; the AFTER panel shows only inside it."""
     orig_sl = np.asarray(orig_sl, np.float32)
-    clean_sl = orig_sl if is_kept else np.full_like(orig_sl, np.nan)
+    inside = np.ones(orig_sl.shape, bool)
+    if box is not None:
+        inside[:] = False
+        inside[box[0]:box[1], box[2]:box[3]] = True
+    clean_sl = np.where(inside, orig_sl, np.nan) if is_kept else np.full_like(orig_sl, np.nan)
 
     rgb_orig = _apply_cmap(_u8(orig_sl, lo, hi), cmap)
     rgb_clean = _apply_cmap(_u8(clean_sl, lo, hi), cmap)
@@ -1466,12 +1535,15 @@ def get_preview(dataset: str, sample: str, cut: int | None = None,
                 z: int | None = None, width: int = 560,
                 cmap: str = "spectral",
                 lo: float | None = None,
-                hi: float | None = None) -> dict:
+                hi: float | None = None,
+                pos: int | None = None,
+                lateral: dict | None = None) -> dict:
     """Thread-safe facade over _get_preview_locked (shared cache mutation)."""
     with LOCK:
         return _get_preview_locked(
             dataset, sample, cut=cut, margin=margin, keep_from=keep_from,
-            plane=plane, z=z, width=width, cmap=cmap, lo=lo, hi=hi)
+            plane=plane, z=z, width=width, cmap=cmap, lo=lo, hi=hi,
+            pos=pos, lateral=lateral)
 
 
 def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
@@ -1480,10 +1552,15 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
                         z: int | None = None, width: int = 560,
                         cmap: str = "spectral",
                         lo: float | None = None,
-                        hi: float | None = None) -> dict:
+                        hi: float | None = None,
+                        pos: int | None = None,
+                        lateral: dict | None = None) -> dict:
     """Preferences-tab preview: original reconstruction in requested colormap
-    with the requested cut / collection-range geometry drawn. Coordinates
-    are clamped; nothing is written to disk."""
+    with the requested cut / collection-range geometry drawn. ``pos`` is the
+    scrubbed position of the plane: X for sagittal, Y for coronal, Z for axial.
+    ``lateral`` is the L/R box, {"x": (lo, hi), "y": (lo, hi)} as fractions;
+    the AFTER panel shows only inside it. Coordinates are clamped; nothing is
+    written to disk."""
     src = _prev_source(dataset, sample)
     ds = _get_ds(dataset, sample)
     n = src["n_slices"]
@@ -1507,20 +1584,43 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
         zi = int(max(0, min(n - 1, z if z is not None else default_z)))
         orig_map = _source_slices(ds, sample, [zi])
         is_kept = (keep_from <= zi < cut)
-        img = _axial_orig(orig_map[zi], win_lo, win_hi, src["metal_lo"], cmap=cmap, is_kept=is_kept)
-        return {"plane": "axial", "z": zi, "n_slices": n,
+        box = _lateral_box(lateral, orig_map[zi].shape)
+        img = _axial_orig(orig_map[zi], win_lo, win_hi, src["metal_lo"], cmap=cmap,
+                          is_kept=is_kept, box=box)
+        return {"plane": "axial", "z": zi, "n_slices": n, "span": n,
                 "png": _b64(img), "cut": cut, "margin": margin,
                 "keep_from": keep_from, "detected_cut": src.get("detected_cut", cut),
                 "cmap": cmap, "lo": win_lo, "hi": win_hi,
                 "default_lo": src["lo"], "default_hi": src["hi"],
                 "bounds": src.get("bounds")}
-    line_o = src["sag"] if plane == "sagittal" else src["cor"]
+    # sagittal scrubs X (a column of every slice), coronal scrubs Y (a row);
+    # the lateral axis across each plane is Y for sagittal and X for coronal
+    dims = _series_dims(ds, sample)
+    if dims is None:                                  # non-DICOM: mid-plane only
+        line_o = src["sag"] if plane == "sagittal" else src["cor"]
+        span = int(line_o.shape[1]) if line_o.ndim == 2 else n
+        rows_cols = None
+    else:
+        rows_cols = dims
+        span = dims[1] if plane == "sagittal" else dims[0]
+    if pos is None:
+        pos = span // 2
+    pos = int(max(0, min(span - 1, pos)))
+    if rows_cols is None:
+        line_o = src["sag"] if plane == "sagittal" else src["cor"]
+        cols = None
+    else:
+        line_o = _ortho_plane(ds, sample, plane, pos)
+        across = dims[0] if plane == "sagittal" else dims[1]
+        pair = (lateral or {}).get("y" if plane == "sagittal" else "x")
+        cols = lateral_range(pair, across)
     if z is None:
         z = keep_from + max(0, (cut - keep_from) // 2)
     z = int(max(0, min(n - 1, z)))
     img = _ortho_panel(line_o, cut, margin, keep_from, src["roi_z"],
-                       win_lo, win_hi, src["metal_lo"], z, width, cmap=cmap)
-    return {"plane": plane, "z": z, "n_slices": n, "png": _b64(img),
+                       win_lo, win_hi, src["metal_lo"], z, width, cmap=cmap, cols=cols)
+    return {"plane": plane, "z": z, "n_slices": n, "span": span, "pos": pos,
+            "png": _b64(img),
             "cut": cut, "margin": margin, "keep_from": keep_from,
             "cut_default": src["cut"], "detected_cut": src.get("detected_cut", src["cut"]),
             "margin_default": src["margin"],

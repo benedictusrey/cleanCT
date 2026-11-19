@@ -747,6 +747,23 @@ top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
   `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
   refreshed from the new ZIP.
 
+### 2.19 [2026-11-19] Preview slider per plane; the AFTER panel follows L/R; export fallback
+
+Findings (audit, read-only on the user's 2_666_5 data):
+- The Boundaries slider always set Z. Sagittal and coronal used one fixed mid-plane, so
+  the slider only moved a cursor line. Fix: the slider scrubs X (sagittal), Y (coronal) or Z
+  (axial), and `viewer_core._ortho_plane` reads the true column or row (about 0.5 s).
+- The KEPT (AFTER) panel masked Z only. Fix: it is also masked to the L/R box; the axial
+  AFTER masks both pairs. Dragging an L/R or top/bottom value refreshes the panel.
+- The export box was stored only on Apply. 2_666_5 was never applied (its registry entry had
+  no `lateral`), so the DICOM kept the full 648 x 648 frame. Fix: with nothing applied, the
+  export uses the detected L/R pairs (`auto_snap.lateral_pairs`), the same lines as the screen.
+- Full-scale colour bug: `_apply_cmap` and `_rgb` took the segment from a zero fraction at the
+  top, so values at the window top were drawn in the darkest colour. Fixed.
+- `lateral_range` moved to `core/lateral.py`, shared by the preview and the export.
+- Tests: `tests/test_plane_scrub.py` (new). `tests/test_export_clip.py` (fallback).
+- Gate: PASS (33 files). Probe: no findings. UI audit: 402 steps, 0 findings.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
