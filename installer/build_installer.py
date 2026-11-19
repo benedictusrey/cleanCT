@@ -394,6 +394,38 @@ def step_launcher(pyinstaller_python: Path, pyinstaller_version: str) -> None:
     log(f"fresh launcher copied into staged payload ({(PKG / 'cleanCT.exe').stat().st_size / 1e6:.1f} MB)")
 
 
+def third_party_notices() -> str:
+    """THIRD_PARTY_NOTICES.md for every package (Windows and POSIX)."""
+    return (
+        "# Third-party notices\n\n"
+        f"{APP_NAME} {APP_VERSION} bundles the following open-source\n"
+        "components. Each is available under its own license, reproduced\n"
+        "or referenced in the listed package metadata inside\n"
+        "the runtime's site-packages folder (`*-dist-info`).\n\n"
+        "| Component | Version | License |\n"
+        "|---|---|---|\n"
+        "| CPython | " + PY_EMBED_VERSION + " | PSF-2.0 |\n"
+        "| numpy | 1.26.4 | BSD-3-Clause |\n"
+        "| scipy | 1.13.1 | BSD-3-Clause |\n"
+        "| PySide6-Essentials | 6.9.2 | LGPL-3.0 |\n"
+        "| pydicom | 3.0.2 | MIT |\n"
+        "| nibabel | 5.4.2 | MIT |\n"
+        "| tifffile | 2023.4.12 | BSD |\n"
+        "| Pillow | 12.3.0 | HPND (MIT-CMU) |\n"
+        "| matplotlib | 3.9.2 | PSF based (matplotlib) |\n"
+        "| scikit-image | 0.26.0 | BSD-3-Clause |\n"
+        "| cupy-cuda12x | 13.4.1 | MIT |\n"
+        "| nvidia-cuda-nvrtc-cu12 | 12.8.93 | NVIDIA SDK license |\n"
+        "| nvidia-cuda-runtime-cu12 | 12.9.x | NVIDIA SDK license |\n"
+        "\n"
+        "PySide6 is used under the terms of the GNU Lesser General Public\n"
+        "License v3; its dynamic linking in this application does not\n"
+        "modify the library. Replace the bundled PySide6 at will - the\n"
+        "application starts without modification using any conforming\n"
+        "build of the listed versions.\n"
+    )
+
+
 def step_docs() -> None:
     guide_src = SRC / "docs" / "USER_GUIDE.md"
     if not guide_src.is_file():
@@ -430,34 +462,7 @@ def step_docs() -> None:
         "  runtime\\python.exe -X utf8 app\\main.py --selfcheck\n"
         "cleanCT.exe --selfcheck also returns the status without a console.\n",
         encoding="utf-8")
-    (PKG / "THIRD_PARTY_NOTICES.md").write_text(
-        "# Third-party notices\n\n"
-        f"{APP_NAME} {APP_VERSION} bundles the following open-source\n"
-        "components. Each is available under its own license, reproduced\n"
-        "or referenced in the listed package metadata inside\n"
-        "`runtime/Lib/site-packages/*-dist-info/`.\n\n"
-        "| Component | Version | License |\n"
-        "|---|---|---|\n"
-        "| CPython | " + PY_EMBED_VERSION + " | PSF-2.0 |\n"
-        "| numpy | 1.26.4 | BSD-3-Clause |\n"
-        "| scipy | 1.13.1 | BSD-3-Clause |\n"
-        "| PySide6-Essentials | 6.9.2 | LGPL-3.0 |\n"
-        "| pydicom | 3.0.2 | MIT |\n"
-        "| nibabel | 5.4.2 | MIT |\n"
-        "| tifffile | 2023.4.12 | BSD |\n"
-        "| Pillow | 12.3.0 | HPND (MIT-CMU) |\n"
-        "| matplotlib | 3.9.2 | PSF based (matplotlib) |\n"
-        "| scikit-image | 0.26.0 | BSD-3-Clause |\n"
-        "| cupy-cuda12x | 13.4.1 | MIT |\n"
-        "| nvidia-cuda-nvrtc-cu12 | 12.8.93 | NVIDIA SDK license |\n"
-        "| nvidia-cuda-runtime-cu12 | 12.9.x | NVIDIA SDK license |\n"
-        "\n"
-        "PySide6 is used under the terms of the GNU Lesser General Public\n"
-        "License v3; its dynamic linking in this application does not\n"
-        "modify the library. Replace the bundled PySide6 at will - the\n"
-        "application starts without modification using any conforming\n"
-        "build of the listed versions.\n",
-        encoding="utf-8")
+    (PKG / "THIRD_PARTY_NOTICES.md").write_text(third_party_notices(), encoding="utf-8")
     log("docs: README.txt, USER_GUIDE.md, LICENSE.txt, THIRD_PARTY_NOTICES.md")
 
 

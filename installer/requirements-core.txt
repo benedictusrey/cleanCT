@@ -1,0 +1,11 @@
+# Pinned runtime for cleanCT 1.0.0 (CPython 3.12). Read by installer/setup_env.ps1
+# and installer/build_posix.py, so every platform gets the same audited versions.
+numpy==1.26.4
+scipy==1.13.1
+PySide6-Essentials==6.9.2
+pydicom==3.0.2
+nibabel==5.4.2
+tifffile==2023.4.12
+Pillow==12.3.0
+matplotlib==3.9.2
+scikit-image==0.26.0

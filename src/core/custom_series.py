@@ -505,9 +505,12 @@ def duplicate_specimen(specimen: str, new_id: str | None = None) -> dict:
 # --------------------------------------------------------------------------
 def _mklink_junction(link: Path, target: Path) -> None:
     # no shell: & | ^ % in folder names are plain characters
-    import _winapi
     try:
-        _winapi.CreateJunction(str(target), str(link))
+        if os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(str(target), str(link))
+        else:
+            os.symlink(target, link, target_is_directory=True)
     except OSError as exc:
         raise OSError(f"could not create junction {link}: {exc}") from exc
     if not link.is_dir():
@@ -536,5 +539,8 @@ def _retarget_junction(link: Path, target: Path) -> None:
 
 
 def _rmdir_junction(link: Path) -> None:
-    # os.rmdir on a junction removes only the link, never the target contents
-    os.rmdir(link)
+    # removes only the link, never the target contents (junction or symlink)
+    if os.name == "nt":
+        os.rmdir(link)
+    else:
+        os.unlink(link)

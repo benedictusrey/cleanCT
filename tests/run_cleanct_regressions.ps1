@@ -1,8 +1,11 @@
+param([string]$Python = '')
 $ErrorActionPreference = 'Stop'
 
 $Project = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $EngineSource = Join-Path $Project 'engine'
-$Python = Join-Path $Project 'tests\venv_notorch\Scripts\python.exe'
+if (-not $Python) {
+    $Python = if ($env:OS -eq 'Windows_NT') { Join-Path $Project 'tests\venv_notorch\Scripts\python.exe' } else { Join-Path $Project 'tests/venv_notorch/bin/python' }
+}
 if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
     throw "cleanCT test interpreter not found: $Python"
 }
@@ -17,7 +20,8 @@ $Engine = Join-Path $Scratch 'engine'
 $Data = Join-Path $Scratch 'data'
 $TestTmp = Join-Path $Scratch 'tmp'
 $EngineModules = @('tomograph.py', 'roi_delivery.py', 'wood_track.py', 'air_crop.py', 'gpu_backend.py', 'volume_io.py')
-$Tests = @('test_checkpoint_file.py', 'test_viewer_regressions.py', 'test_render_async.py', 'test_specimen_panel.py', 'test_wood_bounds.py', 'test_auto_snap.py', 'test_unproc_and_frames.py', 'test_export_formats.py', 'test_export_stream.py', 'test_nifti_roundtrip.py', 'test_state_files.py', 'test_viewer_cache.py', 'test_pipeline_synthetic.py', 'test_volume_inputs.py', 'test_launcher_paths.py', 'test_installer_icons.py', 'test_installer_script.py', 'test_theme.py', 'test_user_messages.py', 'test_dialogs.py', 'test_theme_tokens.py', 'test_settings_page.py', 'test_layout_fit.py', 'test_controls_paint.py', 'test_polish_ui.py', 'test_robustness_ui.py', 'test_bounds_v2.py', 'test_auto_z_guides.py', 'test_results_sync.py', 'test_dialog_close.py', 'test_axial_outline.py', 'test_export_clip.py', 'test_plane_scrub.py', 'test_results_crop.py', 'test_results_views.py', 'test_results_overlay.py', 'test_results_slider.py')
+$Tests = @('test_checkpoint_file.py', 'test_viewer_regressions.py', 'test_render_async.py', 'test_specimen_panel.py', 'test_wood_bounds.py', 'test_auto_snap.py', 'test_unproc_and_frames.py', 'test_export_formats.py', 'test_export_stream.py', 'test_nifti_roundtrip.py', 'test_state_files.py', 'test_viewer_cache.py', 'test_pipeline_synthetic.py', 'test_volume_inputs.py', 'test_launcher_paths.py', 'test_installer_icons.py', 'test_installer_script.py', 'test_theme.py', 'test_user_messages.py', 'test_dialogs.py', 'test_theme_tokens.py', 'test_settings_page.py', 'test_layout_fit.py', 'test_controls_paint.py', 'test_polish_ui.py', 'test_robustness_ui.py', 'test_bounds_v2.py', 'test_auto_z_guides.py', 'test_results_sync.py', 'test_dialog_close.py', 'test_axial_outline.py', 'test_export_clip.py', 'test_plane_scrub.py', 'test_results_crop.py', 'test_results_views.py', 'test_results_overlay.py', 'test_results_slider.py', 'test_posix_platform.py')
+$WindowsOnly = @('test_installer_script.py', 'test_installer_icons.py', 'test_launcher_paths.py')
 $EnvNames = @('CLEANCT_APP_ROOT', 'CLEANCT_ENGINE', 'CLEANCT_DATA', 'CLEANCT_TEST_TMP_DIR', 'CLEANCT_OUTPUT_ROOT', 'CLEANCT_REGRESSION_SCRATCH_ROOT', 'QT_QPA_PLATFORM', 'PYTHONUTF8', 'PYTHONPATH', 'TEMP', 'TMP')
 $PreviousEnv = @{}
 foreach ($Name in $EnvNames) {
@@ -43,11 +47,15 @@ try {
     $env:PYTHONUTF8 = '1'
     # structured checkout: app sources live in src\ (packaged payload keeps
     # its flat app\ layout, which needs no PYTHONPATH)
-    $env:PYTHONPATH = "$Project;$Project\src"
+    $env:PYTHONPATH = "$Project$([IO.Path]::PathSeparator)$(Join-Path $Project 'src')"
     $env:TEMP = $TestTmp
     $env:TMP = $TestTmp
 
     foreach ($Name in $Tests) {
+        if ($env:OS -ne 'Windows_NT' -and $WindowsOnly -contains $Name) {
+            Write-Host "Skipping $Name (Windows only)"
+            continue
+        }
         $TestPath = Join-Path $PSScriptRoot $Name
         Write-Host "Running $Name"
         & $Python $TestPath
@@ -66,8 +74,9 @@ finally {
         }
     }
 
-    $ResolvedScratch = [System.IO.Path]::GetFullPath($Scratch).TrimEnd('\')
-    $ResolvedParent = $ScratchParent.TrimEnd('\') + '\'
+    $Sep = [System.IO.Path]::DirectorySeparatorChar
+    $ResolvedScratch = [System.IO.Path]::GetFullPath($Scratch).TrimEnd($Sep)
+    $ResolvedParent = $ScratchParent.TrimEnd($Sep) + $Sep
     if (-not $ResolvedScratch.StartsWith($ResolvedParent, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to clean scratch path outside the temporary directory: $ResolvedScratch"
     }

@@ -1,0 +1,4 @@
+# CuPy GPU stack (CUDA 12, NVIDIA GPUs only). Pinned as one set; macOS has no CUDA and skips it.
+cupy-cuda12x==13.4.1
+nvidia-cuda-nvrtc-cu12==12.8.93
+nvidia-cuda-runtime-cu12==12.9.79

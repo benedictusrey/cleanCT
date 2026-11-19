@@ -27,16 +27,7 @@ Write-Host "== cleanCT pinned dependencies -> $PY =="
 if ($LASTEXITCODE -ne 0) { throw "pip failed: upgrading pip" }
 
 # Core scientific + imaging stack (audited versions, zero drift)
-& $PY -m pip install `
-    "numpy==1.26.4" `
-    "scipy==1.13.1" `
-    "PySide6-Essentials==6.9.2" `
-    "pydicom==3.0.2" `
-    "nibabel==5.4.2" `
-    "tifffile==2023.4.12" `
-    "Pillow==12.3.0" `
-    "matplotlib==3.9.2" `
-    "scikit-image==0.26.0"
+& $PY -m pip install -r "$PSScriptRoot\requirements-core.txt"
 if ($LASTEXITCODE -ne 0) { throw "pip failed: core scientific and imaging stack" }
 
 # GPU stack: CuPy for CUDA 12.x + the NVRTC wheel it JITs with.
@@ -49,10 +40,7 @@ if ($LASTEXITCODE -ne 0) { throw "pip failed: core scientific and imaging stack"
 # kernels in clean environments.  The engine primes the pair by
 # absolute path so machine-level PATH pollution (system toolkits,
 # conda) cannot hijack it.
-& $PY -m pip install `
-    "cupy-cuda12x==13.4.1" `
-    "nvidia-cuda-nvrtc-cu12==12.8.93" `
-    "nvidia-cuda-runtime-cu12==12.9.79"
+& $PY -m pip install -r "$PSScriptRoot\requirements-gpu.txt"
 
 if ($LASTEXITCODE -ne 0) { Write-Error "pip install failed"; exit 1 }
 

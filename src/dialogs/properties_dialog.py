@@ -92,6 +92,6 @@ class SpecimenPropertiesDialog(QDialog):
     def _locate(self):
         target = self._target
         if target and Path(target).exists():
-            import subprocess
-            subprocess.Popen(["explorer", f"/select,{target}"], shell=False)
+            from core.paths import reveal_in_file_manager
+            reveal_in_file_manager(target)
         self.accept()

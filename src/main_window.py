@@ -28,10 +28,10 @@ from PySide6.QtWidgets import (
 # Core pipeline imports
 try:
     from core.paths import APP_ROOT as ROOT, ensure_engine_on_path, \
-        state_root
+        reveal_in_file_manager, state_root
 except ImportError:  # direct import (no package context)
     from paths import APP_ROOT as ROOT, ensure_engine_on_path, \
-        state_root
+        reveal_in_file_manager, state_root
 
 PIPELINE = ensure_engine_on_path()
 STATE = state_root()
@@ -2596,10 +2596,10 @@ class MainWindow(QMainWindow):
             return
         target = str(Path(folder))
         try:
-            subprocess.Popen(
-                ["explorer", f"/select,{target}"], shell=False)
-        except OSError:
-            subprocess.Popen(["explorer", target], shell=False)
+            reveal_in_file_manager(target)
+        except OSError as exc:
+            self._log_action(f"could not open location: {exc}")
+            return
         self._log_action(f"opened location for {key[1]}: {target}")
 
     def _specimen_folder(self, ds: str, sp: str) -> str:

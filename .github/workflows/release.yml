@@ -1,8 +1,10 @@
 name: release
 
-# Builds the Windows release (gate, package, launcher, portable ZIP, installer).
-# A tag push (v1.0.0) or a manual run with "publish" creates the GitHub Release;
-# a manual run without it only keeps the files as workflow artifacts.
+# One release for three systems: Windows (installer and portable ZIP), Linux
+# (portable tarball) and macOS (DMG for Apple silicon and for Intel). Each build
+# runs the regression gate and a self-check before packaging. A tag push (v1.0.0)
+# or a manual run with "publish" creates the GitHub Release, and only after all
+# builds pass; a manual run without it only keeps the files as workflow artifacts.
 on:
   push:
     tags:
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows x64 (portable ZIP and installer)
+    name: Windows x64 (installer and portable ZIP)
     runs-on: windows-latest
     timeout-minutes: 150
     steps:
@@ -55,7 +57,7 @@ jobs:
           python installer\build_installer.py --iscc $iscc.FullName
           if ($LASTEXITCODE -ne 0) { throw "build_installer.py failed with exit code $LASTEXITCODE" }
 
-      - name: Upload the release files
+      - name: Upload the Windows files
         uses: actions/upload-artifact@v4
         with:
           name: cleanCT-windows-x64
@@ -66,23 +68,114 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish the GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
-        shell: pwsh
+  linux:
+    name: Linux x86_64 (portable tarball)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the Linux package (runtime, gate, self-check, tarball)
+        run: python3 installer/build_posix.py linux-x86_64
+
+      - name: Check the package in clean Ubuntu 22.04 and Debian 12 containers
+        run: |
+          version=$(python3 -c "import sys; sys.path.insert(0, 'installer'); import build_installer; print(build_installer.APP_VERSION)")
+          archive="cleanCT-${version}-linux-x86_64.tar.gz"
+          for image in ubuntu:22.04 debian:12; do
+            echo "== $image"
+            docker run --rm -e QT_QPA_PLATFORM=offscreen \
+              -v "$GITHUB_WORKSPACE/installer/out:/pkg:ro" "$image" \
+              sh -c "tar -xzf /pkg/$archive -C /tmp && /tmp/cleanCT-${version}-linux-x86_64/cleanCT --selfcheck"
+          done
+
+      - name: Upload the Linux files
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanCT-linux-x86_64
+          path: |
+            installer/out/cleanCT-*-linux-x86_64.tar.gz
+            installer/out/cleanCT-*-linux-x86_64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS ${{ matrix.target }} (DMG)
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos-arm64, macos-x86_64]
+    runs-on: macos-14
+    timeout-minutes: 150
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rosetta 2 (runs the Intel build on Apple silicon)
+        if: matrix.target == 'macos-x86_64'
+        run: |
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            softwareupdate --install-rosetta --agree-to-license
+          fi
+          arch -x86_64 /usr/bin/true
+
+      - name: Build the macOS package (runtime, gate, self-check, DMG)
+        run: python3 installer/build_posix.py ${{ matrix.target }}
+
+      - name: Upload the macOS files
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanCT-${{ matrix.target }}
+          path: |
+            installer/out/cleanCT-*-${{ matrix.target }}.dmg
+            installer/out/cleanCT-*-${{ matrix.target }}.dmg.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish the GitHub Release
+    needs: [windows, linux, macos]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Download every build
+        uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+
+      - name: Check the tag and the files, then create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = python -c "import sys; sys.path.insert(0, 'installer'); import build_installer; print(build_installer.APP_VERSION)"
-          if ($LASTEXITCODE -ne 0) { throw "could not read APP_VERSION" }
-          $tag = "v$version"
-          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne $tag) {
-            throw "tag $($env:GITHUB_REF_NAME) does not match APP_VERSION $version"
-          }
-          $files = @(
-            "installer\out\cleanCT-$version-portable.zip",
-            "installer\out\cleanCT-$version-portable.zip.sha256",
-            "installer\out\cleanCT-$version-setup.exe"
-          )
-          foreach ($f in $files) { if (-not (Test-Path $f)) { throw "missing $f" } }
-          gh release create $tag @files --title "cleanCT $version" --notes-file docs\RELEASE_NOTES.md --target $env:GITHUB_SHA
-          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+          version=$(python3 -c "import sys; sys.path.insert(0, 'installer'); import build_installer; print(build_installer.APP_VERSION)")
+          tag="v${version}"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "tag $GITHUB_REF_NAME does not match APP_VERSION $version"; exit 1
+          fi
+          cd files
+          for f in "cleanCT-${version}-setup.exe" \
+                   "cleanCT-${version}-portable.zip" \
+                   "cleanCT-${version}-linux-x86_64.tar.gz" \
+                   "cleanCT-${version}-macos-arm64.dmg" \
+                   "cleanCT-${version}-macos-x86_64.dmg"; do
+            if [ ! -f "$f" ]; then echo "missing $f"; exit 1; fi
+          done
+          sha256sum * > SHA256SUMS
+          gh release create "$tag" * --title "cleanCT ${version}" \
+            --notes-file "$GITHUB_WORKSPACE/docs/RELEASE_NOTES.md" --target "$GITHUB_SHA"

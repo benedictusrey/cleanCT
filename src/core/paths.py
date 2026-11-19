@@ -28,6 +28,7 @@ code did, so behaviour on the build machine is byte-identical.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -84,11 +85,32 @@ def _temp_state_root(reason: str) -> Path:
     return p
 
 
+def _user_data_base(platform: str = sys.platform) -> str:
+    """Per-user data folder where LOCALAPPDATA does not exist (Linux, macOS)."""
+    if platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support")
+    return os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+
+
+def reveal_command(path: str, platform: str = sys.platform) -> list[str]:
+    """Command that shows ``path`` selected in the file manager."""
+    if platform == "win32":
+        return ["explorer", f"/select,{path}"]
+    if platform == "darwin":
+        return ["open", "-R", path]
+    return ["xdg-open", os.path.dirname(path) or path]
+
+
+def reveal_in_file_manager(path: str) -> None:
+    subprocess.Popen(reveal_command(path), shell=False)
+
+
 def state_root() -> Path:
     """Per-user writable state root (settings, logs, registry, exports).
 
     Development checkouts keep their user data in ``<root>/data`` so the
-    repository root stays clean; installed builds use ``%LOCALAPPDATA%``."""
+    repository root stays clean; installed builds use ``%LOCALAPPDATA%`` (the
+    per-user data folder on Linux and macOS)."""
     env = os.environ.get("CLEANCT_DATA")
     if env:
         p = Path(env)
@@ -98,7 +120,7 @@ def state_root() -> Path:
             return _temp_state_root(f"CLEANCT_DATA: {exc}")
         return p
     if is_installed():
-        base = os.environ.get("LOCALAPPDATA")
+        base = os.environ.get("LOCALAPPDATA") or _user_data_base()
         if base:
             p = Path(base) / "cleanCT"
             try:
