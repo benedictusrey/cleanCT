@@ -7,6 +7,16 @@ changelog of what changed and why.
 
 ---
 
+## 2026-11-19 — cleanCT 1.0.0 release
+
+- Export delivers only the processed run; a cut past it is refused. Process and export applies the lines on screen first.
+- NIfTI cropped to the L/R box like the DICOM; sidecar and text report record the box.
+- Margin above cut: the delivery stops that many slices above the Cut line.
+- Auto-crop applies to processing; Boundaries panel labels drawn by the application; raw axial bone palette.
+- Results slider no longer overwritten by a stale render.
+- Repository reorganized (`docs/`, `assets/screenshots/`); README rewritten; release notes in `docs/RELEASE_NOTES.md`.
+- Details: `docs/DEV_LOG.md` 2.24 and 2.25.
+
 ## 2026-09-24 — Initial State from v1.0.0
 
 - Baseline: the audited 1.0.0 release (AUDIT §0Z) — flat checkout layout,

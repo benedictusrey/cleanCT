@@ -1,112 +1,122 @@
-# cleanCT — Native Desktop Application
-### Non-Destructive Wood CT Metal-Base Removal & Inspection Suite
+<p align="center">
+  <img src="assets/icons/icon_1024x1024.png" width="112" alt="cleanCT icon">
+</p>
 
-**cleanCT** is a native Windows desktop workstation application (built on PySide6 and C++ Qt) for high-performance tomographic inspection and non-destructive metal mounting platform removal from high-resolution micro-CT wood scans.
+<h1 align="center">cleanCT</h1>
 
-**New to cleanCT?** Start with `USER_GUIDE.md` for clear steps to open a scan, review the detected boundaries, process it, and export a bundle. The portable package includes this guide beside `cleanCT.exe`.
+<p align="center"><b>Non-destructive metal-base removal and inspection of micro-CT wood scans</b></p>
 
----
-
-## Folder Layout (structured checkout)
-
-```
-cleanCT\
-  main.py               Entry point (run this from source)
-  README.md             This developer overview
-  USER_GUIDE.md         End-user walkthrough (ships in every package)
-  AUDIT.md              Complete audit & release record
-  src\                  Application sources (packaged into the payload)
-    main_window.py      Complete UI, state machine, workers, checkpoint & history logic
-    theme.py            Dark graphite QSS theme
-    icon_utils.py       Window/taskbar icon loading + native Win32 icon injection
-    core\               paths, viewer_core, custom_series, bundle_export,
-                        checkpoint_file, wood_bounds
-    widgets\            viewer_2d, viewer_3d, kpi_banner, specimen_panel
-    dialogs\            load_dialog, about_dialog
-  assets\
-    app.ico, app_icon_256.png      Window icon assets (staged into every package)
-    icons\                          Canonical 36-file production icon pack
-    design\                         Banner/design source archive (not packaged)
-  data\                 Per-user state in development runs (never versioned)
-    settings.json      Remembered export destination & format
-    logs\              Runtime logs
-    export\            Default export bundles
-    custom\            Loaded-specimen registry (+ DICOM junctions)
-    cache\             Generated viewer caches
-  installer\            build_installer.py, cleanct.iss, launcher_main.py,
-                        setup_env.ps1, README_INSTALLER.txt, _pkg\, out\
-  tests\                Regression gate: run_cleanct_regressions.ps1 + suites,
-                        pkg_gui_smoke.py, capture_screens.py + screenshots\,
-                        create_audit_backup.py, venv_notorch\ (test interpreter)
-  dist\                 Reference standalone build (dist\cleanCT-app)
-  version\             Release folders written by installer\build_installer.py
-                        (version\cleanCT_v1.0.0\)
-  0BACKUP\              Hashed round snapshots of the whole system
-```
-
-The sibling engine lives at `H:\Treated Kyodai samples\metal_remover` (copied into every package). Per-user state under `%LOCALAPPDATA%\cleanCT` is used by installed builds; the development checkout uses `data\`.
+<p align="center">
+  <img src="assets/banner/Main%20Hero%20Banner_cleanCT%20Flagship%20%283D%20Before%20%26%20After%29.jpeg" alt="cleanCT flagship view: 3D before and after metal-base removal">
+</p>
 
 ---
 
-## 1. Key Architectural Upgrades
+## Abstract
 
-- **Stacked 2D Merged Layout:** On the Results tab, the Axial view (Original | Stripped side by side with yellow wood ROI envelope and red metal tint) is stacked directly above the Longitudinal cut boundary view, aligning horizontal cross-sections and axial slice scrubbers.
-- **Ultra-Fast 3D Vectorized Projection (>200 FPS):** Single-pass NumPy array projection buffer with 2×2 particle splatting renders dense 45,000+ point clouds in 3.7 ms for fluid 360° mouse orbiting and continuous turntable spinning.
-- **Specimen Panel (left sidebar):** live search/filter, count chip, two-line rows with metadata (format · slices · dimensions · voxel · size on disk), right-click context menu (Open / Rename / Duplicate / Locate in Explorer / Remove), compact action row, confirmation dialogs, and a busy spinner during loads. Loaded specimens can be renamed, duplicated (same source, new ID — no data copied), and removed (registry + link only; sources, processed results, and exports are always kept). Built-in dataset specimens can be hidden for the session.
-- **Enhanced Visual Luminosity & Clarity:** perceptual gamma lift (`gamma = 0.85`) across 2D/3D colormaps (`Spectral`, `Thermal`, `Grayscale`, `Viridis`, `Plasma`).
-- **Asynchronous by design:** specimen loads, GPU probes, and preview renders run on workers — the window never blocks; latest-only scheduling discards stale previews.
-- **Checkpoint sessions:** Save/Open checkpoint (`.ctcheckpoint.json`) with reconnect-or-snapshot semantics; preview history persists until exit.
-- **Torch-free GPU path:** CuPy (CUDA 12.x) with validated CPU fallback; the engine preloads the pinned NVRTC pair.
+cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of wood specimens mounted on a metal base. It locates the metal base and the wood, shows four guide lines for review, removes the base with a metal-removal engine, and exports the inner wood region as DICOM and NIfTI with a verified bundle. Source scans are never modified.
 
----
+## Features
 
-## 2. Running cleanCT
+- **Scan input.** DICOM series, multipage TIFF stacks and 3-D NIfTI (`.nii`, `.nii.gz`). Scans are registered in place; DICOM folders are linked by junction.
+- **Automatic detection.** The metal top (Cut), the wood top (Keep) and the lateral box (L, R) are detected from the scan and placed on editable lines (Auto snap).
+- **Interactive review.** The Boundaries tab lets you drag or type the lines, scrub the sagittal, coronal and axial planes, and choose colour maps and density windows. Apply lines reprocesses the scan.
+- **Results.** Before and After axial and longitudinal views, a 3-D point cloud, and a marker when the processed run differs from the lines on screen.
+- **Inner-ROI export.** The delivered region is the kept slices between Keep and Cut, clipped to the L/R box. The DICOM and NIfTI outputs hold the same voxels.
+- **Verified bundles.** A bundle is staged, checked (UIDs, pixel values, geometry) and only then promoted. A failed check writes nothing.
+- **Checkpoints.** A preview with its lines and settings can be saved as `.ctcheckpoint.json` and reopened. Applied previews are kept as a history for the session.
+- **Compute.** NVIDIA GPU through CuPy (CUDA 12) when available; the validated CPU path otherwise, with the same algorithm.
+
+## Installation
+
+| Package | File | Notes |
+|---|---|---|
+| Portable | `cleanCT-1.0.0-portable.zip` | Extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
+| Installer | `cleanCT-1.0.0-setup.exe` | Per-machine setup; asks for administrator approval. |
+
+Both files are attached to the GitHub Release, with a SHA-256 sidecar for the ZIP.
+
+**Requirements:** Windows 10 or 11, 64-bit. An NVIDIA GPU with a CUDA 12 driver is optional. Keep free disk space for results and exports; a `.nii.gz` source is expanded to temporary storage at about its uncompressed size.
+
+## Quick start
+
+1. **Load scan…** (Ctrl+O): choose a DICOM folder, a TIFF file or a NIfTI file, enter a specimen ID and select *Load & Register*.
+2. **Boundaries:** check the Keep, Cut and L/R lines against the scan.
+3. **Process** (Ctrl+R), or **Apply lines** after editing a line, to run the metal-removal pipeline.
+4. **Results:** review the delivered region.
+5. **Export** (Ctrl+E), or **Process and export**, to write the bundle.
+
+## Output bundle
+
+| File | Content |
+|---|---|
+| `<ID>_dcm/` | Kept DICOM slices under their original file names, with source tags and delivery metadata. |
+| `<ID>.nii` | Kept slices as one NIfTI volume, cropped to the same L/R box as the DICOM. |
+| `<ID>.json` | Sidecar: cut and keep slices, L/R box, geometry and file mapping. |
+| `<ID>_extraction_info.txt` | Plain-text extraction report. |
+
+TIFF and NIfTI sources are exported as NIfTI only.
+
+## Screenshots
+
+| Results | Boundaries |
+|---|---|
+| ![Results view](assets/screenshots/cleanCT_main.png) | ![Boundaries tab](assets/screenshots/cleanCT_boundaries1.png) |
+
+## Build from source
+
+The processing engine (`metal_remover`) is a separate project. It must sit next to this checkout, or be set with `CLEANCT_ENGINE`.
 
 ```powershell
-# GUI from source (checkout root)
-C:\ProgramData\anaconda3\python.exe main.py
+# environment (pinned packages)
+powershell -ExecutionPolicy Bypass -File installer\setup_env.ps1 <path to python.exe>
 
-# Health check from source (RESULT: PASS)
-$env:QT_QPA_PLATFORM = "offscreen"; $env:PYTHONUTF8 = "1"
-& "$PWD\tests\venv_notorch\Scripts\python.exe" "$PWD\main.py" --selfcheck
+# run from source
+python main.py
 
-# Packaged launcher health check (exit 0 = PASS)
-& "$PWD\installer\_pkg\cleanCT.exe" --selfcheck
+# health check (exit 0 = PASS)
+python main.py --selfcheck
+
+# regression gate (37 suites)
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\run_cleanct_regressions.ps1
+
+# release package (gate, package, launcher, portable ZIP, setup)
+python installer\build_installer.py --iscc "<path to ISCC.exe>"
 ```
 
-Production launcher: `installer\_pkg\cleanCT.exe` (PyInstaller one-file, windowless; spawns `runtime\python.exe -X utf8 app\main.py` next to itself). Release artifacts: `version\cleanCT_v1.0.0\` holds the portable ZIP and its `.sha256`, `cleanCT-1.0.0-setup.exe`, `README_INSTALLER.txt`, `USER_GUIDE.md`, `THIRD_PARTY_NOTICES.md`, and `RELEASE_NOTES.md`. `installer\out` keeps the same build outputs.
+The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 
----
+## Repository structure
 
-## 3. Quality Gates
+| Path | Contents |
+|---|---|
+| `main.py` | Entry point. |
+| `src/` | Application: `core/` (logic), `widgets/`, `dialogs/`, `main_window.py`, `theme.py`. |
+| `assets/` | `banner/` and `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
+| `installer/` | Build script, launcher source, Inno Setup script, environment setup. |
+| `tests/` | Regression suites and test tools. |
+| `docs/` | User guide, implementation details, release notes and change records. |
+| `version/` | Release folders (not versioned). |
+| `PRODUCT.md`, `DESIGN.md` | Design context. |
 
-```powershell
-# 1) Regression gate: 37 focused suites — must PASS before any release
-powershell -NoProfile -ExecutionPolicy Bypass -File "$PWD\tests\run_cleanct_regressions.ps1"
+## Documentation
 
-# 2) Full release rebuild: gate, package, fresh icon-embedded launcher,
-#    launcher smoke, portable ZIP, ISCC setup.exe (transactional publication)
-& "C:\ProgramData\anaconda3\python.exe" "$PWD\installer\build_installer.py"
+| Document | Content |
+|---|---|
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | Step-by-step guide. Ships with the application. |
+| [`docs/cleanCT_details.md`](docs/cleanCT_details.md) | Implementation details of v1.0.0 (also as `.docx`). |
+| [`docs/ROI_LOGIC.md`](docs/ROI_LOGIC.md) | Detection formulas and coordinate systems (earlier design; see the implementation details). |
+| [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | Release notes for v1.0.0. |
+| [`docs/REVISION_HISTORY.md`](docs/REVISION_HISTORY.md), [`docs/DEV_LOG.md`](docs/DEV_LOG.md), [`docs/AUDIT.md`](docs/AUDIT.md) | Change and audit records. |
 
-# 3) Classic installer only
-ISCC.exe "$PWD\installer\cleanct.iss"
+## Known limitations
 
-# 4) Packaged GUI smoke (real MainWindow from _pkg, offscreen)
-& "$PWD\tests\venv_notorch\Scripts\python.exe" "$PWD\tests\pkg_gui_smoke.py"
+- The processed axial view steps through 16 stored frames, not every slice.
+- A running pipeline cannot be stopped.
+- The longitudinal Results view reads the source folders; a moved source shows an error.
+- Auto-crop trims the processing output only; bundles are cut to the lines on screen.
+- Windows only.
 
-# 5) Screenshot evidence: landing / loaded / cutting / history
-& "$PWD\tests\venv_notorch\Scripts\python.exe" "$PWD\tests\capture_screens.py"
+## License
 
-# 6) Hashed audit snapshot under 0BACKUP\
-& "$PWD\tests\venv_notorch\Scripts\python.exe" "$PWD\tests\create_audit_backup.py"
-```
-
-Suites: `test_checkpoint_file.py`, `test_viewer_regressions.py`, `test_render_async.py`, `test_specimen_panel.py`, `test_wood_bounds.py`, `test_auto_snap.py`, `test_unproc_and_frames.py`, `test_export_formats.py`, `test_export_stream.py`, `test_nifti_roundtrip.py`, `test_state_files.py`, `test_pipeline_synthetic.py`, `test_volume_inputs.py`, `test_launcher_paths.py`, `test_installer_icons.py`.
-
----
-
-## 4. Notes
-
-- Source scans are never modified; registration references sources in place (DICOM junctions under `data\custom\data\<specimen>\XY` in development, `%LOCALAPPDATA%\cleanCT\custom\...` when installed).
-- `data\` is user-owned and ignored by version control; everything under `installer\_pkg`, `installer\out`, and `tests\venv_notorch` is regenerable.
-- The complete release history (per-release hashes, scope limits) is `AUDIT.md`.
+Not yet specified. A `LICENSE` file must be added before public release.

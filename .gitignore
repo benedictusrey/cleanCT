@@ -38,4 +38,6 @@ tests/venv_notorch/
 debug_roi_fix/
 debug_snap/
 version/
+# Reference checkpoint of the code (a copy of src/, tests/, installer/)
+codebase/
 tests/screenshots/

@@ -35,8 +35,10 @@ How to read it: sections 1 to 4 give the big picture. Sections 5 to 9 cover spec
 | data\ | User state of development runs: settings, registry, cache, exports, logs. Not versioned. |
 | dist\, 0BACKUP\, debug\ | An older reference build, hashed snapshots and debug overlays. Not versioned. |
 | codebase\ | Reference checkpoint of the code. See section 17. |
-| cleanCT_details.md, cleanCT_details.docx | This document, in Markdown and Word. |
-| README.md, USER_GUIDE.md, DEV_LOG.md, REVISION_HISTORY.md, AUDIT.md, ROI_LOGIC.md, PRODUCT.md, DESIGN.md | Developer overview, user guide, change records and design notes. |
+| docs\cleanCT_details.md, docs\cleanCT_details.docx | This document, in Markdown and Word. |
+| README.md | GitHub front page: features, installation, build and structure. |
+| docs\ | User guide (ships with the app), release notes, this document, and the change records (DEV_LOG, REVISION_HISTORY, AUDIT, ROI_LOGIC). |
+| PRODUCT.md, DESIGN.md | Design context; kept at the root for the design tools. |
 
 ### 2.2 The engine
 

@@ -1,5 +1,8 @@
 # cleanCT Native Application Audit & Comprehensive Verification Report
 
+> Historical record. The 1.0.0 release notes are in `docs/RELEASE_NOTES.md`. On 2026-11-19 the documents
+> moved to `docs/`; paths in this file are as they were written.
+
 **Application:** **cleanCT** (*Non-Destructive Wood CT Metal-Base Removal & Inspection Suite*)  
 **Location:** `H:\Treated Kyodai samples\cleanCT`  
 **Distribution:** `installer\_pkg\cleanCT.exe` (launcher); release set in `version\cleanCT_v1.0.0\`  

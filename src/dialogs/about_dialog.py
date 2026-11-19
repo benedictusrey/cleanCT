@@ -18,7 +18,7 @@ from icon_utils import icons_dir
 
 def _document(name: str):
     """A bundled document, found in the development or the installed layout."""
-    for folder in (paths.APP_ROOT, paths.APP_ROOT.parent):
+    for folder in (paths.APP_ROOT, paths.APP_ROOT.parent, paths.APP_ROOT / "docs"):
         candidate = folder / name
         if candidate.is_file():
             return candidate

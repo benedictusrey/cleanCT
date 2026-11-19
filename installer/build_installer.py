@@ -395,7 +395,7 @@ def step_launcher(pyinstaller_python: Path, pyinstaller_version: str) -> None:
 
 
 def step_docs() -> None:
-    guide_src = SRC / "USER_GUIDE.md"
+    guide_src = SRC / "docs" / "USER_GUIDE.md"
     if not guide_src.is_file():
         raise RuntimeError(f"required user guide is missing: {guide_src}")
     shutil.copy2(guide_src, PKG / "USER_GUIDE.md")
@@ -565,7 +565,7 @@ def step_portable() -> Path:
 
 
 RELEASE_DIR = SRC / "version" / f"{APP_NAME}_v{APP_VERSION}"
-RELEASE_NOTES_SRC = SRC / "version" / "RELEASE_NOTES.md"
+RELEASE_NOTES_SRC = SRC / "docs" / "RELEASE_NOTES.md"
 
 
 def _sha256_of(path: Path) -> str:

@@ -925,6 +925,20 @@ Findings (audit, read-only on the user's 2_666_5 data):
   `8f89450ae25b3b2e9ddf5b4d1f9fce8a4eaaab0700946fb0b346726fbad280d5`, portable
   `45a7f4f173bca1ca21bc4697493be00d79d73633320a7e693aabff011b738c71`.
 
+### 2.25 [2026-11-19] Release 1.0.0: repository layout, README, release notes, rebuild
+
+- **Layout:** root documents moved to `docs/` with `git mv` (history kept). `assets/ui` renamed
+  `assets/screenshots`. `version/` kept in place: its portable copy was in use during the change.
+- **Paths updated:** the build reads the guide and release notes from `docs/`; the About dialog finds
+  the guide in `docs/`; the audit-backup file list and `.gitignore` (`codebase/` added) follow.
+- **README:** rewritten for GitHub: icon and flagship banner at the top, features, installation,
+  quick start, output bundle, screenshots, build, structure, documentation index, limitations, license
+  placeholder.
+- **Release notes:** `docs/RELEASE_NOTES.md` is tracked now (it lived in the ignored `version/` before).
+- **Rebuilt:** cleanCT 1.0.0 from the reorganized tree. Hashes in `docs/cleanCT_details.md` section 16.4.
+- **Open:** no LICENSE file yet; the engine (`metal_remover`) is a separate project and must be published
+  or vendored for source builds; `codebase/` is ignored by git.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

@@ -68,7 +68,7 @@ def collect_files() -> dict[str, Path]:
             files[arcname] = path
 
     project_files = (
-        ".gitignore", "AUDIT.md", "README.md", "USER_GUIDE.md",
+        ".gitignore", "docs/AUDIT.md", "README.md", "docs/USER_GUIDE.md",
         "main.py",
     )
     for name in project_files:
