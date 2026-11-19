@@ -1,6 +1,6 @@
 # cleanCT 1.0.0: implementation details
 
-This document explains how cleanCT 1.0.0 is built and how each part works: loading a scan, finding the guide lines, the Boundaries and Results views, processing, export, checkpoints, the installer and the tests. It describes the released 1.0.0 code at commit 221cccf (branch ui/full-view-redesign, 2026-11-19), with the processing engine at metal_remover commit 2a53ba6.
+This document explains how cleanCT 1.0.0 is built and how each part works: loading a scan, finding the guide lines, the Boundaries and Results views, processing, export, checkpoints, the installer and the tests. It describes the released 1.0.0 code at commit 69987da (branch ui/full-view-redesign, 2026-11-19), with the processing engine at metal_remover commit 2a53ba6.
 
 Where a number was measured on a real specimen in an earlier round, the text says so. The history of each round is in DEV_LOG.md.
 
@@ -692,7 +692,7 @@ Each publish step keeps the previous file until the new one is in place, and rol
 
 ### 16.4 Release 1.0.0
 
-Rebuilt 2026-11-19 from the code at commit 221cccf. The engine is at 2a53ba6.
+Rebuilt 2026-11-19 from the code at commit 69987da. The engine is at 2a53ba6.
 
 - Portable ZIP SHA-256: 17b8d850570c256eb4ec8c8f3955bfd95aa4a2dd687b22518e47bc8eec992e6a
 - Setup SHA-256: 82ecbe382ce1dd0ca11f3b0c25a2ed74b47c53e12209da91ec42e529792be694
@@ -748,7 +748,7 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 
 - main.py; src\ (every module); assets\app.ico, assets\app_icon_256.png and assets\icons\ (the production icon pack, README excluded); engine\ (the six engine modules from engine\); installer\ (the build script, the launcher source, cleanct.iss, setup_env.ps1 and README_INSTALLER.txt); tests\ (every suite and tool at the top level of tests\, plus run_cleanct_regressions.ps1).
 - Not included: the release folders, the installer outputs, the test interpreter, screenshots, the data folder, the caches, and the documents.
-- The copy is the released 1.0.0 code at 221cccf. CHECKPOINT.txt records the commits and the release hashes. SHA256SUMS.txt lists the SHA-256 of every file in the copy.
+- The copy is the released 1.0.0 code at 69987da. CHECKPOINT.txt records the commits and the release hashes. SHA256SUMS.txt lists the SHA-256 of every file in the copy.
 - The copy is not runnable as a whole. The gate and the build expect the checkout layout, with the engine in a folder beside the checkout. The self-check runs from the copy when CLEANCT_ENGINE points at engine\.
 
 ### 17.4 Verification of the copy

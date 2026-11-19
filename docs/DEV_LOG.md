@@ -276,7 +276,7 @@ cleanCT/
 
 ### 2.8 [2026-11-18] Audit fix plan (cleanCT 1.0.0 audit + UI polish)
 The audit and the fix plan are applied in order from the baseline commit
-`e34ed17`. The focused gate (`tests/run_cleanct_regressions.ps1`) was run after
+`a085418`. The focused gate (`tests/run_cleanct_regressions.ps1`) was run after
 every task and passed each time. The engine (`metal_remover`) is versioned in
 its own repository, with its baseline at `fc8dbae`.
 
@@ -385,30 +385,30 @@ Post-audit fixes (WinError 448 report, same day):
   setup's "Launch cleanCT" box ran the app elevated. An elevated process cannot
   follow the junctions the app makes for loaded scans, so each load failed with
   WinError 448. The entry now runs as the original user (`runasoriginaluser`,
-  commit `717a306`), and the launcher warns when it starts elevated. The builder
+  commit `1f24466`), and the launcher warns when it starts elevated. The builder
   template had dropped the flag, so every rebuild would have undone it; the
-  template is fixed and the guard checks it too (`59cd71d`,
+  template is fixed and the guard checks it too (`7f5c946`,
   `tests/test_installer_script.py`).
 - **A specimen whose link cannot be removed.** The registry entry is deleted
-  first, so a stuck link no longer keeps the ID registered (`df7448b`,
+  first, so a stuck link no longer keeps the ID registered (`d485efb`,
   `remove_specimen`).
 - **A failed cleanup hides the real error.** When the pipeline check of a new
   DICOM link fails, a failed removal of the link is logged, and the validation
-  error is what the user sees (`a3b8732`, `register_series`). Four junctions
+  error is what the user sees (`6390050`, `register_series`). Four junctions
   from earlier failed loads (`2-5`, `2-8`, `1-9_cleaned`, `2-21_cleaned`) are
   still in the state folder with no registry entry; they are safe to remove.
 - **Cache names could collide.** Cache file names joined the key parts with
   "_", so pruning specimen `x` could delete the cache of `x_y`. Names now use
-  "~"; older names are removed as regenerable; `CACHE_VERSION` is 21 (`df7448b`).
+  "~"; older names are removed as regenerable; `CACHE_VERSION` is 21 (`d485efb`).
 - **Rename order.** The processed folder moves before the registry changes. A
   locked folder stops the rename with a message; a failed registry write moves
   the folder back. Tests: `tests/test_specimen_panel.py` [3c] and [3d]
-  (`a3b8732`).
+  (`6390050`).
 - **Rename into existing results** is refused before anything changes, and a
-  name that sanitizes to the current ID is a no-op (`d1b9400`, `a3b8732`).
+  name that sanitizes to the current ID is a no-op (`6481317`, `6390050`).
 - **Windows device names.** IDs such as CON, NUL, AUX, COM1 to COM9 and LPT1 to
   LPT9 get a `_scan` suffix, because Windows cannot create those folders
-  (`d1b9400`).
+  (`6481317`).
 - **Open:** the design depends on NTFS junctions. Not changed here; it needs a
   decision (see the audit report).
 
@@ -572,7 +572,7 @@ Open items and deliberate deviations:
 - **Arrows:** spin-box steppers and the combo chevron were blank because the field
   background switched off Qt's native arrows. They are now theme-coloured PNGs
   (`theme._arrow_files`). `tests/test_controls_paint.py` (new) checks them in both themes.
-- **Action names and tab (commit 75352b5):** "Process", "Process and export", "Export",
+- **Action names and tab (commit 2061287):** "Process", "Process and export", "Export",
   "Apply lines", and the "Results" tab. Ids are unchanged.
 - **Release (rebuilt with the renamed actions):** setup `cleanCT-1.0.0-setup.exe` SHA-256
   `37c111fced206db68a77d35a78124fd7a7cc5a51c9207b71f07bf82d533d6f4c`, portable
@@ -601,7 +601,7 @@ Open items and deliberate deviations:
   numbered steps; live facts (processing mode, outputs, source safety); links to the guide,
   activity log and data folder. Its steps wrap to their real height.
 - **Copy rule:** the dialog test now allows the acronyms CPU and CUDA.
-- Commit `8604b6d`. Release SHA-256: setup `5bdba748f31a16f46645f601817150d1323646fd640f5b552dce6e9fd777cb06`,
+- Commit `0759855`. Release SHA-256: setup `5bdba748f31a16f46645f601817150d1323646fd640f5b552dce6e9fd777cb06`,
   portable `afb4453f69ee54d39a882d6712229a85f4b7555eb0f39c4f900270c26f658dfd`.
 
 ### 2.13 [2026-11-19] Polish round: state pill, status bar, colour keys
@@ -615,7 +615,7 @@ Open items and deliberate deviations:
 - Copy: sentence case, en dashes. Legend and export path never wrap. Metadata drops whole
   details instead of cutting a value.
 - Probe: the Tab-order check waits for loads and jobs to settle first.
-- Commit `b384b0f`. Release SHA-256: setup `065decad4b4f241b57f810024f9237b757801eaf409f3a9e7ddbe12baf029a34`,
+- Commit `6fda18e`. Release SHA-256: setup `065decad4b4f241b57f810024f9237b757801eaf409f3a9e7ddbe12baf029a34`,
   portable `e3db81fc1154ec8f30431013e0b439450397c2a39b4b3e3895ce022860e639f3`.
 
 ### 2.15 [2026-11-19] Audit round: metal-top guide, Results sync, About close button
@@ -674,7 +674,7 @@ Open items and deliberate deviations:
 - **Copy-layer comments** that said "Cut ≡ halo onset" say "Cut ≡ metal top" again.
 - Tests: `tests/test_auto_snap.py` (cut follows the metal top), `tests/test_auto_z_guides.py`
   (no halo line), `tests/test_axial_outline.py` (outline precision and cache version).
-- Code commit `fdf52d1`. Release rebuilt from it (gate PASS inside the build; launcher and
+- Code commit `14fa848`. Release rebuilt from it (gate PASS inside the build; launcher and
   extracted portable health checks PASS). Release SHA-256: setup
   `64eb4bc427980d41201c9852cda7c563a39789ff36a3bd668bf3c12d086478e6`, portable
   `d55235c8fc2f980beee3932926ca32c3f72546fb512a73e430563108deb51914`. The
@@ -717,7 +717,7 @@ Risks, decided by the user's instruction:
 Tests: `tests/test_bounds_v2.py` (lone speck), `tests/test_auto_snap.py` (Keep rides the wood
 top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
 `tests/test_axial_outline.py` (pre-process window).
-- Code commit `dc95ca1`. Release rebuilt from it (gate PASS inside the build; launcher and
+- Code commit `01a931f`. Release rebuilt from it (gate PASS inside the build; launcher and
   extracted portable health checks PASS). Release SHA-256: setup
   `494258d38cafcf3de6d0bbfd5fef4ccf479b4e8e89ec62ac1d43fe3f0ac50628`, portable
   `e9a5fdc39c5986a65039ba478f8c2add344b1bbc760929d8f6dc5b9cfe5269e1`. The
@@ -740,7 +740,7 @@ top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
   detected and placed, the constants, the pre-process and processed differences, the export
   clip, the decisions to review, and a code map.
 - Gate: PASS (32 files). Probe: no findings. UI audit: 402 steps, 0 findings.
-- Code commit `f87d8e5`. Release rebuilt from it (gate PASS inside the build; launcher and
+- Code commit `c43dd71`. Release rebuilt from it (gate PASS inside the build; launcher and
   extracted portable health checks PASS). Release SHA-256: setup
   `bef877990b583f6444bd3dfa6645c66e4379d7d034d2722fe21373688b8c47af`, portable
   `d500cc871a893f60b933722352ad2bda6291b8823d43750dcfc202e62ecdcf74`. The
@@ -778,7 +778,7 @@ Findings (audit, read-only on the user's 2_666_5 data):
   origin moved by 6 columns (0.3973 mm) and 111 rows (7.3493 mm); the pixels equal the source box.
 - Tests: `tests/test_export_clip.py` (a full export with a box verifies and writes only the box).
 - Gate: PASS (33 files). Probe: no findings. UI audit: 402 steps, 0 findings.
-- Code commit `f7ed481`. Release rebuilt from it (gate PASS inside the build; launcher and
+- Code commit `e515964`. Release rebuilt from it (gate PASS inside the build; launcher and
   extracted portable health checks PASS). Release SHA-256: setup
   `2d0e1ff0f51be4a1072b37a1e9fa0dbd1b098c4f19f3503c08852ea99cb15c14`, portable
   `14726d3adf12f691e23e6f9ff68e41cfae2af2b859312ef69b8d534f15128e2b`. The
