@@ -47,7 +47,7 @@ except ImportError:                     # pragma: no cover
     from wood_bounds import wood_bounds
 
 _CACHE: dict[str, dict] = {}
-CACHE_VERSION = 21   # v21: cache file names use ~ between key parts (no ambiguity)
+CACHE_VERSION = 22   # v22: payload bounds carry zb.metal_top; Results outlines are smooth (v21 caches are stale)
 ORTHO_CACHE_VERSION = 3
 # Generated viewer caches always live in the writable per-user state root:
 # %LOCALAPPDATA%\cleanCT\cache for installed builds, <checkout>\data\cache
@@ -477,25 +477,21 @@ def _wood_mask(strip_sl: np.ndarray, cfg: dict) -> np.ndarray:
 
 
 def _draw_contours(img: Image.Image, mask: np.ndarray, scale: float,
-                   color, width: int = 2, x_off: int = 0, block: int = 1):
-    """Draw mask contours; `block` coarsens the mask first (cell-scale wood
-    texture otherwise produces lace-like outline noise)."""
+                   color, width: int = 2, x_off: int = 0, sigma: float = 3.0):
+    """Draw a mask's outline as a clean line on the true edge.
+
+    The mask is blurred before the contour is taken, so speckle at the edge
+    does not show, and the line is simplified so it is not stair-stepped.
+    (The old block coarsening pushed each outline out by up to a block.)"""
+    from scipy import ndimage as ndi
     from skimage import measure
-    if block > 1:
-        h, w = mask.shape
-        hh, ww = h // block, w // block
-        m = mask[:hh * block, :ww * block].reshape(hh, block, ww, block)
-        m = m.any(axis=(1, 3))
-    else:
-        m = mask
-    padded = np.pad(m.astype(np.float32), 1)
-    contours = measure.find_contours(padded, 0.5)
+    smooth = ndi.gaussian_filter(mask.astype(np.float32), sigma)
     d = ImageDraw.Draw(img)
-    bs = scale * block
-    for c in contours:                            # (row, col), padded frame
-        ys = (c[:, 0] - 1) * bs
-        xs = (c[:, 1] - 1) * bs + x_off
-        pts = list(zip(xs, ys))
+    for c in measure.find_contours(smooth, 0.5):
+        if len(c) < 30:                           # specks and fragments
+            continue
+        c = measure.approximate_polygon(c, tolerance=1.5)
+        pts = [(p[1] * scale + x_off, p[0] * scale) for p in c]
         if len(pts) > 2:
             d.line(pts, fill=color, width=width, joint="curve")
 
@@ -520,10 +516,10 @@ def _axial_pair(orig_sl: np.ndarray, strip_sl: np.ndarray, lo, hi, metal_lo,
     sc = size / h
     # specimen outline (amber) on both panels; metal contour (red) on original
     if wood_m.mean() > 0.02:                      # only where wood dominates
-        _draw_contours(canvas, wood_m, sc, (255, 176, 32), 2, 0, block=12)
-        _draw_contours(canvas, wood_m, sc, (255, 176, 32), 2, pw + 10, block=12)
+        _draw_contours(canvas, wood_m, sc, (255, 176, 32), 2, 0)
+        _draw_contours(canvas, wood_m, sc, (255, 176, 32), 2, pw + 10)
     if metal_m.mean() > 0.001:
-        _draw_contours(canvas, metal_m, sc, (255, 70, 60), 2, 0, block=6)
+        _draw_contours(canvas, metal_m, sc, (255, 70, 60), 2, 0)
     d = ImageDraw.Draw(canvas)
     if roi_box:
         y0, y1, x0, x1 = roi_box

@@ -42,8 +42,8 @@ viewer.setAutoZ({"keep": 19, "cut": 353, "wood_top": 1, "metal_top": 405,
 g = guides_of(viewer)
 check("metal top guide sits on the physical metal top (405)",
       g.get("metal") == (405, "metal top 405"), str(g.get("metal")))
-check("halo onset guide sits on the cut (353), not on the metal top",
-      g.get("halo") == (353, "halo onset 353"), str(g.get("halo")))
+check("no separate halo onset line: the cut is drawn on the metal top",
+      "halo" not in g, str(g.get("halo")))
 check("air top guide unchanged", g.get("air") == (19, "air top 19"), str(g.get("air")))
 check("no wood top guide while the air top is placed", "wood" not in g, str(g.get("wood")))
 
@@ -52,8 +52,8 @@ check("no wood top guide while the air top is placed", "wood" not in g, str(g.ge
 viewer.setAutoZ({"keep": 19, "cut": 353})
 g_old = guides_of(viewer)
 check("no metal_top: no metal guide", "metal" not in g_old, str(g_old))
-check("no metal_top: halo onset still drawn", g_old.get("halo") == (353, "halo onset 353"),
-      str(g_old.get("halo")))
+check("no metal_top: the halo onset is not drawn as a line either", "halo" not in g_old,
+      str(g_old))
 
 # air top deferred (foggy edge): wood top evidence shows instead
 viewer.setAutoZ({"keep": None, "cut": 353, "wood_top": 1, "metal_top": 405})

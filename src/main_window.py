@@ -542,7 +542,7 @@ class MainWindow(QMainWindow):
 
         # Detection guides: the payload carries the pre-process bounds
         # (same shared detection the previews use).  Auto-place Keep ≡ air
-        # top, Cut ≡ halo onset exactly like a processed load, plus the
+        # top, Cut ≡ metal top exactly like a processed load, plus the
         # lateral Y/X envelope.
         self._wood_bounds = None
         self._wood_bounds_raw = None
@@ -2855,7 +2855,7 @@ class MainWindow(QMainWindow):
                 self.pref_viewer.setAutoZ(b.get("zb") or None)
                 # Auto Snap to Detection (audit 0AG): the copy layer puts
                 # the job lines onto the detected edges: Keep ≡ air top
-                # (wood top when the air top deferred), Cut ≡ halo onset,
+                # (wood top when the air top deferred), Cut ≡ metal top,
                 # both lateral pairs ≡ the detected envelope.  Toggle OFF
                 # leaves manual lines untouched (neutral 15/85 pairs so no
                 # stale values leak between specimens).
@@ -3182,7 +3182,7 @@ class MainWindow(QMainWindow):
         """Snap the interactive Keep/Cut lines onto the detected edges.
 
         Same mapping as the load-time auto-place (Keep ≡ air top,
-        Cut ≡ halo onset); a fog-deferred air top falls back to the
+        Cut ≡ metal top); a fog-deferred air top falls back to the
         detected wood top so the top line always lands on detection
         evidence.  A no-op dialog appears only when the specimen has no
         detection evidence at all.
@@ -4007,7 +4007,7 @@ class MainWindow(QMainWindow):
             else:
                 # No user edits: deliver the freshly DETECTED lines: the
                 # same values the GUI auto-places after processing (Keep ≡
-                # air top, Cut ≡ halo onset).  Sliders captured at click time
+                # air top, Cut ≡ metal top).  Sliders captured at click time
                 # could be stale here (a specimen whose pre-process
                 # detection deferred still holds whole-scan defaults, and a
                 # fresh registration holds another specimen's lines).  The
@@ -4020,7 +4020,7 @@ class MainWindow(QMainWindow):
                     zb = (_pl.get("bounds") or {}).get("zb") or {}
                 except Exception:
                     zb = {}
-                _dcut, _dkeep = zb.get("cut"), zb.get("keep")
+                _dcut, _dkeep = auto_snap.cut_target(zb), zb.get("keep")
                 _eff_cut = (int(_dcut) if _dcut is not None
                             else int(plat.get("cut_from") or 0))
                 _eff_keep = (int(_dkeep) if _dkeep is not None

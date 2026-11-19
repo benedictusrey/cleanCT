@@ -88,6 +88,12 @@ def pure_mapping() -> None:
     check("air-top keep copied", m["keep"] == 10
           and m["keep_source"] == auto_snap.KEEP_SOURCE_AIR, str(m))
     check("cut copied", m["cut"] == 1074, str(m))
+    # the Cut is placed on the physical metal top (the yellow line at 405 on
+    # 2-5), not on the halo onset (353), when the payload carries it
+    b5 = {"zb": {"cut": 353, "metal_top": 405, "keep": 19, "wood_top": 19},
+          "x0": 0, "x1": 10, "y0": 0, "y1": 10, "H": 100, "W": 100}
+    check("cut follows the metal top, not the halo onset",
+          auto_snap.detected_lines(b5)["cut"] == 405, str(auto_snap.detected_lines(b5)))
     check("x pair fraction", m["x"] == (89 / 1198.0, 1111 / 1198.0),
           str(m["x"]))
     check("y pair fraction", m["y"] == (97 / 1200.0, 1112 / 1200.0),

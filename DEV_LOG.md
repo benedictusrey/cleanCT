@@ -654,6 +654,27 @@ Open items and deliberate deviations:
   The `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy
   was refreshed from the new ZIP.
 
+### 2.16 [2026-11-19] Metal top is the auto Cut; smooth Results outlines
+
+- **Auto Cut moved from the halo onset to the metal top (decision, user request).** On 2-5
+  the auto snap put the Cut on 353 (`zb.cut`, the halo onset), 52 slices above the metal top
+  (405, the yellow line). `auto_snap.cut_target(zb)` now returns `zb.metal_top` and falls
+  back to `zb.cut`. Auto snap and the Process path both call it. The halo onset is still in
+  the payload and in the hint text ("auto-detected: 353"). It is no longer drawn as a line.
+  This replaces the 4.3 rule for the GUI copy layer. The detection core (`wood_bounds`) is
+  unchanged. Revert: make `cut_target` return `zb.cut`.
+- **No metal top line on Boundaries.** The disk payload cache was version 21. Its bounds
+  have no `zb.metal_top`, so the guide never drew. `CACHE_VERSION` is now 22. A version-21
+  payload is never read again.
+- **Results outlines were jagged.** `_draw_contours` coarsened the mask in blocks (12 for the
+  wood outline, 6 for the metal), which pushed each outline out by up to a block and drew
+  stair-steps and lace. It now blurs the mask, takes the contour, and simplifies the line.
+  On a noisy 120 px disc the outline stays within 2.5 px (95th percentile), where the old
+  drawer reached 6 to 13 px. Test: `tests/test_axial_outline.py`.
+- **Copy-layer comments** that said "Cut ≡ halo onset" say "Cut ≡ metal top" again.
+- Tests: `tests/test_auto_snap.py` (cut follows the metal top), `tests/test_auto_z_guides.py`
+  (no halo line), `tests/test_axial_outline.py` (outline precision and cache version).
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
@@ -729,7 +750,8 @@ independent - the lateral code never reads a z variable and vice versa.
 - `_edge_walk` down from inside the run -> `wood_bottom`.
 - Anchor inside the wood run clamps `wood_bottom` to `anchor_top - 1`.
 - Cut = `det_cut` (pipeline halo onset) when known, else anchor top, else
-  `wood_bottom + 1`.
+  `wood_bottom + 1`.  The GUI copy layer no longer uses this value for the Cut: it
+  places the Cut on `zb.metal_top` (section 2.16).
 
 ### 4.4 Left/Right (lateral, per axis) - 0AF algorithm
 - For each pooled **non-blanket** slice (fog-blanket gate, 4.4.1):
@@ -772,7 +794,7 @@ One physical value per axis pair => all views consistent by construction.
 Manual drags win after load; plane switches only swap which pair is shown.
 
 ### 4.5 Detection -> cut lines copy layer (0AG)
-- `core/auto_snap.detected_lines(bounds)`: `cut = zb.cut`,
+- `core/auto_snap.detected_lines(bounds)`: `cut = cut_target(zb)` (`zb.metal_top`, else `zb.cut`; see 2.16),
   `keep = zb.keep` else `zb.wood_top` (fallback, clamped below cut),
   `x = (x0/W, (x1+1)/W)`, `y = (y0/H, (y1+1)/H)`.  Pure, no Qt.
 - `main_window._apply_auto_snap()` applies it to the spins + viewer pairs on

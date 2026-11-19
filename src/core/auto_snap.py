@@ -7,7 +7,9 @@ user-facing keep/cut values.
 
 Contract (mirrors the validated load/snap pipeline from audit 0AC):
 
-* ``cut``  = ``zb.cut`` - the pipeline's halo onset (metal threshold line).
+* ``cut``  = ``zb.metal_top`` - the physical metal top (the detector anchor,
+  the line the user checks), else ``zb.cut``.  ``zb.cut`` is the pipeline's
+  halo onset and stays in the payload for reference.  See ``cut_target``.
 * ``keep`` = ``zb.keep`` (verified air top); when the air top deferred and
   ``allow_wood_top_fallback`` is set, ``zb.wood_top`` - the same edge the
   dotted "wood top" guide draws.  Clamped to ``cut - 1``.
@@ -53,6 +55,14 @@ def _pair(lo, hi, size) -> tuple[float, float] | None:
     return (f0, f1)
 
 
+def cut_target(zb: dict) -> int | None:
+    """The Cut the copy layer places: the physical metal top when the payload
+    carries it, else the halo onset.  Shared by auto snap and Process, so the
+    lines the user sees are the lines that get delivered."""
+    metal = _as_int(zb.get("metal_top"))
+    return metal if metal is not None else _as_int(zb.get("cut"))
+
+
 def detected_lines(bounds: dict | None, *,
                    allow_wood_top_fallback: bool = True) -> dict:
     """Copy a ``wood_bounds`` result onto the user-facing cut values.
@@ -68,7 +78,7 @@ def detected_lines(bounds: dict | None, *,
         return out
 
     zb = bounds.get("zb") or {}
-    cut = _as_int(zb.get("cut"))
+    cut = cut_target(zb)
     if cut is not None:
         out["cut"] = max(0, cut)
     keep = _as_int(zb.get("keep"))
