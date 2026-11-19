@@ -717,6 +717,12 @@ Risks, decided by the user's instruction:
 Tests: `tests/test_bounds_v2.py` (lone speck), `tests/test_auto_snap.py` (Keep rides the wood
 top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
 `tests/test_axial_outline.py` (pre-process window).
+- Code commit `dc95ca1`. Release rebuilt from it (gate PASS inside the build; launcher and
+  extracted portable health checks PASS). Release SHA-256: setup
+  `494258d38cafcf3de6d0bbfd5fef4ccf479b4e8e89ec62ac1d43fe3f0ac50628`, portable
+  `e9a5fdc39c5986a65039ba478f8c2add344b1bbc760929d8f6dc5b9cfe5269e1`. The
+  `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
+  refreshed from the new ZIP.
 
 ## 3. Current Known Bug (As of Now)
 
