@@ -865,6 +865,30 @@ Findings (audit, read-only on the user's 2_666_5 data):
   exit 0. SHA-256: setup `e4849d975a44af6b7c06f88e5ac0e3064497c833694dbac9e177edbc1fad7867`,
   portable `6bc6fa04dbb52800877315790420e79d3f3324b97185ac5ce4ca8cd2e559ddd4`.
 
+### 2.23 [2026-11-19] Results: the Wood Top and Cut lines are the Boundaries lines
+
+- **Reported:** on the Results tab the Wood Top line sat at the top of the sagittal view, while
+  the Boundaries tab showed it on the wood edge.
+- **Measured, not guessed** (2_666_5, real data in a scratch state folder): the report has
+  processed cut 501 and keep 0; the lines on screen are cut 515 and keep 89. The stripped volume,
+  the original planes and the viewer all share the 576-slice axis, and the wood starts at slice
+  89 on both the Results and the Boundaries planes. The mismatch was in which lines the Results
+  drew, not in the image.
+- **Root cause:** `_refresh_results_sync` set the Results viewers' Keep and Cut from the processed
+  report. So the green Keep line sat at slice 0, while the Wood Top guide (from detection) sat at
+  89 on the same panel, and the Cut sat at 501 against a Metal Top guide at 515.
+- **Fix (one line, in the shared sync):** the Results carry the Boundaries lines (the pending cut
+  and keep) in both states; the axial and longitudinal Before panels match Boundaries. The AFTER
+  still shows the processed run. The "Lines changed" marker flags a difference, and its tooltip
+  names the processed cut.
+- **Tests:** `tests/test_results_views.py` gained a check that fails before the fix (keep 0 and
+  cut 9 were drawn, the Boundaries values were 2 and 11). `tests/test_results_sync.py` encoded the
+  old rule ("Results keep the processed lines"), so its assertions now state the new rule.
+- Gate: PASS (36 files). UI audit (fresh folder): 370 steps, 0 findings. Release rebuilt: the
+  build's gate PASS, launcher `--selfcheck` PASS; the extracted portable `cleanCT.exe --selfcheck`
+  exit 0. SHA-256: setup `af7cc234181989a7f7e51a954c52096c4a035854a0ff8c8f23b48b3c380f197e`,
+  portable `f978cba6495428290a2db4d02ded549c15028d129c510f96692fa460448f6422`.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

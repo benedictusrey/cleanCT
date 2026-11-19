@@ -220,9 +220,12 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
   and Cut (dashed), the Wood Top and Metal Top guides (dotted), and the L and R lines
   (blue). The axial view draws its L, R, Top and Bottom lines the same way. The lines
   are on the Before panel only; the After panel shows the cropped result.
-- **Which lines.** A processed Results shows the lines it was processed with (the
-  `processed` Keep and Cut, the same as the AFTER); a raw scan shows the pending lines.
-  The "Lines changed" marker still flags a processed run whose pending lines moved.
+- **Which lines.** The Results carry the Boundaries lines (the pending Keep and Cut,
+  the L/R box and the Wood Top and Metal Top guides) in both states, so the Before panel
+  matches Boundaries. The AFTER shows the processed run. When the pending lines differ
+  from the processed run, the "Lines changed" marker says so, and its tooltip names the
+  processed cut. (Before this round the Results drew the processed Keep and Cut, so the
+  Keep line sat at the top of the wood on a run processed with keep 0.)
 - **The Before of the longitudinal view is the original plane.** It was the stripped
   plane, so the metal base never showed. The stripped plane is now only the After,
   above the cut. The Before reads the same original planes as the axial frames.

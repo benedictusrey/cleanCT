@@ -110,6 +110,20 @@ lg_c = window.long_viewer._pixmap.toImage()
 check("processed coronal: the X box crops the After panel (same pair, same frame)",
       rgb(lg_c, 300, 50) == LIGHT and rgb(lg_c, 380, 50) == BG, str(rgb(lg_c, 380, 50)))
 
+# 1c. the Results lines are the Boundaries lines (the Wood Top and the Cut on screen), even
+# when the shown run was processed with other lines: the processed run used cut 9 and keep 0,
+# the lines on screen are cut 11 and keep 2; the stale marker flags the difference
+window.payload = {"frames": [], "unprocessed": False,
+                  "report": {"n_slices": NZ, "cut_from": 9, "keep_from": 0}}
+window.pref_cut, window.pref_keep = 11, 2
+window._refresh_results_sync()
+check("Results draw the Boundaries lines: keep 2 on the long view",
+      window.long_viewer._keep == 2, f"keep={window.long_viewer._keep}")
+check("Results draw the Boundaries lines: cut 11 on the long view",
+      window.long_viewer._cut == 11, f"cut={window.long_viewer._cut}")
+check("the stale marker shows: the processed run differs from the lines on screen",
+      not window.lbl_results_stale.isHidden())
+
 # 2. raw scan: the predicted longitudinal view arrives from the Boundaries preview
 window.payload = {"unprocessed": True, "report": {"n_slices": NZ}, "frames": []}
 window._results_long_key = None

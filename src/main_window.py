@@ -3591,14 +3591,14 @@ class MainWindow(QMainWindow):
         return int(rep["cut_from"]), int(rep.get("keep_from") or 0)
 
     def _refresh_results_sync(self) -> None:
-        """Results draw the lines that were processed; a raw scan draws the
-        pending lines, as the AFTER panel does.  The marker flags a processed
-        run whose pending lines have moved since."""
+        """The Results lines are the Boundaries lines (pending cut and keep, the L/R
+        box, the detection guides), so the Before panel matches Boundaries.  The AFTER
+        shows the processed run; the marker flags a processed run whose lines moved."""
         if not self.payload:
             self.lbl_results_stale.setVisible(False)
             return
         done = self._processed_lines()
-        cut, keep = done if done is not None else (self.pref_cut, self.pref_keep)
+        cut, keep = self.pref_cut, self.pref_keep
         n = self._payload_slices()
         lat = self.pref_viewer.axisBounds()          # the L/R box, as the AFTER crop uses it
         zb = ((self.payload or {}).get("bounds") or {}).get("zb")
@@ -3614,8 +3614,8 @@ class MainWindow(QMainWindow):
         self.lbl_results_stale.setVisible(stale)
         if stale:
             self.lbl_results_stale.setToolTip(
-                f"Results show the processed lines (cut {done[0]}, keep {done[1]}). "
-                "Apply and process to update them.")
+                f"The lines on screen differ from the processed run (cut {done[0]}, "
+                f"keep {done[1]}). Apply and process to update the stripped result.")
 
     def _update_range_summary(self):
         self._refresh_results_sync()

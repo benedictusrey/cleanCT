@@ -1,10 +1,9 @@
 """Results and Boundaries agree on the lines.
 
-The Results viewers draw the processed cut and keep (report.json), at the real
-slice count, not the widget defaults (cut 50 of 100).  When the pending lines
-on Boundaries move away from the processed run, Results keep the processed
-lines and show a "Lines changed" marker.  A raw scan follows the pending lines,
-like the AFTER panel.
+The Results viewers carry the Boundaries lines (the pending cut and keep), at the
+real slice count, not the widget defaults (cut 50 of 100), so the Before panel
+matches Boundaries.  When the pending lines on Boundaries move away from the
+processed run, a "Lines changed" marker says so and names the processed cut.
 
 Runs offscreen against the sandboxed state root that the regression runner sets.
 """
@@ -71,27 +70,30 @@ n = int(rep.get("n_slices") or 0)
 ax, lg = window.axial_viewer, window.long_viewer
 check("processed run: the report carries the cut and the slice count",
       cut_done > 0 and n == 60, f"cut={cut_done} n={n}")
-check("Results axial draws the processed cut", ax._cut == cut_done,
+check("Results axial carries the Boundaries cut", ax._cut == cut_done,
       f"axial cut={ax._cut} expected {cut_done}")
 check("Results axial uses the real slice count (not the 100 default)",
       ax._n_slices == n, f"axial n={ax._n_slices} expected {n}")
-check("Results longitudinal draws the processed cut", lg._cut == cut_done,
+check("Results longitudinal carries the Boundaries cut", lg._cut == cut_done,
       f"long cut={lg._cut} expected {cut_done}")
 check("in sync: no Lines changed marker", window.lbl_results_stale.isHidden())
 
 window.spin_cut.setValue(max(1, cut_done - 5))
 app.processEvents()
-check("pending cut moved: Results keep the processed cut", ax._cut == cut_done,
-      f"axial cut={ax._cut}")
+check("pending cut moved: Results follow the Boundaries cut", ax._cut == window.pref_cut,
+      f"axial cut={ax._cut} pending {window.pref_cut}")
+check("pending cut moved: the processed cut is still the one the AFTER shows",
+      window._processed_lines()[0] == cut_done, str(window._processed_lines()))
 check("pending cut moved: Lines changed marker shown", not window.lbl_results_stale.isHidden())
-check("pending cut moved: marker says what Results show",
+check("pending cut moved: marker names the processed cut",
       str(cut_done) in window.lbl_results_stale.toolTip(), window.lbl_results_stale.toolTip())
 window._update_axial_frame(0)
-check("scrubbing keeps the processed cut and slice count",
-      ax._cut == cut_done and ax._n_slices == n, f"cut={ax._cut} n={ax._n_slices}")
+check("scrubbing keeps the Boundaries cut and slice count",
+      ax._cut == window.pref_cut and ax._n_slices == n, f"cut={ax._cut} n={ax._n_slices}")
 window.spin_cut.setValue(cut_done)
 app.processEvents()
 check("pending back on the processed cut: marker hidden", window.lbl_results_stale.isHidden())
+check("back in sync: Results carry the processed cut again", ax._cut == cut_done, f"cut={ax._cut}")
 
 # --- a raw scan: Results follow the pending lines ----------------------------------
 window._select_sample("custom", "results_raw")
