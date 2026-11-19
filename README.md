@@ -56,9 +56,9 @@ cleanCT is a native desktop application for Windows, Linux and macOS (PySide6 / 
 | macOS, Apple silicon | `cleanCT-1.0.0-macos-arm64.dmg` | Open the DMG and drag cleanCT to Applications. |
 | macOS, Intel | `cleanCT-1.0.0-macos-x86_64.dmg` | The same, for Intel Macs. |
 
-Every file is attached to the GitHub Release with a SHA-256 sidecar; `SHA256SUMS` lists all of them. The macOS app is not notarized: on first launch, Control-click it and choose Open (macOS 15 and later: System Settings › Privacy & Security › Open Anyway).
+Every file is attached to the GitHub Release with a SHA-256 sidecar; `SHA256SUMS` lists all of them. The macOS app is not notarized: on first launch, Control-click it and choose Open (macOS 15 and later: System Settings › Privacy & Security › Open Anyway). If macOS says the app is damaged, run `xattr -dr com.apple.quarantine /Applications/cleanCT.app` in Terminal.
 
-**Requirements:** Windows 10 or 11 (64-bit); Linux x86_64 (tested in clean Ubuntu 22.04 and Debian 12 containers with `libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0` installed, as on a desktop system); macOS 12 or newer. An NVIDIA GPU with a CUDA 12 driver is optional (Windows and Linux). Keep free disk space for results and exports; a `.nii.gz` source is expanded to temporary storage at about its uncompressed size.
+**Requirements:** Windows 10 or 11 (64-bit); Linux x86_64 with glibc 2.28 or newer, which PySide6 requires (tested in clean Ubuntu 22.04 and Debian 12 containers with `libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0` installed, as on a desktop system); macOS 12 or newer. An NVIDIA GPU with a CUDA 12 driver is optional (Windows and Linux). Keep free disk space for results and exports; a `.nii.gz` source is expanded to temporary storage at about its uncompressed size.
 
 ## Quick start
 

@@ -64,6 +64,13 @@ with tempfile.TemporaryDirectory() as tmp:
     check("running the installed copy is refused",
           again.returncode != 0 and (app_dir / "runtime" / "bin" / "python3").is_file(),
           again.stderr)
+    # a trailing slash names the same folder: the installed copy must still refuse
+    slashed = dict(env, XDG_DATA_HOME=str(home / ".local" / "share") + "/")
+    again = subprocess.run(["sh", str(app_dir / "install.sh")], env=slashed,
+                           capture_output=True, text=True)
+    check("a trailing slash in XDG_DATA_HOME cannot delete the installed copy",
+          again.returncode != 0 and (app_dir / "runtime" / "bin" / "python3").is_file(),
+          again.stderr)
 
 print("RESULT: ALL PASS" if not failures else f"RESULT: {len(failures)} failed", flush=True)
 sys.exit(1 if failures else 0)

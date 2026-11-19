@@ -1,0 +1,2 @@
+# The installer script must keep LF endings on every checkout: a CRLF "#!/bin/sh" breaks it.
+installer/posix/install.sh text eol=lf

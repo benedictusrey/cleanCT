@@ -55,10 +55,13 @@ def _selfcheck() -> int:
     except Exception as e:
         print(f"  paths    : FAILED {type(e).__name__}: {e}")
         return 2
-    for name, imp in (("numpy", "numpy"), ("scipy", "scipy"),
-                      ("pydicom", "pydicom"), ("nibabel", "nibabel"),
-                      ("Pillow", "PIL"), ("tifffile", "tifffile"),
-                      ("cupy", "cupy"), ("PySide6", "PySide6.QtCore")):
+    modules = [("numpy", "numpy"), ("scipy", "scipy"),
+               ("pydicom", "pydicom"), ("nibabel", "nibabel"),
+               ("Pillow", "PIL"), ("tifffile", "tifffile")]
+    if sys.platform != "darwin":   # CuPy is not shipped on macOS: the CPU path runs there
+        modules.append(("cupy", "cupy"))
+    modules.append(("PySide6", "PySide6.QtCore"))
+    for name, imp in modules:
         try:
             mod = __import__(imp, fromlist=["x"])
             print(f"  {name:<9}: {getattr(mod, '__version__', '?')}")

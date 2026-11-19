@@ -21,7 +21,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 PrivilegesRequired=admin
 MinVersion=10.0
-; payload is ~719 MB uncompressed; lzma2/max compresses for distribution
+; payload is ~703 MB uncompressed; lzma2/max compresses for distribution
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut";     GroupDescription: "Additional icons:"

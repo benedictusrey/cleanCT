@@ -1,6 +1,6 @@
 cleanCT 1.0.0 - Release and Installation
 ======================================================
-Build date: 2026-11-19
+Build date: 2026-11-20
 Architecture: Windows x64
 Bundled application runtime: CPython 3.12.3 x64
 Launcher builder: PyInstaller 6.22.2

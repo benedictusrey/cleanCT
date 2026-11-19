@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw "pip failed: core scientific and imaging stack"
 if ($LASTEXITCODE -ne 0) { Write-Error "pip install failed"; exit 1 }
 
 # Verification: every import the app and engine need must succeed.
-& $PY -c "import numpy, scipy, pydicom, nibabel, tifffile, PIL, matplotlib, skimage; from PySide6 import QtCore; print('cleanCT deps OK:', numpy.__version__, scipy.__version__, pydicom.__version__, nibabel.__version__, tifffile.__version__)"
+& $PY -c "import numpy, scipy, pydicom, nibabel, tifffile, PIL, skimage; from PySide6 import QtCore; print('cleanCT deps OK:', numpy.__version__, scipy.__version__, pydicom.__version__, nibabel.__version__, tifffile.__version__)"
 if ($LASTEXITCODE -ne 0) { Write-Error "dependency verification failed"; exit 1 }
 
 Write-Host "== done =="

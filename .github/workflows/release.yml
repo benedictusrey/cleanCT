@@ -3,9 +3,9 @@ name: release
 # Linux and macOS are built here: a portable tarball, and a DMG for Apple silicon
 # and for Intel. Each build runs the regression gate and a self-check before it
 # packages. Windows is built on the maintainer's PC (installer and portable ZIP)
-# and added to the same release by hand, so the Windows job below is optional.
-# A tag push (v1.0.0) or a manual run with "publish" creates a DRAFT release, and
-# only after both platform builds pass. Publishing is a separate, manual step.
+# and added to the same release by hand. A tag push (v1.0.0) or a manual run with
+# "publish" creates a DRAFT release, and only after both platform builds pass.
+# Publishing is a separate, manual step.
 on:
   push:
     tags:
@@ -14,10 +14,6 @@ on:
     inputs:
       publish:
         description: "Create the draft GitHub Release (otherwise keep the files as artifacts only)"
-        type: boolean
-        default: false
-      include_windows:
-        description: "Also build the Windows files in CI (normally built on the maintainer's PC)"
         type: boolean
         default: false
 
@@ -29,51 +25,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows:
-    name: Windows x64 (optional CI build)
-    if: inputs.include_windows
-    runs-on: windows-latest
-    timeout-minutes: 150
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Inno Setup 6
-        run: choco install innosetup --yes --no-progress --limit-output
-
-      - name: Build the pinned environment and PyInstaller
-        shell: pwsh
-        run: |
-          python -m venv tests\venv_notorch
-          & .\installer\setup_env.ps1 .\tests\venv_notorch\Scripts\python.exe
-          if ($LASTEXITCODE -ne 0) { throw "setup_env.ps1 failed" }
-          python -m pip install "pyinstaller==6.22.2"
-          if ($LASTEXITCODE -ne 0) { throw "PyInstaller install failed" }
-
-      - name: Build the release (gate, package, launcher, ZIP, installer)
-        shell: pwsh
-        run: |
-          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup 6\ISCC.exe" | Select-Object -First 1
-          if (-not $iscc) { throw "ISCC.exe not found" }
-          python installer\build_installer.py --iscc $iscc.FullName
-          if ($LASTEXITCODE -ne 0) { throw "build_installer.py failed with exit code $LASTEXITCODE" }
-
-      - name: Upload the Windows files
-        uses: actions/upload-artifact@v4
-        with:
-          name: cleanCT-windows-x64
-          path: |
-            installer/out/cleanCT-*-portable.zip
-            installer/out/cleanCT-*-portable.zip.sha256
-            installer/out/cleanCT-*-setup.exe
-          if-no-files-found: error
-          retention-days: 30
-
   linux:
     name: Linux x86_64 (portable tarball)
     runs-on: ubuntu-22.04

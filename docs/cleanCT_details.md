@@ -60,7 +60,7 @@ The engine is the `engine\` folder of the checkout. The app imports six of its m
 | cleanCT.exe | The windowless launcher (PyInstaller, one file). |
 | app\ | main.py, main_window.py, theme.py, icon_utils.py, core\, widgets\, dialogs\, icons\. |
 | engine\ | The six engine modules. |
-| runtime\ | An embedded CPython 3.12.3 with pinned wheels: numpy, scipy, PySide6 (Essentials), pydicom, nibabel, Pillow, matplotlib, scikit-image, and CuPy with its NVRTC wheel. PyTorch is not included. |
+| runtime\ | An embedded CPython 3.12.3 with pinned wheels: numpy, scipy, PySide6 (Essentials), pydicom, nibabel, Pillow, scikit-image, and CuPy with its NVRTC wheel. PyTorch is not included. |
 
 In the checkout the app sources live under src\. In the package they sit directly under app\. That is why main.py adds both paths to the import path.
 

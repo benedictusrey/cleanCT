@@ -50,8 +50,9 @@ def near(c, rgb, tol: int = 60) -> bool:
 
 def count(img, x0: float, x1: float, y0: float, y1: float, rgb) -> int:
     hits = 0
-    for yy in range(int(y0), int(y1) + 1):
-        for xx in range(int(x0), int(x1) + 1):
+    # only pixels inside the grab: an edge column past it reads as black with a Qt warning
+    for yy in range(max(0, int(y0)), min(img.height() - 1, int(y1)) + 1):
+        for xx in range(max(0, int(x0)), min(img.width() - 1, int(x1)) + 1):
             if near(img.pixelColor(xx, yy), rgb):
                 hits += 1
     return hits

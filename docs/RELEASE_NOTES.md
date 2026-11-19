@@ -1,6 +1,6 @@
 # cleanCT 1.0.0 — Release notes
 
-**Release date:** 2026-11-19 · **Platforms:** Windows 10 or 11 (64-bit) · Linux x86_64 · macOS 12 or newer (Apple silicon and Intel) · **Engine:** `engine/` at 2a53ba6
+**Platforms:** Windows 10 or 11 (64-bit) · Linux x86_64 with glibc 2.28 or newer · macOS 12 or newer (Apple silicon and Intel)
 
 ## Packages
 
@@ -33,13 +33,15 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - Process uses the Auto-crop setting. The check box trims the processing output (`wood_roi.nii`); the bundle is cut to the lines.
 - Boundaries panel labels are drawn by the application; the raw axial view uses the bone palette.
 - Results: a render started before a slider move no longer overwrites the slider position.
+- The quick-look pictures (`*_qa_removal.png`, `*_qa_roi.png`) are drawn without matplotlib. The same slices and colours are shown; the font and spacing differ from earlier builds.
+- The Linux `install.sh` refuses to run from the installed copy in every spelling of its path, so it cannot delete the installed app.
 
 ## Verification
 
-- Regression gate (37 suites) and the packaged self-check run in each platform build.
-- The Linux package also self-checks in clean Ubuntu 22.04 and Debian 12 containers.
-- Packaged launcher self-check: PASS. Extracted portable self-check: PASS, GPU active.
-- The application sources in the package are identical to the source tree.
+- Windows (built on the maintainer's PC from this source): regression gate 40 of 40 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); the ZIP matches its SHA-256 sidecar.
+- Linux and macOS: the regression gate, self-check and DMG steps run in CI. This build has not yet passed CI on both platforms; the release is not published until a CI run passes both.
+- The Linux package self-checks in clean Ubuntu 22.04 and Debian 12 containers in CI.
+- The packaged app and engine files match the source tree.
 
 ## Known limitations
 
@@ -47,7 +49,7 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - A running pipeline cannot be stopped.
 - The longitudinal Results view reads the source folders; a moved source shows an error.
 - macOS builds are not notarized; Gatekeeper asks for approval on first launch.
-- The Linux and macOS GUIs and the Linux CUDA path were verified headless in CI, not on physical machines.
+- The Linux and macOS GUIs run only headless (no screen) in CI. Nobody has run them on a physical Linux or Mac screen. CI does not exercise the Linux CUDA path.
 - No NVIDIA GPU runs in CI, so the GPU path is verified on Windows only.
 
 ## Documentation

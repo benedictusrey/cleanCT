@@ -770,79 +770,90 @@ def analyze(vol, meta: dict, cfg: Config, gpu, timings: dict | None = None,
 # ---------------------------------------------------------------------------
 # QA
 # ---------------------------------------------------------------------------
-def _cmap():
-    import matplotlib
-    matplotlib.use("Agg")
-    from matplotlib import colors as mcolors
-    cdict = {
-        "red":   [(0, 0, 0), (.30, 0, 0), (.55, .9, .9), (.75, 1, 1), (1, 1, 1)],
-        "green": [(0, 0, 0), (.30, .6, .6), (.55, .3, .3), (.75, .9, .9), (1, 1, 1)],
-        "blue":  [(0, 0, 0), (.30, .6, .6), (.55, .1, .1), (.75, 0, 0), (1, 1, 1)],
-    }
-    return mcolors.LinearSegmentedColormap("wm", cdict)
+# The quick-look pictures are drawn with Pillow. matplotlib scans every system
+# font on its first use, and that scan crashed the macOS arm64 gate (a bus error
+# inside the pipeline's worker thread), so the pipeline never imports matplotlib.
+def _qa_colour_table() -> np.ndarray:
+    """The 256 colours of the wood/metal map, from black to white."""
+    x = np.linspace(0.0, 1.0, 256)
+    stops = [                                          # (positions, values) per channel
+        ([0, .30, .55, .75, 1], [0, 0, .9, 1, 1]),     # red
+        ([0, .30, .55, .75, 1], [0, .6, .3, .9, 1]),   # green
+        ([0, .30, .55, .75, 1], [0, .6, .1, 0, 1]),    # blue
+    ]
+    table = np.stack([np.interp(x, pos, val) for pos, val in stops], axis=1)
+    return (table * 255 + 0.5).astype(np.uint8)
+
+
+_QA_TABLE = _qa_colour_table()
+_QA_GREY = (64, 64, 64)            # blank (NaN) pixels
+_QA_BOX = (0, 229, 255)            # ROI outline
+_QA_BG = (32, 32, 32)              # sheet background
+_QA_PANEL = (400, 300)             # largest slice that fits one panel
+
+
+def _qa_rgb(img: np.ndarray, window: tuple[float, float]) -> np.ndarray:
+    """One slice as RGB: the window runs from black to white, NaN is grey."""
+    a = np.asarray(img, dtype=np.float64)
+    vmin, vmax = window
+    t = np.nan_to_num((a - vmin) / max(vmax - vmin, 1e-12), nan=0.0,
+                      posinf=1.0, neginf=0.0)
+    rgb = _QA_TABLE[(np.clip(t, 0.0, 1.0) * 255 + 0.5).astype(np.intp)]
+    rgb[~np.isfinite(a)] = _QA_GREY
+    return rgb
+
+
+def _qa_sheet(title: str, rows: list, out: Path, box=None) -> None:
+    """Each row is a pair of (slice, label). ``box`` (x0, y0, x1, y1) is outlined
+    on every left slice."""
+    from PIL import Image, ImageDraw, ImageFont
+    pw, ph = _QA_PANEL
+    pad, head, label = 14, 40, 20
+    row_h = label + ph + pad
+    sheet = Image.new("RGB", (2 * pw + 3 * pad, head + len(rows) * row_h), _QA_BG)
+    draw = ImageDraw.Draw(sheet)
+    big, small = ImageFont.load_default(size=14), ImageFont.load_default(size=12)
+    draw.text((pad, pad), title, fill=(255, 255, 255), font=big)
+    for r, pair in enumerate(rows):
+        top = head + r * row_h + label
+        for c, (rgb, text) in enumerate(pair):
+            h, w = rgb.shape[:2]
+            s = min(pw / w, ph / h)
+            x = pad + c * (pw + pad)
+            size = (max(1, round(w * s)), max(1, round(h * s)))
+            sheet.paste(Image.fromarray(rgb).resize(size, Image.Resampling.NEAREST), (x, top))
+            draw.text((x, top - label), text, fill=(230, 230, 230), font=small)
+            if box is not None and c == 0:
+                x0, y0, x1, y1 = box
+                draw.rectangle([x + round(x0 * s), top + round(y0 * s),
+                                x + round(x1 * s) - 1, top + round(y1 * s) - 1],
+                               outline=_QA_BOX, width=2)
+    sheet.save(out)
 
 
 def save_qa_montage(vol: np.ndarray, stripped: np.ndarray, cut_from: int,
                     sample: str, out_dir: Path,
                     pick_idx: Sequence[int],
                     window: tuple[float, float] = (-1200.0, 300.0)) -> None:
-    import matplotlib.pyplot as plt
-    cmap = _cmap()
-    fig, axes = plt.subplots(len(pick_idx), 2, figsize=(7.4, 3.0 * len(pick_idx)),
-                             facecolor="#202020")
-    axes = np.atleast_2d(axes)
-    for r, i in enumerate(pick_idx):
-        panels = [
-            (vol[i], f"slice {i} original", cmap, window[0], window[1]),
-            (stripped[i], f"slice {i} stripped (NaN=grey)", cmap, window[0], window[1]),
-        ]
-        for c, (img, title, cm, vmin, vmax) in enumerate(panels):
-            ax = axes[r, c]
-            ax.set_facecolor("#404040")
-            ax.imshow(img, cmap=cm, vmin=vmin, vmax=vmax,
-                      interpolation="nearest")
-            ax.set_title(title, fontsize=8, color="w")
-            ax.axis("off")
-    fig.suptitle(f"{sample}: platform removal (cut from slice {cut_from})",
-                 color="w")
-    fig.tight_layout()
+    rows = [((_qa_rgb(vol[i], window), f"slice {i} original"),
+             (_qa_rgb(stripped[i], window), f"slice {i} stripped (NaN=grey)"))
+            for i in pick_idx]
     out = out_dir / f"{sample}_qa_removal.png"
-    fig.savefig(out, dpi=110, facecolor=fig.get_facecolor())
-    plt.close(fig)
+    _qa_sheet(f"{sample}: platform removal (cut from slice {cut_from})", rows, out)
     print(f"  QA montage: {out}")
 
 
 def save_roi_qa(vol: np.ndarray, roi_vol: np.ndarray, bbox,
                 sample: str, out_dir: Path, pick_idx: Sequence[int],
                 window: tuple[float, float] = (-1200.0, 300.0)) -> None:
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
-    cmap = _cmap()
     z0, z1, y0, y1, x0, x1 = bbox
-    fig, axes = plt.subplots(len(pick_idx), 2, figsize=(7.2, 3.0 * len(pick_idx)),
-                             facecolor="#202020")
-    axes = np.atleast_2d(axes)
-    for r, i in enumerate(pick_idx):
+    rows = []
+    for i in pick_idx:
         zi = min(max(i, z0), z1)
-        ax = axes[r, 0]
-        ax.set_facecolor("#404040")
-        ax.imshow(vol[zi], cmap=cmap, vmin=window[0], vmax=window[1],
-                  interpolation="nearest")
-        ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0,
-                               fill=False, edgecolor="#00e5ff", lw=1.2))
-        ax.set_title(f"z={zi} original + ROI box", fontsize=8, color="w")
-        ax.axis("off")
-        ax = axes[r, 1]
-        ax.set_facecolor("#404040")
-        ax.imshow(roi_vol[zi - z0], cmap=cmap, vmin=window[0], vmax=window[1],
-                  interpolation="nearest")
-        ax.set_title(f"z={zi} ROI crop", fontsize=8, color="w")
-        ax.axis("off")
-    fig.suptitle(f"{sample}: wood ROI extraction QA", color="w")
-    fig.tight_layout()
+        rows.append(((_qa_rgb(vol[zi], window), f"z={zi} original + ROI box"),
+                     (_qa_rgb(roi_vol[zi - z0], window), f"z={zi} ROI crop")))
     out = out_dir / f"{sample}_qa_roi.png"
-    fig.savefig(out, dpi=110, facecolor=fig.get_facecolor())
-    plt.close(fig)
+    _qa_sheet(f"{sample}: wood ROI extraction QA", rows, out, box=(x0, y0, x1, y1))
     print(f"  ROI QA montage: {out}")
 
 

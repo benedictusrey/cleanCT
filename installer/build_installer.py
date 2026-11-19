@@ -11,7 +11,7 @@ Assembles the shipping payload into installer/_pkg:
       engine/                frozen metal-remover pipeline (5 modules)
       runtime/               embedded CPython 3.12.3 + pinned wheels
                              (numpy, scipy, PySide6-Essentials, pydicom,
-                              nibabel, Pillow, matplotlib, scikit-image,
+                              nibabel, Pillow, scikit-image,
                               cupy-cuda12x + NVRTC runtime wheels)
 
 then produces:
@@ -412,7 +412,6 @@ def third_party_notices() -> str:
         "| nibabel | 5.4.2 | MIT |\n"
         "| tifffile | 2023.4.12 | BSD |\n"
         "| Pillow | 12.3.0 | HPND (MIT-CMU) |\n"
-        "| matplotlib | 3.9.2 | PSF based (matplotlib) |\n"
         "| scikit-image | 0.26.0 | BSD-3-Clause |\n"
         "| cupy-cuda12x | 13.4.1 | MIT |\n"
         "| nvidia-cuda-nvrtc-cu12 | 12.8.93 | NVIDIA SDK license |\n"
