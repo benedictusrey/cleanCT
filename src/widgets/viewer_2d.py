@@ -147,16 +147,16 @@ class Viewer2D(QWidget):
     def _auto_z_guides(self) -> list[tuple[str, int, str]]:
         """The guides to draw as (kind, slice, label).
 
-        A wood top shows only while the air top is deferred (foggy edge), so
-        Snap's fallback target stays visible.  The halo onset is not drawn: the
-        Cut sits on the metal top, and the halo onset is only reported.
+        The Keep guide is the wood top (the auto Keep rides it); the air top is
+        drawn only when the payload carries no wood top.  The halo onset is not
+        drawn: the Cut sits on the metal top, and the halo onset is only reported.
         """
         z = self._auto_z or {}
         out: list[tuple[str, int, str]] = []
         keep, wood_top = z.get("keep"), z.get("wood_top")
-        if keep is None and wood_top is not None:
+        if wood_top is not None:
             out.append(("wood", int(wood_top), f"wood top {int(wood_top)}"))
-        if keep is not None:
+        elif keep is not None:
             out.append(("air", int(keep), f"air top {int(keep)}"))
         if z.get("metal_top") is not None:
             mt = int(z["metal_top"])

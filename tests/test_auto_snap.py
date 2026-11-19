@@ -85,8 +85,16 @@ def pure_mapping() -> None:
     b = {"zb": {"cut": 1074, "keep": 10, "wood_top": 28},
          "x0": 89, "x1": 1110, "y0": 97, "y1": 1111, "H": 1200, "W": 1198}
     m = auto_snap.detected_lines(b)
-    check("air-top keep copied", m["keep"] == 10
-          and m["keep_source"] == auto_snap.KEEP_SOURCE_AIR, str(m))
+    check("keep rides the wood top (not the air top)", m["keep"] == 28
+          and m["keep_source"] == auto_snap.KEEP_SOURCE_WOOD_TOP, str(m))
+    ma = auto_snap.detected_lines(b, keep_on_wood_top=False)
+    check("air-top keep copied when the wood-top rule is off", ma["keep"] == 10
+          and ma["keep_source"] == auto_snap.KEEP_SOURCE_AIR, str(ma))
+    # 2_666_5: the air top sits 5 slices above the wood top; the auto Keep is the wood top
+    b6 = {"zb": {"cut": 521, "keep": 83, "wood_top": 88},
+          "x0": 0, "x1": 10, "y0": 0, "y1": 10, "H": 100, "W": 100}
+    check("keep snaps to the wood top, not the air top above it",
+          auto_snap.detected_lines(b6)["keep"] == 88, str(auto_snap.detected_lines(b6)))
     check("cut copied", m["cut"] == 1074, str(m))
     # the Cut is placed on the physical metal top (the yellow line at 405 on
     # 2-5), not on the halo onset (353), when the payload carries it
@@ -105,13 +113,13 @@ def pure_mapping() -> None:
     check("deferred air top falls back to wood top",
           m2["keep"] == 65
           and m2["keep_source"] == auto_snap.KEEP_SOURCE_WOOD_TOP, str(m2))
-    m2s = auto_snap.detected_lines(b2, allow_wood_top_fallback=False)
-    check("strict mode leaves deferred keep unset",
+    m2s = auto_snap.detected_lines(b2, keep_on_wood_top=False)
+    check("air-only mode leaves deferred keep unset",
           m2s["keep"] is None and m2s["keep_source"] is None, str(m2s))
 
     b3 = {"zb": {"cut": 100, "keep": 500, "wood_top": 10},
           "x0": 0, "x1": 10, "y0": 0, "y1": 10, "H": 100, "W": 100}
-    check("keep clamped below cut", auto_snap.detected_lines(b3)["keep"] == 99)
+    check("keep clamped below cut", auto_snap.detected_lines(b3, keep_on_wood_top=False)["keep"] == 99)
 
     check("empty/None bounds -> all None",
           auto_snap.detected_lines(None) == {"cut": None, "keep": None,
@@ -134,7 +142,7 @@ def window_behavior(app: QApplication) -> None:
         p = make_payload()
         w._apply_sample_payload("custom", "TEST", p)
         check("load: state carries the detection",
-              w.spin_cut.value() == 1000 and w.spin_keep.value() == 100
+              w.spin_cut.value() == 1000 and w.spin_keep.value() == 90
               and w._wood_bounds_raw is not None,
               f"cut={w.spin_cut.value()} keep={w.spin_keep.value()}")
         check("load: auto snap armed and clean",
@@ -187,7 +195,7 @@ def window_behavior(app: QApplication) -> None:
         w.chk_auto_snap.setChecked(True)
         pairs = w.pref_viewer.axisBounds()
         check("toggle on: detection applied immediately",
-              w.spin_cut.value() == 1000 and w.spin_keep.value() == 100
+              w.spin_cut.value() == 1000 and w.spin_keep.value() == 90
               and abs(pairs["x"][0] - 40 / 300.0) < 1e-6,
               f"cut={w.spin_cut.value()} keep={w.spin_keep.value()} "
               f"pairs={pairs}")
@@ -212,7 +220,7 @@ def window_behavior(app: QApplication) -> None:
         w._apply_sample_payload("custom", "TEST", up)
         check("unprocessed load applies pre-process detection",
               bool(w.payload.get("unprocessed")) and w.spin_cut.value() == 1000
-              and w.spin_keep.value() == 100 and not w._auto_snap_suspended,
+              and w.spin_keep.value() == 90 and not w._auto_snap_suspended,
               f"cut={w.spin_cut.value()} keep={w.spin_keep.value()}")
     finally:
         w.close()

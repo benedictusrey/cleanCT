@@ -325,6 +325,17 @@ check("specks outside the wood do not inflate the envelope",
       and b_speck["x1"] == b_plain["x1"] and b_speck["y1"] == b_plain["y1"],
       f"speck={b_speck and (b_speck['x0'], b_speck['y0'], b_speck['x1'], b_speck['y1'])} "
       f"plain={b_plain and (b_plain['x0'], b_plain['y0'], b_plain['x1'], b_plain['y1'])}")
+# a LONE small component is not signal either: the size gate must apply when
+# it is the only component (2_666_5: one 3 px speck above the air line set the
+# curtain top at slice 7 and pulled the Keep line to slice 2)
+sl_speck = np.full((64, 64), -1000.0, np.float32)
+sl_speck[10, 10:13] = -800.0                       # one 3 px speck
+sl_big = np.full((64, 64), -1000.0, np.float32)
+sl_big[10:20, 10:20] = -800.0                      # one 100 px object
+check("a lone 3 px speck is not signal",
+      not bool(wb._signal_mask(sl_speck, -990.0, 34, 2).any()))
+check("a lone 100 px object is signal",
+      bool(wb._signal_mask(sl_big, -990.0, 34, 2).any()))
 
 # ---------------------------------------------------------------------------
 # 6. adaptive scale sanity

@@ -681,6 +681,43 @@ Open items and deliberate deviations:
   `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
   refreshed from the new ZIP.
 
+### 2.17 [2026-11-19] Keep on the wood top; the pre-process window; a lone speck is not signal
+
+Data (2_666_5, read-only; 2-5 unchanged):
+- The pre-process Keep was the air top at slice 2, and the wood top was at slice 11.
+  The physical wood starts at slice 88 (yellow line).
+- Between -990 and -960 HU the jar's halo lies at the top of the scan: 5,607 px at slice
+  30, none above -960. The air is -1000 +/- 3. The pre-process wood window started at -990,
+  so the halo counted as wood. The wood top went to 11, and the air-top line (the curtain top
+  minus margin) went to 2.
+- A lone 3 px speck at slice 7 also counted as signal: `_largest_components` returned a
+  single component without applying the size gate. This is a real bug; the gate now applies
+  to a lone component too.
+
+Fixes:
+- `wood_bounds._largest_components`: the size gate applies to a lone component.
+- `viewer_core.UNPROC_WOOD`: the pre-process wood window starts at -960 (was -990). Shortcut:
+  pre-process only; the processed bounds still use the report config and the pipeline track.
+- `auto_snap.detected_lines`: the auto Keep is the wood top. The air top is used only when
+  `keep_on_wood_top` is off, or the payload has no wood top. The Process path uses the same
+  `detected_lines`, so the lines shown are the lines delivered.
+- Guides: the Keep guide is the wood top; the air-top guide is drawn only without a wood top.
+
+Results (read-only):
+- 2_666_5 pre-process: wood top 88, Keep 88 (copy layer), Cut 521 (metal top).
+- 2-5 processed: wood top 19, Keep 19, Cut 405. Unchanged.
+
+Risks, decided by the user's instruction:
+- The auto Keep now sits on the wood top and no longer on the verified air top. The 0.3 mm
+  air margin is gone from the copy layer. Fog wisps above the wood apex sit outside the
+  delivery. DEV_LOG 4.2 (LOCKED) describes the air-top rule; the detection core is unchanged.
+- The processed bounds of 2_666_5 use the report config (-990). They are not verified yet;
+  check the Keep after the first Process of 2_666_5.
+
+Tests: `tests/test_bounds_v2.py` (lone speck), `tests/test_auto_snap.py` (Keep rides the wood
+top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
+`tests/test_axial_outline.py` (pre-process window).
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

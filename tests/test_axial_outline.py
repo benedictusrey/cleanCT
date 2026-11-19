@@ -64,6 +64,11 @@ check("no stray spike further than 3.5 px from the true edge",
 check("payload cache version moved past v21 (old payloads lack zb.metal_top)",
       viewer_core.CACHE_VERSION >= 22, f"CACHE_VERSION={viewer_core.CACHE_VERSION}")
 
+# 2_666_5: the jar halo lies between -990 and -960; a -990 pre-process wood
+# window put the wood top at slice 11 instead of 88 (measured, read-only)
+check("pre-process wood window starts above the jar halo (-960)",
+      viewer_core.UNPROC_WOOD[0] >= -965, f"UNPROC_WOOD={viewer_core.UNPROC_WOOD}")
+
 if failures:
     print("FAILURES: " + ", ".join(failures))
     raise SystemExit(1)

@@ -474,9 +474,7 @@ def _largest_components(m: np.ndarray, min_area_px: int) -> np.ndarray:
     """
     if ndi is None or min_area_px <= 1 or not m.any():
         return m
-    lab, n = ndi.label(m)
-    if n <= 1:
-        return m
+    lab, _ = ndi.label(m)                 # a lone component is gated too
     sizes = np.bincount(lab.ravel())
     keep = np.zeros(sizes.shape[0], bool)
     keep[1:] = sizes[1:] >= min_area_px

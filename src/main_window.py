@@ -3127,7 +3127,7 @@ class MainWindow(QMainWindow):
         b = self._wood_bounds_raw or {}
         if not b:
             return []
-        tg = auto_snap.detected_lines(b, allow_wood_top_fallback=True)
+        tg = auto_snap.detected_lines(b)
         placed: list[str] = []
         self._applying_auto_snap = True
         try:
@@ -3138,7 +3138,7 @@ class MainWindow(QMainWindow):
                 cap = (self.spin_cut.value() - 1
                        if self.spin_cut.value() > 0 else 0)
                 self.spin_keep.setValue(min(int(tg["keep"]), max(0, cap)))
-                src = (" (wood top; air top deferred)"
+                src = (" (wood top)"
                        if tg["keep_source"] == auto_snap.KEEP_SOURCE_WOOD_TOP
                        else "")
                 placed.append(f"keep={self.spin_keep.value()}{src}")
@@ -4020,7 +4020,8 @@ class MainWindow(QMainWindow):
                     zb = (_pl.get("bounds") or {}).get("zb") or {}
                 except Exception:
                     zb = {}
-                _dcut, _dkeep = auto_snap.cut_target(zb), zb.get("keep")
+                _dtg = auto_snap.detected_lines({"zb": zb})   # the copy layer's lines
+                _dcut, _dkeep = _dtg["cut"], _dtg["keep"]
                 _eff_cut = (int(_dcut) if _dcut is not None
                             else int(plat.get("cut_from") or 0))
                 _eff_keep = (int(_dkeep) if _dkeep is not None

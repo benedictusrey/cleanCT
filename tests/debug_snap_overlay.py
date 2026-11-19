@@ -64,7 +64,7 @@ def overlay(dataset: str, sample: str) -> Path | None:
         return None
     H, W = int(b["H"]), int(b["W"])
     zb = b.get("zb") or {}
-    tg = auto_snap.detected_lines(b, allow_wood_top_fallback=True)
+    tg = auto_snap.detected_lines(b)
 
     mid = (int(zb.get("wood_top") or 0) + int(zb.get("wood_bottom") or H)) // 2
     mid = max(0, min(H - 1, mid))

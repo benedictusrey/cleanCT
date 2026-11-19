@@ -10,9 +10,9 @@ Contract (mirrors the validated load/snap pipeline from audit 0AC):
 * ``cut``  = ``zb.metal_top`` - the physical metal top (the detector anchor,
   the line the user checks), else ``zb.cut``.  ``zb.cut`` is the pipeline's
   halo onset and stays in the payload for reference.  See ``cut_target``.
-* ``keep`` = ``zb.keep`` (verified air top); when the air top deferred and
-  ``allow_wood_top_fallback`` is set, ``zb.wood_top`` - the same edge the
-  dotted "wood top" guide draws.  Clamped to ``cut - 1``.
+* ``keep`` = ``zb.wood_top`` - the wood top, the same edge the "wood top"
+  guide draws.  The air top (``zb.keep``) is used only when ``keep_on_wood_top``
+  is off, or when the payload carries no wood top.  Clamped to ``cut - 1``.
 * ``x`` / ``y`` = the detected lateral envelope as fractions
   ``(x0 / W, (x1 + 1) / W)`` / ``(y0 / H, (y1 + 1) / H)``.
 
@@ -64,7 +64,7 @@ def cut_target(zb: dict) -> int | None:
 
 
 def detected_lines(bounds: dict | None, *,
-                   allow_wood_top_fallback: bool = True) -> dict:
+                   keep_on_wood_top: bool = True) -> dict:
     """Copy a ``wood_bounds`` result onto the user-facing cut values.
 
     Returns ``{"cut", "keep", "keep_source", "x", "y"}`` with ``None`` for
@@ -81,15 +81,14 @@ def detected_lines(bounds: dict | None, *,
     cut = cut_target(zb)
     if cut is not None:
         out["cut"] = max(0, cut)
+    wood_top = _as_int(zb.get("wood_top"))
     keep = _as_int(zb.get("keep"))
-    if keep is not None:
+    if keep_on_wood_top and wood_top is not None:
+        out["keep"] = max(0, wood_top)
+        out["keep_source"] = KEEP_SOURCE_WOOD_TOP
+    elif keep is not None:
         out["keep"] = max(0, keep)
         out["keep_source"] = KEEP_SOURCE_AIR
-    elif allow_wood_top_fallback:
-        wood_top = _as_int(zb.get("wood_top"))
-        if wood_top is not None:
-            out["keep"] = max(0, wood_top)
-            out["keep_source"] = KEEP_SOURCE_WOOD_TOP
     if out["keep"] is not None and out["cut"] is not None:
         out["keep"] = min(out["keep"], max(0, out["cut"] - 1))
 

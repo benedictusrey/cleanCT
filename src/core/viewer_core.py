@@ -1000,7 +1000,12 @@ PREV_VERSION = 11   # v11: edge-band-gated lateral projections (audit 0AF)
 # applies to a processed specimen's config).  UNPROC_WOOD is the engine's
 # canonical wood class for the pre-process air-top / metal-top detection.
 UNPROC_WIN = (-950.0, 350.0, 0.0)
-UNPROC_WOOD = (-990.0, -500.0)
+# Lower bound -960, not -990: on 2_666_5 the jar's halo sits between -990 and
+# -960 at the top of the scan (5607 px at slice 30, none above -960), so -990
+# put the wood top at slice 11.  Measured wood tops: 2_666_5 at -960 gives 88,
+# the yellow line; 2-5 at -960 gives 23 against 19 with the processed bounds.
+# shortcut: pre-process only (no pipeline track yet); the processed bounds use the report config.
+UNPROC_WOOD = (-960.0, -500.0)
 
 
 def _prev_key(dataset: str, sample: str, sdir: Path) -> str:

@@ -35,25 +35,24 @@ def guides_of(viewer: Viewer2D) -> dict:
 app = QApplication.instance() or QApplication(sys.argv)
 viewer = Viewer2D()
 
-# shape of the wood_bounds payload for specimen 2-5: keep = air top,
-# cut = halo onset (353), metal_top = detector anchor / arrow line (405)
-viewer.setAutoZ({"keep": 19, "cut": 353, "wood_top": 1, "metal_top": 405,
-                 "wood_bottom": 328, "top_ok": True})
+# 2_666_5 payload: the Keep is the wood top (88), the air top (83) is not drawn,
+# the Cut is the metal top (521); the halo onset (353 on 2-5) is never a line
+viewer.setAutoZ({"keep": 83, "cut": 521, "wood_top": 88, "metal_top": 521,
+                 "wood_bottom": 518, "top_ok": True})
 g = guides_of(viewer)
-check("metal top guide sits on the physical metal top (405)",
-      g.get("metal") == (405, "metal top 405"), str(g.get("metal")))
-check("no separate halo onset line: the cut is drawn on the metal top",
-      "halo" not in g, str(g.get("halo")))
-check("air top guide unchanged", g.get("air") == (19, "air top 19"), str(g.get("air")))
-check("no wood top guide while the air top is placed", "wood" not in g, str(g.get("wood")))
+check("keep guide sits on the wood top (88)",
+      g.get("wood") == (88, "wood top 88"), str(g.get("wood")))
+check("metal top guide sits on the physical metal top (521)",
+      g.get("metal") == (521, "metal top 521"), str(g.get("metal")))
+check("no air top line: the Keep rides the wood top", "air" not in g, str(g))
+check("no halo onset line", "halo" not in g, str(g))
 
-# older payload without metal_top: no metal line, and the cut is never
-# relabelled as metal
+# older payload without wood_top: the Keep falls back to the air top
 viewer.setAutoZ({"keep": 19, "cut": 353})
 g_old = guides_of(viewer)
-check("no metal_top: no metal guide", "metal" not in g_old, str(g_old))
-check("no metal_top: the halo onset is not drawn as a line either", "halo" not in g_old,
+check("no wood_top: the Keep guide is the air top", g_old.get("air") == (19, "air top 19"),
       str(g_old))
+check("no metal_top: no metal guide", "metal" not in g_old, str(g_old))
 
 # air top deferred (foggy edge): wood top evidence shows instead
 viewer.setAutoZ({"keep": None, "cut": 353, "wood_top": 1, "metal_top": 405})
