@@ -724,6 +724,23 @@ top; the window checks), `tests/test_auto_z_guides.py` (wood-top guide),
   `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
   refreshed from the new ZIP.
 
+### 2.18 [2026-11-19] Export clipped to the lines; labels in front; the details note
+
+- **Export clipped to the L/R lines.** The Wood top and Metal top already clipped the DICOM
+  export (`_export_bundle_into` takes the kept range). The L/R lines did not. The applied box
+  is now stored per specimen (`custom_series.set_specimen_lateral`, outside
+  `config_overrides`), and each kept slice is cropped to it (`bundle_export._crop_slice`):
+  rows for the sagittal L/R, columns for the axial and coronal L/R. The origin moves to the
+  first kept row and column. A compressed series is refused. Verified on a real 2-5 slice,
+  read-only. Test: `tests/test_export_clip.py`. Shortcut: the NIfTI export does not crop X or Y.
+- **Guide labels in front of the lines.** The Wood top and Metal top labels were painted before
+  the Keep and Cut lines, so a job line crossed them at the same slice. They are painted last.
+  Test (by pixel): `tests/test_auto_z_guides.py`.
+- **Details note.** `cleanCT_details.md` and `cleanCT_details.docx` record how each line is
+  detected and placed, the constants, the pre-process and processed differences, the export
+  clip, the decisions to review, and a code map.
+- Gate: PASS (32 files).
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

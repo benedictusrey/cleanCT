@@ -3689,6 +3689,8 @@ class MainWindow(QMainWindow):
                     "keep_from": self.pref_keep,
                     "cut_margin_slices": self.pref_margin,
                 })
+                # the L/R lines of both pairs: the export crops the wood box to them
+                csx.set_specimen_lateral(sample, self.pref_viewer.axisBounds())
             except Exception as e:
                 QMessageBox.critical(self, "Boundaries Error",
                                      f"Could not persist the preferences:\n{e}")
@@ -4040,7 +4042,8 @@ class MainWindow(QMainWindow):
                 export_format=fmt, progress=job_progress,
                 source_kind=_ds.source_kind,
                 source_path=_ds.source_path,
-                source_metadata=_ds.source_metadata) or {}
+                source_metadata=_ds.source_metadata,
+                lateral=(csx.lateral_box(sample) if dataset == "custom" else None)) or {}
             exp_res["session_lines"] = used_lines
             exp_res["sample"] = sample
             return {"report": proc_res.get("report", {}),
@@ -4443,6 +4446,7 @@ class MainWindow(QMainWindow):
                 source_kind=_ds.source_kind,
                 source_path=_ds.source_path,
                 source_metadata=_ds.source_metadata,
+                lateral=(csx.lateral_box(sample) if dataset == "custom" else None),
                 progress=job_progress)
             result["sample"] = sample
             return result

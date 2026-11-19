@@ -417,6 +417,7 @@ class Viewer2D(QWidget):
         # Drawn beneath the interactive Keep/Cut lines so the job lines and
         # their handles stay fully visible; a guide only appears when its
         # slice is inside the displayed z-range.
+        guide_badges: list = []   # painted after the job lines, so labels stay in front
         if self._auto_z and self._guide_enabled:
             painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
             for kind, sl, label in self._auto_z_guides():
@@ -431,12 +432,7 @@ class Viewer2D(QWidget):
                 # the job Cut badge (bottom left): metal top sits right
                 bx = img_rect.right() - 146 if kind == "metal" else img_rect.left() + 30
                 by = min(max(y_g - 9, img_rect.top()), img_rect.bottom() - 18)
-                badge = QRectF(bx, by, 112, 18)
-                painter.setBrush(QColor(18, 22, 30, 200))
-                painter.setPen(QPen(color, 1))
-                painter.drawRoundedRect(badge, 4, 4)
-                painter.setPen(color)
-                painter.drawText(badge, Qt.AlignCenter, label)
+                guide_badges.append((QRectF(bx, by, 112, 18), color, label))
 
         # ---------------- Top Horizontal Line (Keep / Green) ----------------
         pen_keep = QPen(QColor("#37d67a"), 2, Qt.DashLine)
@@ -478,6 +474,15 @@ class Viewer2D(QWidget):
         painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
         painter.setPen(QColor("#ff463c"))
         painter.drawText(badge_rect2, Qt.AlignCenter, f"Cut: {self._cut}")
+
+        # guide labels last: in front of the job lines, like the Keep and Cut labels
+        painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
+        for badge, color, label in guide_badges:
+            painter.setBrush(QColor(18, 22, 30, 200))
+            painter.setPen(QPen(color, 1))
+            painter.drawRoundedRect(badge, 4, 4)
+            painter.setPen(color)
+            painter.drawText(badge, Qt.AlignCenter, label)
 
     # ---------------------------------------------------------------- Interactivity
     def _hit_test(self, pos: QPointF) -> str | None:

@@ -64,6 +64,38 @@ check("air deferred: no air guide", "air" not in g_def, str(g_def))
 viewer.setAutoZ(None)
 check("cleared guides: nothing drawn", viewer._auto_z_guides() == [])
 
+# layering: a guide label sits in front of the job line that shares its slice.
+# Keep = wood top = slice 100 and Cut = metal top = slice 160 (the screenshots).
+# Sample the left margin of each label, where no text is: a red pixel there
+# means the Cut line was painted over the label.
+from PySide6.QtGui import QPixmap  # noqa: E402
+
+lay = Viewer2D()
+lay.resize(420, 320)
+lay.setPixmap(QPixmap(200, 200), 200)
+lay.setSliceCount(200)
+lay.setKeep(100)
+lay.setCut(160)
+lay.setGuideEnabled(True)
+lay.setAutoZ({"keep": 100, "wood_top": 100, "cut": 160, "metal_top": 160})
+lay.show()
+app.processEvents()
+grab = lay.grab().toImage()
+img_rect = lay._image_rect()
+bad = []
+for kind, sl in (("wood", 100), ("metal", 160)):
+    y = int(round(lay._slice_to_y(sl, img_rect)))
+    x0 = int(img_rect.left() + 30) if kind == "wood" else int(img_rect.right() - 146)
+    reds = 0
+    for yy in range(y - 6, y + 7):
+        for xx in range(x0 + 2, x0 + 9):
+            c = grab.pixelColor(xx, yy)
+            if c.red() > 200 and c.green() < 120 and c.blue() < 120:
+                reds += 1
+    if reds:
+        bad.append(f"{kind} label: {reds} red px")
+check("guide labels are drawn in front of the job lines", not bad, "; ".join(bad))
+
 if failures:
     print("FAILURES: " + ", ".join(failures))
     raise SystemExit(1)

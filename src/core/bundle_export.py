@@ -400,9 +400,40 @@ def _delivery_tags(specimen: str, report: dict, provenance: str,
     }
 
 
+def lateral_range(pair, n: int) -> tuple[int, int] | None:
+    """Pixels [a, b) inside a lateral pair (fractions), or None for the whole axis."""
+    if not pair:
+        return None
+    lo, hi = (float(v) for v in pair)
+    a = max(0, min(n - 1, int(round(lo * n))))
+    b = max(a + 1, min(n, int(round(hi * n))))
+    return None if (a == 0 and b == n) else (a, b)
+
+
+def _crop_slice(ds, y0: int, y1: int, x0: int, x1: int) -> None:
+    """Keep rows [y0, y1) and columns [x0, x1) of one slice in place.
+
+    The origin moves to the first kept row and column (DICOM: PixelSpacing is
+    [row, column]; the orientation's first triplet runs along a row, the second
+    along a column)."""
+    if ds.file_meta.TransferSyntaxUID.is_compressed:
+        raise BundleError("a compressed DICOM series cannot be cropped to the L/R lines")
+    pixels = ds.pixel_array
+    crop = np.ascontiguousarray(pixels[y0:y1, x0:x1])
+    ds.Rows, ds.Columns = int(crop.shape[0]), int(crop.shape[1])
+    ds.PixelData = crop.tobytes()
+    iop = np.asarray(ds.ImageOrientationPatient, dtype=float)
+    row_dir, col_dir = iop[:3], iop[3:6]
+    row_sp, col_sp = (float(v) for v in ds.PixelSpacing)
+    origin = np.asarray(ds.ImagePositionPatient, dtype=float)
+    ds.ImagePositionPatient = [float(v) for v in
+                               origin + row_dir * x0 * col_sp + col_dir * y0 * row_sp]
+
+
 def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
                        cut_from: int, report: dict,
-                       progress=None, wanted: bool = True) -> dict:
+                       progress=None, wanted: bool = True,
+                       lateral: dict | None = None) -> dict:
     """Copy kept slices as one DICOM series with clean, source-faithful
     names and full delivery metadata.
 
@@ -446,16 +477,25 @@ def _write_kept_dicoms(source_files_or_dir, dest: Path, specimen: str,
     # SeriesInstanceUID with the scan it came from or with an earlier export
     tags["SeriesInstanceUID"] = generate_uid()
     mapping = []
+    first = pydicom.dcmread(kept[0], stop_before_pixels=True)
+    ybox = lateral_range((lateral or {}).get("y"), int(first.Rows))
+    xbox = lateral_range((lateral or {}).get("x"), int(first.Columns))
 
     def _write_one(item):
         i, src = item
         ds = pydicom.dcmread(src)
         src_sop = str(ds.SOPInstanceUID)
         # identity + provenance tags are written on top of the preserved
-        # source tags (pixels and geometry stay byte-identical)
+        # source tags (pixels and geometry stay byte-identical unless the
+        # L and R lines crop the slice)
         for key, value in tags.items():
             if value is not None:
                 setattr(ds, key, value)
+        if ybox is not None or xbox is not None:
+            rows, cols = int(ds.Rows), int(ds.Columns)
+            y0, y1 = ybox or (0, rows)
+            x0, x1 = xbox or (0, cols)
+            _crop_slice(ds, y0, y1, x0, x1)
         # each slice gets its own SOP instance and references its source slice
         new_sop = generate_uid()
         ds.SOPInstanceUID = new_sop
@@ -1025,7 +1065,8 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
                         progress=None,
                         source_kind: str = "dicom",
                         source_path: Path | None = None,
-                        source_metadata: dict | None = None) -> dict:
+                        source_metadata: dict | None = None,
+                        lateral=None) -> dict:
     """Build and verify a bundle inside an isolated staging directory.
 
     export_format: ``dicom`` (kept-slice series only), ``nifti`` (volume
@@ -1083,7 +1124,7 @@ def _export_bundle_into(dataset_key: str, specimen: str, source_dir: Path,
     if progress:
         progress(0, 1, "preparing")
     dcm = _write_kept_dicoms(source_files, dest, specimen, cut_from, report,
-                            wanted=want_dcm,
+                            wanted=want_dcm, lateral=lateral,
                             progress=(lambda i, n: progress(i, n, "dicom")
                                       if progress else None))
     if progress:
@@ -1172,7 +1213,8 @@ def export_bundle(dataset_key: str, specimen: str, source_dir: Path,
                   progress=None,
                   source_kind: str = "dicom",
                   source_path: Path | None = None,
-                  source_metadata: dict | None = None) -> dict:
+                  source_metadata: dict | None = None,
+                  lateral=None) -> dict:
     """Build, verify, then atomically promote one complete specimen bundle.
 
     Work is isolated in a sibling staging directory. A prior complete bundle
@@ -1201,7 +1243,7 @@ def export_bundle(dataset_key: str, specimen: str, source_dir: Path,
             staging, source_override=source_override, keep_from=keep_from,
             export_format=export_format, progress=progress,
             source_kind=source_kind, source_path=source_path,
-            source_metadata=source_metadata)
+            source_metadata=source_metadata, lateral=lateral)
         _promote_directory(staging, final, old)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
