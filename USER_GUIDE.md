@@ -34,12 +34,12 @@ Select the registered specimen in the left-hand list to load it.
 
 The **Results** tab shows the scan views. Open **Boundaries** to inspect the reconstruction and its guide lines. cleanCT places the guides from its detection; review them against the scan before processing.
 
-- The green **Top Line (Keep Start)** marks where the collected range begins.
-- The red **Bottom Line (Platform Cut)** marks the cut boundary.
-- **Margin Above Cut** controls how many safety slices are kept above the cut.
+- The green **Keep** line marks where the collected range begins. The **Wood Top** guide (green, dotted) marks the top of the wood, and Keep follows it.
+- The red **Cut** line marks the platform cut. The **Metal Top** guide (orange, dotted) marks the top of the metal base, and Cut follows it.
+- **Margin above cut** stops the delivery that many slices above the Cut line, a safety buffer between the cut and the metal. The delivered range ends at Cut minus margin.
 - **2 Lines (Z Range)** shows the keep/cut range. **4 Lines (Box Bounds)** also shows lateral box limits. Drag a guide or use its sliders to adjust it.
 - **Snap to detection** and **Reset to detected** restore detected boundaries.
-- **Auto-crop to wood (air detection)** is enabled by default. It trims near-empty air margins when safe; the crop stays within the tracked region.
+- **Auto-crop to wood (air detection)** is enabled by default. It trims the wood box in the processing output (wood_roi.nii). The bundle is cut to the Keep, Cut and L/R lines, not to this box.
 
 The colorspace, density thresholds, and preview slice controls change the on-screen preview. They do not change the saved scan by themselves. After changing keep/cut or box bounds, select **Apply lines** to apply them and process the scan again.
 
@@ -49,7 +49,7 @@ Choose one of these actions in the left sidebar:
 
 - **Process** runs processing for the selected specimen.
 - **Apply lines** (in Boundaries) applies the adjusted boundaries and processes again.
-- **Process and export** processes and exports in one job, using the current destination and format.
+- **Process and export** applies the lines on screen, processes, and exports in one job, using the current destination and format.
 
 To export a specimen that has already been processed:
 
@@ -57,7 +57,7 @@ To export a specimen that has already been processed:
 2. In the same section, choose a format for this export:
    - For DICOM sources: **DICOM + NIfTI** (default), **DICOM only**, or **NIfTI only**. The line under the format says what each one writes.
    - For TIFF/NIfTI sources: cleanCT uses **NIfTI only**, preserving source voxel values and physical affine where available.
-3. Select **Export** in the export row and wait for the completion status.
+3. Select **Export** in the export row and wait for the completion status. Export is refused when the Cut is past the processed run: select **Apply lines**, then export again.
 
 The bundle is saved in a subfolder named for the specimen. It includes the requested output files and a summary with processing and source details. Exports are separate from the source scan. Re-exporting updates that specimen’s bundle only after the new export is complete. For DICOM sources, an existing unrequested format is retained. To prevent source mixing, a TIFF/NIfTI export stops if the destination already contains a DICOM bundle with the same specimen ID; choose a different ID or destination.
 

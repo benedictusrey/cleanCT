@@ -81,7 +81,7 @@ Production launcher: `installer\_pkg\cleanCT.exe` (PyInstaller one-file, windowl
 ## 3. Quality Gates
 
 ```powershell
-# 1) Regression gate: 11 focused suites — must PASS before any release
+# 1) Regression gate: 37 focused suites — must PASS before any release
 powershell -NoProfile -ExecutionPolicy Bypass -File "$PWD\tests\run_cleanct_regressions.ps1"
 
 # 2) Full release rebuild: gate, package, fresh icon-embedded launcher,

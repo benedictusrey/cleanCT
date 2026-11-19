@@ -176,6 +176,56 @@ if ax_raw is not None and not ax_raw.isNull():
     check("raw scan axial: the box keeps the kept slice inside", inside_px != BG,
           str(inside_px))
 
+# 4. Process passes the Auto-crop setting; Export refuses a cut past the processed run;
+#    Process and export processes the lines on screen and exports that report
+import json as _json  # noqa: E402
+from types import SimpleNamespace as _NS  # noqa: E402
+
+_seen: dict = {}
+window._run_pipeline_task = lambda *a, **k: _seen.update(args=a, kw=k) or {}
+window._start_job = lambda label, func, **kw: func()
+window.chk_air_crop.setChecked(False)
+window._process_selected()
+check("Process passes the Auto-crop setting to the engine",
+      _seen.get("args") == ({"air_crop": False},), str(_seen))
+
+guard_out = TEST_TMP / "views_guard_out"
+guard_out.mkdir(parents=True, exist_ok=True)
+(guard_out / "report.json").write_text(
+    _json.dumps({"platform": {"cut_from": 9, "keep_from": 2}}), encoding="utf-8")
+window._resolve_sources = lambda: (_NS(source_kind="dicom", source_path=None, source_metadata={}),
+                                   src, None, guard_out)
+window._validated_dest_root = lambda: TEST_TMP / "views_guard_dest"
+window._confirm_replace_export = lambda *a: True
+window.pref_cut, window.pref_keep, window.pref_margin = 12, 2, 0
+window._export_bundle()
+check("Export refuses a cut past the processed run and writes nothing",
+      "past the processed run" in window.lbl_export_status.text()
+      and not (TEST_TMP / "views_guard_dest").exists(), window.lbl_export_status.text())
+
+window.pref_cut, window.pref_keep, window.pref_margin = 12, 2, 1
+_seen.clear()
+
+
+def _fake_run(overrides, **kw):
+    _seen["overrides"] = overrides
+    (guard_out / "report.json").write_text(
+        _json.dumps({"platform": {"cut_from": 11, "keep_from": 2}}), encoding="utf-8")
+    return {"report": {}}
+
+
+exported: dict = {}
+real_export = mw.bundle_export.export_bundle
+mw.bundle_export.export_bundle = lambda *a, **k: exported.update(report=a[3]) or {}
+window._run_pipeline_task = _fake_run
+window._process_and_export()
+mw.bundle_export.export_bundle = real_export
+check("Process and export processes the lines on screen (cut 12, margin 1)",
+      _seen.get("overrides", {}).get("cut_override") == 12
+      and _seen["overrides"].get("cut_margin_slices") == 1, str(_seen))
+check("Process and export exports the report it processed",
+      exported.get("report", {}).get("platform", {}).get("cut_from") == 11, str(exported)[:120])
+
 window.close()
 if failures:
     print("FAILURES: " + ", ".join(failures))

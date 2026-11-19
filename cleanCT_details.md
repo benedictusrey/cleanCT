@@ -801,17 +801,16 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 
 ## 20. Known limits and open items
 
-Found in the audit of this round. The fixes are in the code; what is listed below is still open or by design.
+Found in the audit. Each item says whether it is by design or still open.
 
-1. The Auto-crop check box trims only the processing output wood_roi.nii. The bundle is cut to the lines on screen, not to the air box. This is by design; the tooltip now says so.
-2. The processed axial view steps through at most 16 stored frames, not every slice (section 10.5). The Boundaries slider covers every slice.
-3. The header KPI shows the pending Cut and kept range, not the processed values, for a processed run. Still open.
-4. A running pipeline cannot be stopped. Stopping needs a change in the engine. Not part of this round.
-5. The Results longitudinal view reads the source folders, as Boundaries does. If a source folder has been moved, the view shows an error text rather than the cached image.
+1. The Auto-crop check box trims only the processing output wood_roi.nii. The bundle is cut to the lines on screen. By design; the tooltip says so.
+2. The processed axial view steps through at most 16 stored frames (N_AXIAL), not every slice (section 10.5). The Boundaries slider covers every slice. By design for now; open for a later change.
+3. The header KPI mirrors the working lines on screen, as its code comment says. By design. The Lines changed marker shows when the processed run differs.
+4. A running pipeline cannot be stopped. Stopping needs a change in the engine. Open; not part of this release.
+5. The Results longitudinal view reads the source folders, as Boundaries does. A moved source folder shows an error text rather than the cached image. Open.
 6. Older payload caches still hold the legacy sagittal and coronal image keys. They are ignored.
-7. The "untrusted mount point" messages in the gate and build logs have not been traced.
-8. Not covered by an automated test: the Export guard in the window (a cut past the processed run), the Process and export line handling, and the air-crop argument of Process. The NIfTI refusal and the box tests cover the data path. The two NIfTI writers still exist side by side; merging them is a later lean step.
-9. README.md, USER_GUIDE.md and installer\README_INSTALLER.txt use older names: "Top Line (Keep Start)", "Platform Cut", "11 focused suites", and the old margin meaning. They need updating.
+7. The "untrusted mount point" messages in the gate output come from test_state_files, which simulates error 448 on purpose. Expected.
+8. The two NIfTI writers still exist side by side (streamed DICOM and volume). Merging them is a later lean step. Open.
 
 ## 21. Records
 
