@@ -44,8 +44,9 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 
 
 def main() -> int:
-    check("normal slices retain 16-way I/O",
-          vc._source_batch_size_for_shape(1200, 1200) == 16)
+    # the worker count follows the machine (8..16 cores); normal slices keep all of it
+    check("normal slices retain full I/O concurrency",
+          vc._source_batch_size_for_shape(1200, 1200) == vc._IO_WORKERS, str(vc._IO_WORKERS))
     check("6000px slices reduce concurrency",
           1 <= vc._source_batch_size_for_shape(6000, 6000) < 16)
     check("very large slices use one reader",
