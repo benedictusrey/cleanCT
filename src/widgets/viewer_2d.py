@@ -69,6 +69,7 @@ class Viewer2D(QWidget):
         # Guides state
         self._guide_enabled: bool = True
         self._guide_mode: str = "2lines"  # "2lines" or "4lines"
+        self._results_overlay = False     # Results: Before-panel lines and panel labels
         # The four guide bounds as fractions 0..1 of the panel.  Meaning is
         # PLANE-AWARE (set by _apply_plane_bounds):
         #   sagittal: _x0/_x1 = Y-axis bounds (the horizontal axis is Y)
@@ -217,6 +218,12 @@ class Viewer2D(QWidget):
         self._scrub_z = max(0, min(self._n_slices - 1, int(z)))
         self.update()
 
+    def setResultsOverlay(self, on: bool):
+        """Results mode: the Boundaries lines on the Before panel (no handles, no
+        labels) and the two panel labels.  Independent of the editable guides."""
+        self._results_overlay = bool(on)
+        self.update()
+
     def setGuideEnabled(self, enabled: bool):
         self._guide_enabled = bool(enabled)
         self.update()
@@ -309,6 +316,9 @@ class Viewer2D(QWidget):
             painter.drawText(self.rect(), Qt.AlignCenter, self._empty_text)
             return
 
+        if self._results_overlay:
+            self._paint_results(painter, img_rect)
+            return
         if not self._guide_enabled:
             return
 
@@ -516,6 +526,54 @@ class Viewer2D(QWidget):
             painter.drawRoundedRect(badge, 4, 4)
             painter.setPen(color)
             painter.drawText(badge, Qt.AlignCenter, label)
+
+    def _paint_results(self, painter: QPainter, img_rect: QRectF) -> None:
+        """Results: the Boundaries lines on the Before panel (no handles, no line
+        labels), and a label on each panel, in front of the image."""
+        r_left, r_right = self._panel_rects(img_rect)
+        x0 = r_left.left() + self._x0 * r_left.width()
+        x1 = r_left.left() + self._x1 * r_left.width()
+        if self._plane == "axial":
+            y0 = r_left.top() + self._y0 * r_left.height()
+            y1 = r_left.top() + self._y1 * r_left.height()
+            painter.setPen(QPen(QColor("#4f8cff"), 2, Qt.DashLine))
+            for x in (x0, x1):
+                painter.drawLine(QPointF(x, r_left.top()), QPointF(x, r_left.bottom()))
+            painter.setPen(QPen(QColor("#37d67a"), 2, Qt.DashLine))
+            for y in (y0, y1):
+                painter.drawLine(QPointF(r_left.left(), y), QPointF(r_left.right(), y))
+        else:
+            # guides under the job lines, as on Boundaries
+            for kind, sl, _label in self._auto_z_guides():
+                painter.setPen(QPen(QColor(self._GUIDE_COLORS[kind]), 1, Qt.DotLine))
+                y = self._slice_to_y(sl, img_rect)
+                painter.drawLine(QPointF(r_left.left(), y), QPointF(r_left.right(), y))
+            for sl, colour in ((self._keep, "#37d67a"), (self._cut, "#ff463c")):
+                painter.setPen(QPen(QColor(colour), 2, Qt.DashLine))
+                y = self._slice_to_y(sl, img_rect)
+                painter.drawLine(QPointF(r_left.left(), y), QPointF(r_left.right(), y))
+            painter.setPen(QPen(QColor("#4f8cff"), 2, Qt.DashLine))
+            for x in (x0, x1):
+                painter.drawLine(QPointF(x, r_left.top()), QPointF(x, r_left.bottom()))
+        self._paint_panel_label(painter, r_left, "BEFORE (Original)", after=False)
+        if r_right is not None:
+            self._paint_panel_label(painter, r_right, "AFTER (Stripped)", after=True)
+
+    @staticmethod
+    def _paint_panel_label(painter: QPainter, panel: QRectF, text: str, *, after: bool) -> None:
+        """A label at the top-left of a panel: text on a dark pill, the After one in
+        the app accent (the processed side), the Before one in the primary text."""
+        colour = QColor("#3fc6b6" if after else "#e8ebef")
+        painter.setFont(QFont("Segoe UI", 9, QFont.DemiBold))
+        pill = QRectF(panel.left() + 10, panel.top() + 10,
+                      painter.fontMetrics().horizontalAdvance(text) + 18, 22)
+        edge = QColor(colour)
+        edge.setAlpha(140)
+        painter.setPen(QPen(edge, 1))
+        painter.setBrush(QColor(11, 13, 16, 215))
+        painter.drawRoundedRect(pill, 5, 5)
+        painter.setPen(colour)
+        painter.drawText(pill, Qt.AlignCenter, text)
 
     # ---------------------------------------------------------------- Interactivity
     def _hit_test(self, pos: QPointF) -> str | None:

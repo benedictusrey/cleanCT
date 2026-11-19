@@ -213,12 +213,27 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
   lines and the L/R box, drawn by `viewer_core.get_preview` on a worker thread. The
   latest request wins, and the view is refreshed when the Boundaries lines change
   (debounced, the same point as the Boundaries preview).
-- **The Results view draws no guide lines.** The axial and longitudinal viewers keep
-  their line guides off, as before; the prediction is baked into the longitudinal
-  image, and the job lines are shown on Boundaries.
-- Tests: `tests/test_results_crop.py` (the crop of the After panel) and
+- **The Results view labels both panels, in front of the image.** "BEFORE (Original)"
+  is on the Before panel and "AFTER (Stripped)" on the After panel, in the app's
+  own viewer (`Viewer2D.setResultsOverlay`). The text is not baked into the images.
+- **The Before panel carries the Boundaries lines, without labels or handles.** Keep
+  and Cut (dashed), the Wood Top and Metal Top guides (dotted), and the L and R lines
+  (blue). The axial view draws its L, R, Top and Bottom lines the same way. The lines
+  are on the Before panel only; the After panel shows the cropped result.
+- **Which lines.** A processed Results shows the lines it was processed with (the
+  `processed` Keep and Cut, the same as the AFTER); a raw scan shows the pending lines.
+  The "Lines changed" marker still flags a processed run whose pending lines moved.
+- **The Before of the longitudinal view is the original plane.** It was the stripped
+  plane, so the metal base never showed. The stripped plane is now only the After,
+  above the cut. The Before reads the same original planes as the axial frames.
+- **The baked annotations are gone.** The frames no longer carry the old text, the
+  track rectangle, or the cut dashes; the wood and metal contours stay, because the
+  legend names them. The cache version is 23, so processed payloads rebuild once.
+- Tests: `tests/test_results_crop.py` (the crop of the After panel),
   `tests/test_results_views.py` (the processed crop in the window, the predicted
-  longitudinal view from the worker, and the raw-scan axial box).
+  longitudinal view from the worker, and the raw-scan axial box), and
+  `tests/test_results_overlay.py` (the lines on the Before panel only, the two labels,
+  the original Before, and no baked job lines).
 
 ## 7a. The Boundaries preview: the slider and the AFTER panel
 
@@ -294,7 +309,7 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
 | Pre-process windows | `src/core/viewer_core.py`: `UNPROC_WIN`, `UNPROC_WOOD`, `_prev_source_unprocessed` |
 | Copy layer | `src/core/auto_snap.py`: `cut_target`, `detected_lines` |
 | Guide lines and labels on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` (guide labels on the Before panel, Keep and Cut on the After panel) |
-| Results view: L/R crop and the predicted view | `src/widgets/viewer_2d.py`: `crop_after_panel`; `src/main_window.py`: `_results_crop`, `_refresh_results_views` (load, Results tab, plane toggle), `_refresh_results_long`, `_on_results_long_ready`, `_update_axial_frame`, `_update_long_view` |
+| Results view: labels, Before lines, L/R crop and the predicted view | `src/widgets/viewer_2d.py`: `crop_after_panel`, `setResultsOverlay`, `_paint_results`, `_paint_panel_label`; `src/core/viewer_core.py`: `_axial_pair`, `_longitudinal` (Before = original planes), `annotate` flag on `_ortho_panel`, `_axial_orig`, `get_preview`; `src/main_window.py`: `_refresh_results_sync` (planes, L/R box, guides), `_results_crop`, `_refresh_results_views` (load, Results tab, plane toggle), `_refresh_results_long`, `_on_results_long_ready`, `_update_axial_frame`, `_update_long_view` |
 | Apply and the lines in the window | `src/main_window.py`: `_apply_and_process`, `_apply_auto_snap`, `_apply_payload_state` |
 | Registry: overrides | `src/core/custom_series.py`: `set_specimen_overrides` |
 | Export: Z range, X/Y crop, self-check | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_lateral_box_px`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
@@ -309,6 +324,8 @@ the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
   label panel (Before for the guides, After for Keep and Cut), and the layering by pixel.
 - `tests/test_results_crop.py`: the After panel crop of a Before | After image.
 - `tests/test_results_views.py`: the Results crop in the window and the predicted view.
+- `tests/test_results_overlay.py`: the Results overlay (lines on the Before panel only,
+  the labels on their panels) and the original Before of the longitudinal view.
 - `tests/test_axial_outline.py`: outline precision, the cache version and the
   pre-process window.
 - `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and a

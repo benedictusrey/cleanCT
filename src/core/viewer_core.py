@@ -49,7 +49,7 @@ except ImportError:                     # pragma: no cover
     from wood_bounds import wood_bounds
 
 _CACHE: dict[str, dict] = {}
-CACHE_VERSION = 22   # v22: payload bounds carry zb.metal_top; Results outlines are smooth (v21 caches are stale)
+CACHE_VERSION = 23   # v23: Results images carry no text or job lines (the app draws them); the Before longitudinal is the original volume (v22 caches are stale)
 ORTHO_CACHE_VERSION = 3
 # Generated viewer caches always live in the writable per-user state root:
 # %LOCALAPPDATA%\cleanCT\cache for installed builds, <checkout>\data\cache
@@ -500,7 +500,9 @@ def _draw_contours(img: Image.Image, mask: np.ndarray, scale: float,
 
 
 def _axial_pair(orig_sl: np.ndarray, strip_sl: np.ndarray, lo, hi, metal_lo,
-                roi_box, cfg, size: int = 460) -> Image.Image:
+                cfg, size: int = 460) -> Image.Image:
+    """Before | After axial frame.  Only the image and the wood and metal contours:
+    the labels, the L/R lines and the Keep/Cut lines are drawn by the app."""
     wood_m = _wood_mask(strip_sl, cfg)
     metal_m = np.isfinite(orig_sl) & (orig_sl > metal_lo)
     panels = []
@@ -523,25 +525,20 @@ def _axial_pair(orig_sl: np.ndarray, strip_sl: np.ndarray, lo, hi, metal_lo,
         _draw_contours(canvas, wood_m, sc, (255, 176, 32), 2, pw + 10)
     if metal_m.mean() > 0.001:
         _draw_contours(canvas, metal_m, sc, (255, 70, 60), 2, 0)
-    d = ImageDraw.Draw(canvas)
-    if roi_box:
-        y0, y1, x0, x1 = roi_box
-        for off in (0, pw + 10):
-            d.rectangle((x0 * sc + off, y0 * sc, x1 * sc + off, y1 * sc),
-                        outline=(255, 176, 32, 120), width=1)
-    d.text((10, 8), "ORIGINAL", fill=(185, 195, 210))
-    d.text((pw + 20, 8), "STRIPPED (platform removed)", fill=(255, 120, 110))
     return canvas
 
 
-def _longitudinal(sag: np.ndarray, cor: np.ndarray, cut_from: int,
-                  lo, hi, width: int = 980) -> tuple[Image.Image, Image.Image]:
-    """Build side-by-side Before/After cleaning longitudinal mid-plane images."""
+def _longitudinal(sag_o: np.ndarray, cor_o: np.ndarray, sag_s: np.ndarray, cor_s: np.ndarray,
+                  cut_from: int, lo, hi, width: int = 980) -> tuple[Image.Image, Image.Image]:
+    """Before | After mid-plane images, sagittal and coronal.
+
+    Before is the ORIGINAL planes (the metal base shows); After is the stripped planes
+    below the cut only.  No text and no lines: the app draws them over the image."""
     out = []
-    for sl in (sag, cor):
-        sl_orig = np.asarray(sl, np.float32)
-        # After cleaning: platform below cut slice is cleanly removed
-        sl_clean = np.where(np.arange(sl.shape[0])[:, None] < cut_from, sl_orig, np.nan)
+    for orig, strip in ((sag_o, sag_s), (cor_o, cor_s)):
+        sl_orig = np.asarray(orig, np.float32)
+        sl_clean = np.where(np.arange(sl_orig.shape[0])[:, None] < cut_from,
+                            np.asarray(strip, np.float32), np.nan)
 
         rgb_orig = _rgb(_u8(sl_orig, lo, hi))
         rgb_clean = _rgb(_u8(sl_clean, lo, hi))
@@ -552,15 +549,6 @@ def _longitudinal(sag: np.ndarray, cor: np.ndarray, cut_from: int,
         canvas = Image.new("RGB", (pw * 2 + 10, target_h), (13, 15, 20))
         canvas.paste(_frame_img(rgb_orig, pw), (0, 0))
         canvas.paste(_frame_img(rgb_clean, pw), (pw + 10, 0))
-
-        sc = target_h / sl.shape[0]
-        y = cut_from * sc
-        d = ImageDraw.Draw(canvas)
-        for off in (0, pw + 10):
-            for x in range(0, pw, 18):
-                d.line((x + off, y, x + 10 + off, y), fill=(255, 70, 60), width=3)
-        d.text((10, 8), "BEFORE (Original)", fill=(185, 195, 210))
-        d.text((pw + 20, 8), "AFTER (Stripped)", fill=(120, 220, 160))
         out.append(canvas)
     return out[0], out[1]
 
@@ -859,9 +847,6 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
     cut_from = int(report["platform"]["cut_from"])
     n_slices = int(report["meta"]["n_slices"])
     track = report.get("wood_roi", {}).get("track", {})
-    roi_box = ((track.get("y0"), track.get("y1"),
-                track.get("x0"), track.get("x1")) if track else None)
-
     strip = _proxy(sdir, "stripped")
     # window calibration from one real slice (disk order is (x, y, z))
     cal = np.asarray(strip[:, :, n_slices // 2], np.float32)
@@ -873,11 +858,13 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
      metal_from_strip, step) = _scan(strip, metal_lo)
     metal = _metal_points(ds, sample, cut_from, n_slices, step, metal_lo,
                           int(CLOUD_MAX_POINTS * 0.15))
+    # the ORIGINAL mid planes: the Before of the longitudinal view (the same reader
+    # the axial Before uses, so a failure here fails the frames too)
+    sag_o, cor_o, sagc_o, corc_o = _ortho_columns_cached(ds, sample, sdir)
     # Metal-anchored, air-refined wood bounds (metal priority: the ortho
     # columns anchor the base via the quorum slab test fused with the
     # pipeline detector anchor; air evidence pooled from all planes).
     try:
-        sag_o, cor_o, sagc_o, corc_o = _ortho_columns_cached(ds, sample, sdir)
         cfg = report.get("config", {})
         sp = (report.get("meta", {}).get("pixel_spacing_yx_mm") or [None])
         bounds = wood_bounds(ds, sample, n_slices=n_slices, cut_from=cut_from,
@@ -905,12 +892,12 @@ def _build_payload_locked(dataset: str, sample: str, use_disk: bool = True) -> d
                 continue
             img = _axial_pair(orig_map[z],
                               np.asarray(strip[:, :, z]).T,   # (x,y,z)->(y,x)
-                              lo, hi, metal_lo, roi_box,
+                              lo, hi, metal_lo,
                               report.get("config", {}))
             frames.append({"z": int(z), "png": _b64(img)})
         del orig_map
 
-    sag, cor = _longitudinal(sag_lines, cor_lines, cut_from, lo, hi)
+    sag, cor = _longitudinal(sag_o, cor_o, sag_lines, cor_lines, cut_from, lo, hi)
 
     cloud = {"wood": wood.astype(int).tolist(),
              "wood_vals": wood_vals.astype(int).tolist(),
@@ -1439,12 +1426,14 @@ def _ortho_columns_cached(ds, sample: str, sdir: Path,
 def _ortho_panel(orig_line, cut: int, margin: int,
                  keep_from: int, roi_z, lo, hi, metal_lo, z_line: int,
                  width: int, cmap: str = "spectral",
-                 cols: tuple[int, int] | None = None) -> Image.Image:
+                 cols: tuple[int, int] | None = None,
+                 annotate: bool = True) -> Image.Image:
     """ORIG | KEPT side-by-side ortho panel with cut / range annotations.
 
     The KEPT panel previews the delivery exactly: original slices between Keep
     and Cut, and columns inside the L/R box (`cols`, or all), as the bundle
-    will contain them."""
+    will contain them.  ``annotate=False`` leaves out the text and the marker
+    lines (the Results view draws them itself)."""
     orig_line = np.asarray(orig_line, np.float32)
     in_z = ((np.arange(orig_line.shape[0])[:, None] >= keep_from) &
             (np.arange(orig_line.shape[0])[:, None] < cut))
@@ -1465,43 +1454,46 @@ def _ortho_panel(orig_line, cut: int, margin: int,
     canvas = Image.new("RGB", (pw * 2 + 10, width), (13, 15, 20))
     for i, rgb in enumerate(panels):
         canvas.paste(_frame_img(rgb, pw), (i * (pw + 10), 0))
-    sc = width / h
-    d = ImageDraw.Draw(canvas)
-    for off in (0, pw + 10):
-        y = cut * sc
-        for x in range(0, pw, 18):
-            d.line((x + off, y, x + 10 + off, y), fill=(255, 70, 60), width=3)
-        if margin > 0:
-            ym = max(0, cut - margin) * sc
-            for x in range(0, pw, 14):
-                d.line((x + off, ym, x + 7 + off, ym), fill=(255, 176, 32),
-                       width=2)
-        if keep_from > 0:
-            yk = keep_from * sc
-            for x in range(0, pw, 14):
-                d.line((x + off, yk, x + 7 + off, yk), fill=(55, 214, 122),
-                       width=2)
-        if roi_z and roi_z[0] is not None:
-            y0, y1 = roi_z[0] * sc, (roi_z[1] + 1) * sc
-            for x in range(0, pw, 24):
-                d.line((x + off, y0, x + 8 + off, y0), fill=(55, 214, 122),
-                       width=1)
-                d.line((x + off, y1, x + 8 + off, y1), fill=(55, 214, 122),
-                       width=1)
-        yz = min(max(z_line, 0), h - 1) * sc
-        d.line((0, yz, pw, yz), fill=(79, 140, 255), width=1)
-    d.text((10, 8), "ORIGINAL", fill=(185, 195, 210))
-    d.text((pw + 20, 8), "KEPT (delivery range)", fill=(120, 220, 160))
+    if annotate:
+        sc = width / h
+        d = ImageDraw.Draw(canvas)
+        for off in (0, pw + 10):
+            y = cut * sc
+            for x in range(0, pw, 18):
+                d.line((x + off, y, x + 10 + off, y), fill=(255, 70, 60), width=3)
+            if margin > 0:
+                ym = max(0, cut - margin) * sc
+                for x in range(0, pw, 14):
+                    d.line((x + off, ym, x + 7 + off, ym), fill=(255, 176, 32),
+                           width=2)
+            if keep_from > 0:
+                yk = keep_from * sc
+                for x in range(0, pw, 14):
+                    d.line((x + off, yk, x + 7 + off, yk), fill=(55, 214, 122),
+                           width=2)
+            if roi_z and roi_z[0] is not None:
+                y0, y1 = roi_z[0] * sc, (roi_z[1] + 1) * sc
+                for x in range(0, pw, 24):
+                    d.line((x + off, y0, x + 8 + off, y0), fill=(55, 214, 122),
+                           width=1)
+                    d.line((x + off, y1, x + 8 + off, y1), fill=(55, 214, 122),
+                           width=1)
+            yz = min(max(z_line, 0), h - 1) * sc
+            d.line((0, yz, pw, yz), fill=(79, 140, 255), width=1)
+        d.text((10, 8), "ORIGINAL", fill=(185, 195, 210))
+        d.text((pw + 20, 8), "KEPT (delivery range)", fill=(120, 220, 160))
     return canvas
 
 
 def _axial_orig(orig_sl: np.ndarray, lo, hi, metal_lo,
                 size: int = 480, cmap: str = "spectral",
                 is_kept: bool = True,
-                box: tuple[int, int, int, int] | None = None) -> Image.Image:
+                box: tuple[int, int, int, int] | None = None,
+                annotate: bool = True) -> Image.Image:
     """Axial slice side-by-side: BEFORE (Original) | AFTER (Kept / Clean preview).
 
-    ``box`` = (y0, y1, x0, x1) is the L/R box; the AFTER panel shows only inside it."""
+    ``box`` = (y0, y1, x0, x1) is the L/R box; the AFTER panel shows only inside it.
+    ``annotate=False`` leaves out the two panel labels."""
     orig_sl = np.asarray(orig_sl, np.float32)
     inside = np.ones(orig_sl.shape, bool)
     if box is not None:
@@ -1522,10 +1514,11 @@ def _axial_orig(orig_sl: np.ndarray, lo, hi, metal_lo,
     canvas.paste(_frame_img(rgb_orig, pw), (0, 0))
     canvas.paste(_frame_img(rgb_clean, pw), (pw + 10, 0))
 
-    d = ImageDraw.Draw(canvas)
-    d.text((10, 8), "BEFORE (Original)", fill=(185, 195, 210))
-    d.text((pw + 20, 8), "AFTER (Delivery Kept)" if is_kept else "AFTER (Platform Removed)",
-           fill=(120, 220, 160) if is_kept else (255, 120, 110))
+    if annotate:
+        d = ImageDraw.Draw(canvas)
+        d.text((10, 8), "BEFORE (Original)", fill=(185, 195, 210))
+        d.text((pw + 20, 8), "AFTER (Delivery Kept)" if is_kept else "AFTER (Platform Removed)",
+               fill=(120, 220, 160) if is_kept else (255, 120, 110))
     return canvas
 
 
@@ -1537,13 +1530,14 @@ def get_preview(dataset: str, sample: str, cut: int | None = None,
                 lo: float | None = None,
                 hi: float | None = None,
                 pos: int | None = None,
-                lateral: dict | None = None) -> dict:
+                lateral: dict | None = None,
+                annotate: bool = True) -> dict:
     """Thread-safe facade over _get_preview_locked (shared cache mutation)."""
     with LOCK:
         return _get_preview_locked(
             dataset, sample, cut=cut, margin=margin, keep_from=keep_from,
             plane=plane, z=z, width=width, cmap=cmap, lo=lo, hi=hi,
-            pos=pos, lateral=lateral)
+            pos=pos, lateral=lateral, annotate=annotate)
 
 
 def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
@@ -1554,7 +1548,8 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
                         lo: float | None = None,
                         hi: float | None = None,
                         pos: int | None = None,
-                        lateral: dict | None = None) -> dict:
+                        lateral: dict | None = None,
+                        annotate: bool = True) -> dict:
     """Preferences-tab preview: original reconstruction in requested colormap
     with the requested cut / collection-range geometry drawn. ``pos`` is the
     scrubbed position of the plane: X for sagittal, Y for coronal, Z for axial.
@@ -1586,7 +1581,7 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
         is_kept = (keep_from <= zi < cut)
         box = _lateral_box(lateral, orig_map[zi].shape)
         img = _axial_orig(orig_map[zi], win_lo, win_hi, src["metal_lo"], cmap=cmap,
-                          is_kept=is_kept, box=box)
+                          is_kept=is_kept, box=box, annotate=annotate)
         return {"plane": "axial", "z": zi, "n_slices": n, "span": n,
                 "png": _b64(img), "cut": cut, "margin": margin,
                 "keep_from": keep_from, "detected_cut": src.get("detected_cut", cut),
@@ -1618,7 +1613,8 @@ def _get_preview_locked(dataset: str, sample: str, cut: int | None = None,
         z = keep_from + max(0, (cut - keep_from) // 2)
     z = int(max(0, min(n - 1, z)))
     img = _ortho_panel(line_o, cut, margin, keep_from, src["roi_z"],
-                       win_lo, win_hi, src["metal_lo"], z, width, cmap=cmap, cols=cols)
+                       win_lo, win_hi, src["metal_lo"], z, width, cmap=cmap, cols=cols,
+                       annotate=annotate)
     return {"plane": plane, "z": z, "n_slices": n, "span": span, "pos": pos,
             "png": _b64(img),
             "cut": cut, "margin": margin, "keep_from": keep_from,

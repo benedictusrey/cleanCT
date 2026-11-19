@@ -1243,6 +1243,7 @@ class MainWindow(QMainWindow):
 
         self.axial_viewer = Viewer2D()
         self.axial_viewer.setGuideEnabled(False)
+        self.axial_viewer.setResultsOverlay(True)
         axial_box.addWidget(self.axial_viewer, 1)
 
         # Axial Scrubber
@@ -1287,6 +1288,7 @@ class MainWindow(QMainWindow):
 
         self.long_viewer = Viewer2D()
         self.long_viewer.setGuideEnabled(False)
+        self.long_viewer.setResultsOverlay(True)
         long_box.addWidget(self.long_viewer, 1)
         m2d_layout.addLayout(long_box, 1)
 
@@ -2973,7 +2975,8 @@ class MainWindow(QMainWindow):
             img = viewer_core._axial_orig(
                 arr, lo, hi, viewer_core.UNPROC_WIN[2],
                 cmap="grayscale", is_kept=(self.pref_keep <= zi < self.pref_cut),
-                box=viewer_core._lateral_box(self.pref_viewer.axisBounds(), arr.shape))
+                box=viewer_core._lateral_box(self.pref_viewer.axisBounds(), arr.shape),
+                annotate=False)
             pm = _b64_to_pixmap(viewer_core._b64(img))
             self.axial_viewer.setPixmap(pm, n)
             self.lbl_axial_z.setText(f"z={zi}")
@@ -3040,7 +3043,8 @@ class MainWindow(QMainWindow):
         worker = WorkerThread(
             viewer_core.get_preview, self.dataset, self.sample, cut=self.pref_cut,
             margin=self.pref_margin, keep_from=self.pref_keep, plane=self.long_view,
-            width=640, cmap=self.pref_cmap, lo=self.pref_lo, hi=self.pref_hi, lateral=lat)
+            width=640, cmap=self.pref_cmap, lo=self.pref_lo, hi=self.pref_hi, lateral=lat,
+            annotate=False)
         worker.generation = self._results_long_gen
         worker.succeeded.connect(self._on_results_long_ready)
         self._results_workers = [w for w in self._results_workers if w.isRunning()] + [worker]
@@ -3596,10 +3600,16 @@ class MainWindow(QMainWindow):
         done = self._processed_lines()
         cut, keep = done if done is not None else (self.pref_cut, self.pref_keep)
         n = self._payload_slices()
+        lat = self.pref_viewer.axisBounds()          # the L/R box, as the AFTER crop uses it
+        zb = ((self.payload or {}).get("bounds") or {}).get("zb")
+        self.axial_viewer.setPlane("axial")
+        self.long_viewer.setPlane(self.long_view)
         for viewer in (self.axial_viewer, self.long_viewer):
             viewer.setSliceCount(n)
             viewer.setCut(cut)
             viewer.setKeep(keep)
+            viewer.setAxisBounds(lat)
+        self.long_viewer.setAutoZ(zb)                # the Wood Top and Metal Top guides
         stale = done is not None and done != (self.pref_cut, self.pref_keep)
         self.lbl_results_stale.setVisible(stale)
         if stale:

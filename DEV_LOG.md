@@ -832,6 +832,39 @@ Findings (audit, read-only on the user's 2_666_5 data):
   ("untrusted mount point"). They do not fail the run. Not yet traced to a test; the cause is
   unchecked on HEAD.
 
+### 2.22 [2026-11-19] Results: app-drawn labels, the Before lines, and the original Before
+
+- **Investigated with the real 2-5 processed run** (its registry, outputs and source junction,
+  in a scratch state folder so the user's cache was not touched).
+- **Bug: the longitudinal Before was the stripped plane.** `_longitudinal` received the stripped
+  planes for both panels, so the metal base never showed and the Before matched the After. The
+  Before now reads the original planes, the same reader as the axial frames. Measured: on 2-5 the
+  stripped plane is NaN above z 410, while the original holds 224 to 12 278 HU there.
+- **Bug: the AFTER crop erased its own label.** The labels were baked into the PNGs, and the
+  L/R crop painted over them ("ER (Stripped)"). The labels are now drawn by the viewer
+  (`Viewer2D.setResultsOverlay`), in front of the image, as "BEFORE (Original)" and
+  "AFTER (Stripped)".
+- **Missing: the Before panel had no lines.** The Results viewers had their guides off. The
+  overlay now draws the Boundaries lines on the Before panel only (no handles, no line labels):
+  Keep and Cut (dashed), Wood Top and Metal Top (dotted), and L and R (blue). The axial view draws
+  L, R, Top and Bottom the same way.
+- **Which lines on Results.** A processed Results uses the processed Keep and Cut (the lines the
+  AFTER shows); a raw scan uses the pending lines. On 2-5 the processed cut is 402, while the
+  pending cut is 405, so the Before shows 402 and the header shows 405. The "Lines changed" marker
+  flags this. Open: the header's Cut slice and Kept range still show the pending values.
+- **Removed from the PNGs:** the old text, the track rectangle (it read as a second L/R box), and
+  the baked cut dashes. The wood and metal contours stay, because the legend names them. The
+  `annotate` flag keeps the Boundaries previews as they were. Cache version 23, so each processed
+  payload rebuilds once on first load.
+- **Checked:** the axial AFTER crop was correct (its content spans the L/R box), so it was not
+  changed. The coronal toggle and the predicted raw-scan view were rendered and read correctly.
+- Tests: `tests/test_results_overlay.py` (new; 9 checks: the lines on the Before only, the two
+  labels, the axial lines, the original Before, no baked cut line).
+- Gate: PASS (36 files). UI audit (fresh folder): 370 steps, 0 findings. Release rebuilt: the
+  build's gate PASS and launcher `--selfcheck` PASS; the extracted portable `cleanCT.exe --selfcheck`
+  exit 0. SHA-256: setup `e4849d975a44af6b7c06f88e5ac0e3064497c833694dbac9e177edbc1fad7867`,
+  portable `6bc6fa04dbb52800877315790420e79d3f3324b97185ac5ce4ca8cd2e559ddd4`.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen
