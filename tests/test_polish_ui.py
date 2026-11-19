@@ -92,8 +92,8 @@ check("the export path does not wrap", not window.lbl_export_dest.wordWrap())
 # --- activity: one line, sentence case --------------------------------------------
 window._log_action("test message for the activity line")
 check("activity lines start with a capital letter",
-      window.lbl_log_last.text()[-len("Test message for the activity line"):]
-      == "Test message for the activity line", window.lbl_log_last.text())
+      window.lbl_log_last.toolTip().endswith("Test message for the activity line"),
+      window.lbl_log_last.toolTip())   # the label is elided to its width; the tooltip keeps the line
 check("the activity line is one line", not window.lbl_log_last.wordWrap())
 
 # --- copy: sentence case, en dashes, no leading lower-case words ------------------
