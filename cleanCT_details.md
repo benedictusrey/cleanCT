@@ -1,6 +1,6 @@
 # cleanCT 1.0.0: implementation details
 
-This document explains how cleanCT 1.0.0 is built and how each part works: loading a scan, finding the guide lines, the Boundaries and Results views, processing, export, checkpoints, the installer and the tests. It describes the code after the export and margin fixes that follow commit a88a2e5 (branch ui/full-view-redesign, 2026-11-19), with the processing engine at metal_remover commit 2a53ba6.
+This document explains how cleanCT 1.0.0 is built and how each part works: loading a scan, finding the guide lines, the Boundaries and Results views, processing, export, checkpoints, the installer and the tests. It describes the released 1.0.0 code at commit a60e8b9 (branch ui/full-view-redesign, 2026-11-19), with the processing engine at metal_remover commit 2a53ba6.
 
 Where a number was measured on a real specimen in an earlier round, the text says so. The history of each round is in DEV_LOG.md.
 
@@ -690,10 +690,10 @@ Each publish step keeps the previous file until the new one is in place, and rol
 
 ### 16.4 Release 1.0.0
 
-Built from the code at commit a88a2e5. The engine is at 2a53ba6.
+Rebuilt 2026-11-19 from the code at commit a60e8b9. The engine is at 2a53ba6.
 
-- Portable ZIP SHA-256: 45a7f4f173bca1ca21bc4697493be00d79d73633320a7e693aabff011b738c71
-- Setup SHA-256: 8f89450ae25b3b2e9ddf5b4d1f9fce8a4eaaab0700946fb0b346726fbad280d5
+- Portable ZIP SHA-256: 023835bdb5b17c5d6d6eff23a4d05454afe5330b8298a0fa8d03f4c21c51944a
+- Setup SHA-256: c03cb66c33893465eb186e1b6a76a366f95722777da97e45d289b9b17ca3e55a
 
 For this release, the regression gate (37 suites) and the build's gate passed, the launcher self-check passed, and the extracted portable cleanCT.exe --selfcheck exited with 0 (DEV_LOG 2.24). The application sources in the package were compared with the checkout in section 17.4.
 
@@ -746,7 +746,7 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 
 - main.py; src\ (every module); assets\app.ico, assets\app_icon_256.png and assets\icons\ (the production icon pack, README excluded); engine\ (the six engine modules from metal_remover); installer\ (the build script, the launcher source, cleanct.iss, setup_env.ps1 and README_INSTALLER.txt); tests\ (every suite and tool at the top level of tests\, plus run_cleanct_regressions.ps1).
 - Not included: the release folders, the installer outputs, the test interpreter, screenshots, the data folder, the caches, and the documents.
-- The copy is the 1.0.0 snapshot at a88a2e5. It does not include the export and margin fixes. CHECKPOINT.txt records the commits and the release hashes. SHA256SUMS.txt lists the SHA-256 of every file in the copy.
+- The copy is the released 1.0.0 code at a60e8b9. CHECKPOINT.txt records the commits and the release hashes. SHA256SUMS.txt lists the SHA-256 of every file in the copy.
 - The copy is not runnable as a whole. The gate and the build expect the checkout layout, with the engine in a folder beside the checkout. The self-check runs from the copy when CLEANCT_ENGINE points at engine\.
 
 ### 17.4 Verification of the copy
