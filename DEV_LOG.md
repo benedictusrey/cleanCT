@@ -647,8 +647,12 @@ Open items and deliberate deviations:
 - Gate: `tests/run_cleanct_regressions.ps1` PASS (30 files, the four new tests included).
   `tests/ui_probe.py`: no findings. The probe needs its export folder cleared first; a left-over
   bundle raises the replace prompt, which the probe cannot answer.
-- Release: not rebuilt this round. The installed copy still has the old dialog code, and
-  PyInstaller 6.22.2 is not in the test venv.
+- Release rebuilt with `installer/build_installer.py` (PyInstaller 6.22.2 from the anaconda
+  base, Inno Setup 6). The build gate, the launcher health check and the extracted portable's
+  health check all pass. Release SHA-256: setup `8931ec815e4b57dc7710b23c857096f96b6be81c2132760a52148279a75a2fff`,
+  portable `c11ac0667caa6b042d2a04099028c768bd495291d1c5e98c78106cef4738af03`.
+  The `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy
+  was refreshed from the new ZIP.
 
 ## 3. Current Known Bug (As of Now)
 
