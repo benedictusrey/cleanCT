@@ -542,7 +542,7 @@ class MainWindow(QMainWindow):
 
         # Detection guides: the payload carries the pre-process bounds
         # (same shared detection the previews use).  Auto-place Keep ≡ air
-        # top, Cut ≡ metal top exactly like a processed load, plus the
+        # top, Cut ≡ halo onset exactly like a processed load, plus the
         # lateral Y/X envelope.
         self._wood_bounds = None
         self._wood_bounds_raw = None
@@ -581,8 +581,10 @@ class MainWindow(QMainWindow):
                 zg += f", air top z {zbg['keep']}"
             else:
                 zg += ", air top deferred (edge not clear)"
+            if zbg.get("metal_top") is not None:
+                zg += f", metal top z {zbg['metal_top']}"
             if zbg.get("cut") is not None:
-                zg += f", metal top z {zbg['cut']}"
+                zg += f", halo onset z {zbg['cut']}"
             if b.get("voxel_um"):
                 zg += f" @ {b['voxel_um']:.1f} µm"
             self._log_action(
@@ -1213,6 +1215,11 @@ class MainWindow(QMainWindow):
         lbl_ax_title = QLabel("Axial: original and stripped")
         theme.set_role(lbl_ax_title, "section")
         ax_head.addWidget(lbl_ax_title)
+        # shown while the pending lines differ from the processed run
+        self.lbl_results_stale = QLabel("Lines changed")
+        theme.set_role(self.lbl_results_stale, "pill-warn")
+        self.lbl_results_stale.setVisible(False)
+        ax_head.addWidget(self.lbl_results_stale)
         ax_head.addStretch()
         lbl_legend = self._keyed(QLabel(), lambda: (
             f"{key_swatch('wood', 'wood ROI')}  {key_swatch('metal', 'metal')}"))
@@ -2848,7 +2855,7 @@ class MainWindow(QMainWindow):
                 self.pref_viewer.setAutoZ(b.get("zb") or None)
                 # Auto Snap to Detection (audit 0AG): the copy layer puts
                 # the job lines onto the detected edges: Keep ≡ air top
-                # (wood top when the air top deferred), Cut ≡ metal top,
+                # (wood top when the air top deferred), Cut ≡ halo onset,
                 # both lateral pairs ≡ the detected envelope.  Toggle OFF
                 # leaves manual lines untouched (neutral 15/85 pairs so no
                 # stale values leak between specimens).
@@ -2879,8 +2886,10 @@ class MainWindow(QMainWindow):
                     zg += f", air top z {zbg['keep']}"
                 else:
                     zg += ", air top deferred (edge not clear)"
+                if zbg.get("metal_top") is not None:
+                    zg += f", metal top z {zbg['metal_top']}"
                 if zbg.get("cut") is not None:
-                    zg += f", metal top z {zbg['cut']}"
+                    zg += f", halo onset z {zbg['cut']}"
                 if vx:
                     zg += f" @ {vx:.1f} µm"
                 ev = b.get("evidence") or {}
@@ -2930,7 +2939,8 @@ class MainWindow(QMainWindow):
                 self.lbl_axial_z.setText(f"z={z}")
                 data_url = frame.get("png", "")
                 pm = _b64_to_pixmap(data_url)
-                self.axial_viewer.setPixmap(pm, self.payload.get("n_slices", 100))
+                self.axial_viewer.setPixmap(pm, self._payload_slices())
+                self._refresh_results_sync()
             return
         # Unprocessed specimen: scrub the RAW scan: one source slice per
         # position, rendered on demand (nothing here needs report.json or
@@ -2954,6 +2964,7 @@ class MainWindow(QMainWindow):
             pm = _b64_to_pixmap(viewer_core._b64(img))
             self.axial_viewer.setPixmap(pm, n)
             self.lbl_axial_z.setText(f"z={zi}")
+            self._refresh_results_sync()
         except Exception:
             pass
 
@@ -2972,7 +2983,8 @@ class MainWindow(QMainWindow):
             return
         data_url = self.payload.get(self.long_view, "")
         pm = _b64_to_pixmap(data_url)
-        self.long_viewer.setPixmap(pm, self.payload.get("n_slices", 100))
+        self.long_viewer.setPixmap(pm, self._payload_slices())
+        self._refresh_results_sync()
 
     @staticmethod
     def _set_row_visible(row_layout, visible: bool):
@@ -3170,7 +3182,7 @@ class MainWindow(QMainWindow):
         """Snap the interactive Keep/Cut lines onto the detected edges.
 
         Same mapping as the load-time auto-place (Keep ≡ air top,
-        Cut ≡ metal top); a fog-deferred air top falls back to the
+        Cut ≡ halo onset); a fog-deferred air top falls back to the
         detected wood top so the top line always lands on detection
         evidence.  A no-op dialog appears only when the specimen has no
         detection evidence at all.
@@ -3468,7 +3480,41 @@ class MainWindow(QMainWindow):
         theme.set_role(self.lbl_export_status, "status-error")
         return True
 
+    def _payload_slices(self) -> int:
+        p = self.payload or {}
+        return int((p.get("report") or {}).get("n_slices") or p.get("n_slices") or 100)
+
+    def _processed_lines(self) -> tuple[int, int] | None:
+        """(cut, keep) of the processed run on show; None for a raw scan."""
+        p = self.payload or {}
+        rep = p.get("report") or {}
+        if not p or p.get("unprocessed") or rep.get("cut_from") is None:
+            return None
+        return int(rep["cut_from"]), int(rep.get("keep_from") or 0)
+
+    def _refresh_results_sync(self) -> None:
+        """Results draw the lines that were processed; a raw scan draws the
+        pending lines, as the AFTER panel does.  The marker flags a processed
+        run whose pending lines have moved since."""
+        if not self.payload:
+            self.lbl_results_stale.setVisible(False)
+            return
+        done = self._processed_lines()
+        cut, keep = done if done is not None else (self.pref_cut, self.pref_keep)
+        n = self._payload_slices()
+        for viewer in (self.axial_viewer, self.long_viewer):
+            viewer.setSliceCount(n)
+            viewer.setCut(cut)
+            viewer.setKeep(keep)
+        stale = done is not None and done != (self.pref_cut, self.pref_keep)
+        self.lbl_results_stale.setVisible(stale)
+        if stale:
+            self.lbl_results_stale.setToolTip(
+                f"Results show the processed lines (cut {done[0]}, keep {done[1]}). "
+                "Apply and process to update them.")
+
     def _update_range_summary(self):
+        self._refresh_results_sync()
         if not self.payload:
             self.lbl_range_summary.setText("Load a specimen to adjust cut lines.")
             theme.set_role(self.lbl_range_summary, "secondary")
@@ -3961,7 +4007,7 @@ class MainWindow(QMainWindow):
             else:
                 # No user edits: deliver the freshly DETECTED lines: the
                 # same values the GUI auto-places after processing (Keep ≡
-                # air top, Cut ≡ metal top).  Sliders captured at click time
+                # air top, Cut ≡ halo onset).  Sliders captured at click time
                 # could be stale here (a specimen whose pre-process
                 # detection deferred still holds whole-scan defaults, and a
                 # fresh registration holds another specimen's lines).  The

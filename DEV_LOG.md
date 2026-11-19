@@ -618,6 +618,38 @@ Open items and deliberate deviations:
 - Commit `b384b0f`. Release SHA-256: setup `065decad4b4f241b57f810024f9237b757801eaf409f3a9e7ddbe12baf029a34`,
   portable `e3db81fc1154ec8f30431013e0b439450397c2a39b4b3e3895ce022860e639f3`.
 
+### 2.15 [2026-11-19] Audit round: metal-top guide, Results sync, About close button
+
+- **The orange "metal top" line was the halo onset.** It drew `zb.cut` (353 on 2-5), so it
+  sat 52 slices above the physical metal top (405, the line the user checks). Fix:
+  `wood_bounds` returns `zb.metal_top` (the detector anchor, else the ortho base top). The
+  viewer draws it as "metal top N" (orange, right side) and draws the halo onset as
+  "halo onset N" (violet). The cut value does not change. Tests: `tests/test_auto_z_guides.py`,
+  `tests/test_bounds_v2.py`.
+- **Results did not match Boundaries.** The Results axial and longitudinal viewers never got
+  the processed lines. They drew the widget defaults (cut 50, keep 0) and scaled to 100
+  slices, so a 428-slice scan was mapped wrongly. Fix: Results draw the processed cut and keep
+  from `report.json`, at the real slice count. A raw scan draws the pending lines. When the
+  pending lines move away from the processed run, a "Lines changed" pill shows, and its tooltip
+  gives the processed values. The AFTER panel keeps showing the pending lines, by design.
+  Test: `tests/test_results_sync.py`.
+- **The X button was missing on About, Load and Properties.** `windowFlags() & ~Qt.WindowContextHelpButtonHint`
+  clears every high flag bit in PySide6, and the close hint is one of them. Fix:
+  `setWindowFlag(Qt.WindowContextHelpButtonHint, False)`. Test: `tests/test_dialog_close.py`
+  (X, Escape and each dialog's own button all close it).
+- **Harness:** the "Open checkpoint (saved file)" step expected no prompt when Save was
+  disabled. It now expects the missing-file prompt in that case. `tests/ui_audit.py`: 402
+  steps, 0 findings.
+- **Comments:** the copy-layer comments that said "Cut ≡ metal top" now say "Cut ≡ halo onset".
+- **Open, not changed:** on specimen 2-5 the ortho base run starts at 238 (`bounds.anchor.z`),
+  while the detector anchor is 405. The base-run choice sits in the frozen detection core, so
+  the guide uses the detector anchor and the base evidence is left as it is.
+- Gate: `tests/run_cleanct_regressions.ps1` PASS (30 files, the four new tests included).
+  `tests/ui_probe.py`: no findings. The probe needs its export folder cleared first; a left-over
+  bundle raises the replace prompt, which the probe cannot answer.
+- Release: not rebuilt this round. The installed copy still has the old dialog code, and
+  PyInstaller 6.22.2 is not in the test venv.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

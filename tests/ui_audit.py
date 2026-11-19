@@ -220,10 +220,15 @@ def controls_for_state(window, label: str):
         if home[0] and (window.dataset, window.sample) != home:
             window._select_sample(*home)
             wait_idle(window)
+    saved = TMP / "saved.ctcheckpoint.json"
+    saved.unlink(missing_ok=True)
     s("Save checkpoint", lambda: click(window.btn_save_checkpoint),
       expect=not window.btn_save_checkpoint.isEnabled())
-    s("Open checkpoint (saved file)", lambda: (picked.update(open=str(TMP / "saved.ctcheckpoint.json")),
-                                              click(window.btn_load_checkpoint)))
+    # Open can only read a file that Save wrote; without one the missing-file
+    # prompt is the expected outcome, not a finding
+    s("Open checkpoint (saved file)", lambda: (picked.update(open=str(saved)),
+                                              click(window.btn_load_checkpoint)),
+      expect=not saved.exists())
 
     # --- activity -----------------------------------------------------------------
     s("activity: show", lambda: click(window.btn_log_toggle))

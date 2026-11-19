@@ -797,7 +797,7 @@ def wood_bounds(ds, sample: str, *, n_slices: int, cut_from: int,
     Keys::
 
         {"y0","y1","x0","x1","H","W","n",
-         "zb": {"keep": int|None, "cut": int|None,
+         "zb": {"keep": int|None, "cut": int|None, "metal_top": int|None,
                 "wood_top": int, "wood_bottom": int, "top_ok": bool},
          "anchor": {"ok": bool, "z": [top, bottom] | None,
                     "guard_applied": bool, "source": str},
@@ -809,7 +809,9 @@ def wood_bounds(ds, sample: str, *, n_slices: int, cut_from: int,
     scanned range or the edge is foggy) and ``zb.cut`` the bottom-metal
     line — the pipeline's detected halo onset (``det_cut``, the physical
     "metal threshold" cut) when known, else the base top, else one slice
-    past the wood bottom.  ``voxel_um`` drives the adaptive scale;
+    past the wood bottom.  ``zb.metal_top`` is the physical metal top (the
+    detector anchor, else the base top): its own guide, never the cut.
+    ``voxel_um`` drives the adaptive scale;
     ``wood_hu`` restricts the wood class.  ``slice_provider`` overrides
     the default cached source-slice reader (used by synthetic
     scale-invariance tests).  ``det_anchor`` fuses the pipeline's bottom
@@ -1051,6 +1053,15 @@ def wood_bounds(ds, sample: str, *, n_slices: int, cut_from: int,
         zb_cut = int(anchor_z[0])
     else:
         zb_cut = min(n, wood_bottom + 1)
+    # physical metal top: the pipeline's detector anchor (the line the user
+    # checks against the metal base), else the ortho base top.  Its own guide
+    # line, never the cut: the cut keeps its halo-onset meaning.
+    if det_anchor is not None:
+        zb_metal_top = int(det_anchor)
+    elif anchor_z is not None:
+        zb_metal_top = int(anchor_z[0])
+    else:
+        zb_metal_top = None
 
     # ---- lateral envelope: pooled vertical projection of the wood core ----
     # The projection hugs the dense wood (fog blankets sit at the window's
@@ -1129,7 +1140,7 @@ def wood_bounds(ds, sample: str, *, n_slices: int, cut_from: int,
     return {
         "y0": y0, "y1": y1, "x0": x0, "x1": x1,
         "H": H, "W": W, "n": n,
-        "zb": {"keep": zb_keep, "cut": zb_cut,
+        "zb": {"keep": zb_keep, "cut": zb_cut, "metal_top": zb_metal_top,
                "wood_top": wood_top, "wood_bottom": wood_bottom,
                "top_ok": zb_keep is not None},
         "anchor": {"ok": anchor_z is not None,

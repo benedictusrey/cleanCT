@@ -17,7 +17,8 @@ class LoadDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Load Custom Volume")
         self.setFixedSize(610, 360)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        # single-flag call: a flag mask would also drop the close (X) button
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
 
         self.folder_path: str = ""
         self.specimen_id: str = ""

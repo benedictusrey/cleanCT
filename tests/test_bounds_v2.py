@@ -215,6 +215,20 @@ check("det_cut: cut guide == detector halo onset (not the base top)",
       b3 is not None and b3["zb"]["cut"] == 262, str(b3 and b3["zb"]))
 check("det_cut: anchor evidence still carries the base top",
       b3 is not None and b3["anchor"]["z"][0] == 279, str(b3 and b3["anchor"]))
+# the physical metal top is its own guide: it must sit on the detector anchor,
+# never on the halo-onset cut (a drawn "metal top" line used to show the cut)
+check("det_cut: zb carries the physical metal top at the detector anchor",
+      b3 is not None and b3["zb"].get("metal_top") == 279, str(b3 and b3["zb"]))
+# the detector anchor wins over the ortho base top: on specimen 2-5 the base
+# run starts at 238 while the detector anchor (the line the user checks) is 405
+b4 = wb.wood_bounds(
+    None, "syn", n_slices=N_SLICES, cut_from=CUT_FROM, sag=sag, cor=cor,
+    metal_hu=METAL_HU, track_z=(0, CUT_FROM - 1), voxel_um=25.0,
+    wood_hu=(WOOD_LO, WOOD_HI), slice_provider=make_provider(25.0),
+    det_anchor=281, det_cut=262)
+check("metal top is the detector anchor even inside a longer base run",
+      b4 is not None and b4["zb"].get("metal_top") == 281
+      and b4["anchor"]["z"][0] == 279, str(b4 and (b4["zb"], b4["anchor"])))
 
 # ---------------------------------------------------------------------------
 # 3. top-air clearance gate (Keep line)

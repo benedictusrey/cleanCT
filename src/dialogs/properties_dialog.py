@@ -30,7 +30,8 @@ class SpecimenPropertiesDialog(QDialog):
         self.setWindowTitle(f"Properties: {name}")
         self.setModal(True)
         self.setMinimumWidth(580)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        # single-flag call: a flag mask would also drop the close (X) button
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
 
         rows = [
             _row("Specimen", f"<b>{name}</b>"),

@@ -44,7 +44,8 @@ class AboutDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("About cleanCT")
         self.setFixedWidth(600)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        # single-flag call: a flag mask would also drop the close (X) button
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(30, 26, 30, 22)

@@ -129,15 +129,44 @@ class Viewer2D(QWidget):
             self._y0, self._y1 = self._axis_pairs["y"]
         self.update()
 
-    def setAutoZ(self, zb: dict | None):
-        """Adopt auto z-guides {"keep": int|None, "cut": int|None}.
+    # colour per guide kind: air/wood edges green, metal top orange (the
+    # physical base), halo onset violet (the cut the pipeline makes)
+    _GUIDE_COLORS = {"wood": "#37d67a", "air": "#37d67a",
+                     "metal": "#ff9f43", "halo": "#b48cff"}
 
-        Reference lines only: they visualise where the metal-anchored
-        air/wood edges landed so the user can compare them with the job
-        Keep/Cut lines before applying.  ``None`` clears the guides.
+    def setAutoZ(self, zb: dict | None):
+        """Adopt auto z-guides from the wood-bounds ``zb`` payload.
+
+        Keys: ``keep`` (air top), ``wood_top``, ``metal_top`` (physical
+        metal top, the detector anchor) and ``cut`` (halo onset).  Reference
+        lines only: they show where the metal-anchored edges landed so the
+        user can compare them with the job Keep/Cut lines before applying.
+        ``None`` clears the guides.
         """
         self._auto_z = zb or None
         self.update()
+
+    def _auto_z_guides(self) -> list[tuple[str, int, str]]:
+        """The guides to draw as (kind, slice, label).
+
+        The metal top and the halo onset are separate slices and are never
+        labelled as each other.  A wood top shows only while the air top is
+        deferred (foggy edge), so Snap's fallback target stays visible.
+        """
+        z = self._auto_z or {}
+        out: list[tuple[str, int, str]] = []
+        keep, wood_top = z.get("keep"), z.get("wood_top")
+        if keep is None and wood_top is not None:
+            out.append(("wood", int(wood_top), f"wood top {int(wood_top)}"))
+        if keep is not None:
+            out.append(("air", int(keep), f"air top {int(keep)}"))
+        if z.get("metal_top") is not None:
+            mt = int(z["metal_top"])
+            out.append(("metal", mt, f"metal top {mt}"))
+        if z.get("cut") is not None:
+            hc = int(z["cut"])
+            out.append(("halo", hc, f"halo onset {hc}"))
+        return out
 
     def setLeft(self, left_pct: int):
         f = max(0.0, min(1.0, float(left_pct) / 100.0))
@@ -389,61 +418,36 @@ class Viewer2D(QWidget):
             painter.setPen(QColor("#4f8cff"))
             painter.drawText(badge_r, Qt.AlignCenter, f"R {int(self._x1*100)}%")
 
-        # ---------------- Auto z-guides (air top / metal base, dotted) ------
+        # ---------------- Auto z-guides (air top / metal top / halo onset) ----
         # Drawn beneath the interactive Keep/Cut lines so the job lines and
         # their handles stay fully visible; a guide only appears when its
         # slice is inside the displayed z-range.
         if self._auto_z and self._guide_enabled:
-            zk = self._auto_z.get("keep")
-            zc = self._auto_z.get("cut")
-            zw = (self._auto_z.get("wood_top")
-                  if zk is None else None)
             painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
-            if zw is not None:
-                # air top deferred (foggy edge): still show the detected
-                # wood-top evidence so Snap's fallback target is visible
-                y_w = self._slice_to_y(int(zw), img_rect)
-                if img_rect.top() - 6 <= y_w <= img_rect.bottom() + 6:
-                    painter.setPen(QPen(QColor("#37d67a"), 1, Qt.DotLine))
-                    painter.drawLine(QPointF(img_rect.left(), y_w),
-                                     QPointF(img_rect.right(), y_w))
-                    painter.setBrush(QColor(18, 22, 30, 200))
-                    painter.setPen(QPen(QColor("#37d67a"), 1))
-                    wb = QRectF(img_rect.left() + 6, y_w - 9, 86, 18)
-                    painter.drawRoundedRect(wb, 4, 4)
-                    painter.setPen(QColor("#37d67a"))
-                    painter.drawText(wb, Qt.AlignCenter, f"wood top {int(zw)}")
-            if zk is not None:
-                y_a = self._slice_to_y(int(zk), img_rect)
-                if img_rect.top() - 6 <= y_a <= img_rect.bottom() + 6:
-                    painter.setPen(QPen(QColor("#37d67a"), 1, Qt.DotLine))
-                    painter.drawLine(QPointF(img_rect.left(), y_a),
-                                     QPointF(img_rect.right(), y_a))
-                    painter.setBrush(QColor(18, 22, 30, 200))
-                    painter.setPen(QPen(QColor("#37d67a"), 1))
-                    ab = QRectF(img_rect.left() + 6, y_a - 9, 86, 18)
-                    painter.drawRoundedRect(ab, 4, 4)
-                    painter.setPen(QColor("#37d67a"))
-                    painter.drawText(ab, Qt.AlignCenter, f"air top {int(zk)}")
-            if zc is not None:
-                y_b = self._slice_to_y(int(zc), img_rect)
-                if img_rect.top() - 6 <= y_b <= img_rect.bottom() + 6:
-                    painter.setPen(QPen(QColor("#ff9f43"), 1, Qt.DotLine))
-                    painter.drawLine(QPointF(img_rect.left(), y_b),
-                                     QPointF(img_rect.right(), y_b))
-                    painter.setBrush(QColor(18, 22, 30, 200))
-                    painter.setPen(QPen(QColor("#ff9f43"), 1))
-                    # flip above the line when the badge would clip at the
-                    # panel bottom, and offset right of the Cut badge
-                    # (left+28..left+120) so the two never overlap
-                    if y_b + 19 <= img_rect.bottom():
-                        ay, ax = y_b + 1, img_rect.left() + 6
-                    else:
-                        ay, ax = y_b - 19, img_rect.left() + 130
-                    ab2 = QRectF(ax, ay, 100, 18)
-                    painter.drawRoundedRect(ab2, 4, 4)
-                    painter.setPen(QColor("#ff9f43"))
-                    painter.drawText(ab2, Qt.AlignCenter, f"metal top {int(zc)}")
+            for kind, sl, label in self._auto_z_guides():
+                y_g = self._slice_to_y(sl, img_rect)
+                if not (img_rect.top() - 6 <= y_g <= img_rect.bottom() + 6):
+                    continue
+                color = QColor(self._GUIDE_COLORS[kind])
+                painter.setPen(QPen(color, 1, Qt.DotLine))
+                painter.drawLine(QPointF(img_rect.left(), y_g),
+                                 QPointF(img_rect.right(), y_g))
+                # badges keep clear of each other, of the line handles (left
+                # edge) and of the job Cut badge: metal top right, halo onset
+                # left of centre
+                if kind == "metal":
+                    bx = img_rect.right() - 146
+                elif kind == "halo":
+                    bx = img_rect.left() + 130
+                else:
+                    bx = img_rect.left() + 30
+                by = min(max(y_g - 9, img_rect.top()), img_rect.bottom() - 18)
+                badge = QRectF(bx, by, 112, 18)
+                painter.setBrush(QColor(18, 22, 30, 200))
+                painter.setPen(QPen(color, 1))
+                painter.drawRoundedRect(badge, 4, 4)
+                painter.setPen(color)
+                painter.drawText(badge, Qt.AlignCenter, label)
 
         # ---------------- Top Horizontal Line (Keep / Green) ----------------
         pen_keep = QPen(QColor("#37d67a"), 2, Qt.DashLine)
