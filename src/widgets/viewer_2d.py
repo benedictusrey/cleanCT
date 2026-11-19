@@ -2,9 +2,39 @@
 from __future__ import annotations
 
 import math
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF
+from PySide6.QtCore import Qt, Signal, QRect, QRectF, QPointF
 from PySide6.QtGui import QPainter, QColor, QPen, QFont, QPixmap
 from PySide6.QtWidgets import QWidget
+
+
+def crop_after_panel(pm: QPixmap, horiz: tuple[float, float] | None,
+                     vert: tuple[float, float] | None) -> QPixmap:
+    """Display-only L/R crop of a Before | After image.
+
+    The After panel (right half, after the 10 px gap) keeps only the box:
+    ``horiz`` and ``vert`` are (low, high) fractions of its width and height,
+    ``None`` = the whole axis.  The Before panel and the stored frames are not
+    changed; the export crops the same box on the files it writes."""
+    if pm.isNull() or (horiz is None and vert is None):
+        return pm
+    out = pm.copy()
+    w, h = out.width(), out.height()
+    pw = (w - 10) // 2
+    off = pw + 10
+    bg = QColor(13, 15, 20)                    # the canvas colour of the frames
+    p = QPainter(out)
+    if horiz is not None:
+        a = off + round(horiz[0] * pw)
+        b = off + round(horiz[1] * pw)
+        p.fillRect(QRect(off, 0, a - off, h), bg)
+        p.fillRect(QRect(b, 0, off + pw - b, h), bg)
+    if vert is not None:
+        a = round(vert[0] * h)
+        b = round(vert[1] * h)
+        p.fillRect(QRect(off, 0, pw, a), bg)
+        p.fillRect(QRect(off, b, pw, h - b), bg)
+    p.end()
+    return out
 
 
 class Viewer2D(QWidget):
@@ -155,12 +185,12 @@ class Viewer2D(QWidget):
         out: list[tuple[str, int, str]] = []
         keep, wood_top = z.get("keep"), z.get("wood_top")
         if wood_top is not None:
-            out.append(("wood", int(wood_top), f"wood top {int(wood_top)}"))
+            out.append(("wood", int(wood_top), f"Wood Top {int(wood_top)}"))
         elif keep is not None:
-            out.append(("air", int(keep), f"air top {int(keep)}"))
+            out.append(("air", int(keep), f"Air Top {int(keep)}"))
         if z.get("metal_top") is not None:
             mt = int(z["metal_top"])
-            out.append(("metal", mt, f"metal top {mt}"))
+            out.append(("metal", mt, f"Metal Top {mt}"))
         return out
 
     def setLeft(self, left_pct: int):
@@ -428,9 +458,9 @@ class Viewer2D(QWidget):
                 painter.setPen(QPen(color, 1, Qt.DotLine))
                 painter.drawLine(QPointF(img_rect.left(), y_g),
                                  QPointF(img_rect.right(), y_g))
-                # badges keep clear of the line handles (left edge) and of
-                # the job Cut badge (bottom left): metal top sits right
-                bx = img_rect.right() - 146 if kind == "metal" else img_rect.left() + 30
+                # guide labels sit on the Before panel (left), clear of the line
+                # handles on its edge; Keep and Cut labels sit on the After panel
+                bx = img_rect.left() + 30
                 by = min(max(y_g - 9, img_rect.top()), img_rect.bottom() - 18)
                 guide_badges.append((QRectF(bx, by, 112, 18), color, label))
 
@@ -466,8 +496,11 @@ class Viewer2D(QWidget):
         painter.drawEllipse(QPointF(img_rect.left() + 18, y_cut), 7, 7)
         painter.drawEllipse(QPointF(img_rect.right() - 18, y_cut), 7, 7)
 
-        # Cut Badges
-        badge_rect2 = QRectF(img_rect.left() + 28, min(img_rect.bottom() - badge_h - 2, y_cut - 10), badge_w, badge_h)
+        # Cut Badges: After panel, under the Keep badge when the two lines are close
+        badge_rect2 = QRectF(img_rect.right() - badge_w - 28,
+                             min(img_rect.bottom() - badge_h - 2,
+                                 max(y_cut - 10, badge_rect.bottom() + 2)),
+                             badge_w, badge_h)
         painter.setBrush(QColor(18, 22, 30, 225))
         painter.setPen(QPen(QColor("#ff463c"), 1))
         painter.drawRoundedRect(badge_rect2, 4, 4)

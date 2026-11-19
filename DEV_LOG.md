@@ -785,6 +785,53 @@ Findings (audit, read-only on the user's 2_666_5 data):
   `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
   refreshed from the new ZIP.
 
+### 2.21 [2026-11-19] Labels on their panels; the Results view shows the L/R box and the prediction
+
+- **Labels on the panel they describe.** On the sagittal and coronal views, Keep ("Keep: N")
+  and Cut ("Cut: N") sit on the After (right) panel. The guide labels "Wood Top N" (or "Air
+  Top N") and "Metal Top N" sit on the Before (left) panel. The text is capitalised. The Cut
+  label moves under the Keep label when the two lines are closer than one label, so they
+  never overlap. Root cause: the Cut badge was drawn at the left edge and the Metal Top badge
+  at the right edge, the reverse of the panels; the old label test used a single-panel canvas,
+  so it could not see the side.
+- **The Results view shows the L/R box.** The processed axial frames and the sagittal and
+  coronal views keep only the box on the After panel, using the lines on screen in Boundaries
+  (the same values the export keeps). Display only: the frames, the Before panel and the export
+  are unchanged (`viewer_2d.crop_after_panel`). Root cause: the Results viewers never received
+  the box, and the frames were rendered before any L/R line was applied.
+- **The prediction shows on load.** A raw scan's Results show the predicted L/R box on the
+  axial After panel, and the predicted cut and keep lines on the longitudinal view (the
+  Boundaries preview for the chosen plane, on a worker thread). Root cause: the unprocessed
+  longitudinal view had no image, so it said "Run Process to see the stripped result."
+- **Refresh points.** The Results refresh on load, on the Results tab and on the sagittal and
+  coronal toggle, not on every Boundaries edit. The first version refreshed on every edit; the
+  render-async gate caught it, because it doubled the previews while the lines moved, and the
+  Results tab is hidden then.
+- **Closing.** The window now waits for the predicted-view workers before it closes, as it
+  does for the preview worker. One gate run stopped in `test_auto_snap.py` with exit code
+  -1073740791; the same test passed on two reruns, so the cause was not reproduced. The drain
+  is a guard against a worker still running when the window is destroyed.
+- Tests: `tests/test_auto_z_guides.py` (capitalised labels; each label on its panel by colour;
+  layering), `tests/test_results_crop.py` (the After panel crop), `tests/test_results_views.py`
+  (processed crop in the window; predicted view from the worker; raw-scan axial box). The two
+  new files are in `tests/run_cleanct_regressions.ps1`.
+- Gate: PASS (35 files). Probe: no findings. UI audit on a fresh folder: 370 steps, 0 findings,
+  the same step list as the HEAD baseline. A run in a reused folder showed 5 "could not find the
+  wood" prompts; they came from a synthetic specimen left in that folder by an earlier test, not
+  from this change.
+- Known limit: the Results view draws no guide lines (as before), so the Results labels are
+  baked into the predicted longitudinal image only. shortcut: the Results crop uses the box as a
+  fraction of each panel (about one pixel), while the export crops exact pixels; upgrade only if a
+  one-pixel difference matters.
+- Release rebuilt from this change (the build ran the gate, 35 files: PASS; the launcher
+  `--selfcheck` PASS; the extracted portable `cleanCT.exe --selfcheck` exit 0; the packaged
+  `app/` holds `crop_after_panel`). SHA-256: setup `204b0e6b16ca5c4dbdcc521ff1fcab4a8c703ec6d9ee80bbf23772c7c70c1e09`,
+  portable `4e658c328ec96e0991c1c84630a4574e10b9c5b88f11f6ea052ea3d81d050eb8`. The
+  `version\cleanCT_v1.0.0\cleanCT-1.0.0-portable` folder was re-extracted from the new ZIP.
+- The gate and the build print cleanup warnings for a junction under the regression temp folder
+  ("untrusted mount point"). They do not fail the run. Not yet traced to a test; the cause is
+  unchecked on HEAD.
+
 ## 3. Current Known Bug (As of Now)
 
 ### 3.0 Detection status (0AG): STABLE - frozen

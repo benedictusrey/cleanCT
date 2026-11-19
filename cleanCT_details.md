@@ -186,10 +186,39 @@ memory with the L/R values of the screen (Y 5% to 94%, X 14% to 80%):
 ## 7. Labels and layering on the Boundaries view
 
 The guide lines (dotted) are drawn beneath the job lines so the job handles stay
-visible. The guide labels ("wood top N", "metal top N") are drawn after the Keep and
-Cut lines and labels, so the job line never crosses a guide label. Before this
-round the Cut line crossed the "metal top" label whenever both sat on the same
-slice.
+visible. The guide labels are drawn after the Keep and Cut lines and labels, so the
+job line never crosses a guide label. Before this round the Cut line crossed the
+"metal top" label whenever both sat on the same slice.
+
+Labels sit on the panel they describe, and the text is capitalised:
+
+- **Before (left) panel:** the detection guides, "Wood Top N" (or "Air Top N" when the
+  payload has no wood top) and "Metal Top N".
+- **After (right) panel:** the job lines, "Keep: N" and "Cut: N".
+- If the Keep and Cut lines are closer than one label, the Cut label moves down under
+  the Keep label so the two never overlap.
+
+Test: `tests/test_auto_z_guides.py` checks each label's panel by its colour and checks
+the layering. The helper is `Viewer2D` in `src/widgets/viewer_2d.py`.
+
+## 7b. The Results view: the L/R box, and the prediction on load
+
+- **Processed Results show only the L/R box on the After panel.** The axial frames and
+  the sagittal and coronal views are cropped to the box that is on screen in
+  Boundaries (the same lateral values the export keeps). The Before panel and the
+  saved frames are not changed. The crop is display only: `viewer_2d.crop_after_panel`.
+- **A raw scan (registered, not processed) shows the prediction.** The axial slice
+  draws the predicted L/R box on its After panel. The longitudinal view is the
+  Boundaries preview for the sagittal or coronal plane: the predicted cut and keep
+  lines and the L/R box, drawn by `viewer_core.get_preview` on a worker thread. The
+  latest request wins, and the view is refreshed when the Boundaries lines change
+  (debounced, the same point as the Boundaries preview).
+- **The Results view draws no guide lines.** The axial and longitudinal viewers keep
+  their line guides off, as before; the prediction is baked into the longitudinal
+  image, and the job lines are shown on Boundaries.
+- Tests: `tests/test_results_crop.py` (the crop of the After panel) and
+  `tests/test_results_views.py` (the processed crop in the window, the predicted
+  longitudinal view from the worker, and the raw-scan axial box).
 
 ## 7a. The Boundaries preview: the slider and the AFTER panel
 
@@ -264,7 +293,8 @@ slice.
 | Detection (metal anchor, wood top, air top, lateral box) | `src/core/wood_bounds.py`: `wood_bounds`, `_metal_anchor`, `_edge_walk`, `_curtain_top`, `_largest_components`, `_projection_lane_bounds` |
 | Pre-process windows | `src/core/viewer_core.py`: `UNPROC_WIN`, `UNPROC_WOOD`, `_prev_source_unprocessed` |
 | Copy layer | `src/core/auto_snap.py`: `cut_target`, `detected_lines` |
-| Guide lines on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` |
+| Guide lines and labels on screen | `src/widgets/viewer_2d.py`: `_auto_z_guides`, `paintEvent` (guide labels on the Before panel, Keep and Cut on the After panel) |
+| Results view: L/R crop and the predicted view | `src/widgets/viewer_2d.py`: `crop_after_panel`; `src/main_window.py`: `_results_crop`, `_refresh_results_views` (load, Results tab, plane toggle), `_refresh_results_long`, `_on_results_long_ready`, `_update_axial_frame`, `_update_long_view` |
 | Apply and the lines in the window | `src/main_window.py`: `_apply_and_process`, `_apply_auto_snap`, `_apply_payload_state` |
 | Registry: overrides | `src/core/custom_series.py`: `set_specimen_overrides` |
 | Export: Z range, X/Y crop, self-check | `src/core/bundle_export.py`: `_export_bundle_into`, `_write_kept_dicoms`, `_lateral_box_px`, `_crop_slice`; `src/core/lateral.py`: `lateral_range` (shared with the preview) |
@@ -275,7 +305,10 @@ slice.
 - `tests/test_bounds_v2.py`: lateral and witness rules; a lone speck is not signal.
 - `tests/test_auto_snap.py`: Keep rides the wood top; Cut follows the metal top; the
   window behaviour on load, toggle and unprocessed load.
-- `tests/test_auto_z_guides.py`: the guides, no halo line, the layering by pixel.
+- `tests/test_auto_z_guides.py`: the guides, no halo line, the capitalised labels, the
+  label panel (Before for the guides, After for Keep and Cut), and the layering by pixel.
+- `tests/test_results_crop.py`: the After panel crop of a Before | After image.
+- `tests/test_results_views.py`: the Results crop in the window and the predicted view.
 - `tests/test_axial_outline.py`: outline precision, the cache version and the
   pre-process window.
 - `tests/test_export_clip.py`: the lateral range, the crop of pixels and origin, and a
