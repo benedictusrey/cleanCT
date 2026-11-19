@@ -674,6 +674,12 @@ Open items and deliberate deviations:
 - **Copy-layer comments** that said "Cut ≡ halo onset" say "Cut ≡ metal top" again.
 - Tests: `tests/test_auto_snap.py` (cut follows the metal top), `tests/test_auto_z_guides.py`
   (no halo line), `tests/test_axial_outline.py` (outline precision and cache version).
+- Code commit `fdf52d1`. Release rebuilt from it (gate PASS inside the build; launcher and
+  extracted portable health checks PASS). Release SHA-256: setup
+  `64eb4bc427980d41201c9852cda7c563a39789ff36a3bd668bf3c12d086478e6`, portable
+  `d55235c8fc2f980beee3932926ca32c3f72546fb512a73e430563108deb51914`. The
+  `version\cleanCT_v1.0.0` folder holds the same files, and its extracted portable copy was
+  refreshed from the new ZIP.
 
 ## 3. Current Known Bug (As of Now)
 
