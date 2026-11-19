@@ -7,6 +7,14 @@
 <p align="center"><b>Non-destructive metal-base removal and inspection of micro-CT wood scans</b></p>
 
 <p align="center">
+  <a href="docs/RELEASE_NOTES.md"><img src="https://img.shields.io/badge/version-1.0.0-2f81f7?style=flat-square" alt="Version 1.0.0"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011%20x64-0078d4?style=flat-square" alt="Platform: Windows 10/11 x64">
+  <img src="https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/Qt-PySide6%20%2F%20Qt%206-41cd52?style=flat-square&logo=qt&logoColor=white" alt="PySide6 / Qt 6">
+  <img src="https://img.shields.io/badge/GPU-CUDA%2012%20%28optional%29-76b900?style=flat-square&logo=nvidia&logoColor=white" alt="CUDA 12, optional">
+</p>
+
+<p align="center">
   <img src="assets/banner/Main%20Hero%20Banner_cleanCT%20Flagship%20%283D%20Before%20%26%20After%29.jpeg" alt="cleanCT flagship view: 3D before and after metal-base removal">
 </p>
 
@@ -19,13 +27,23 @@ cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of w
 ## Features
 
 - **Scan input.** DICOM series, multipage TIFF stacks and 3-D NIfTI (`.nii`, `.nii.gz`). Scans are registered in place; DICOM folders are linked by junction.
-- **Automatic detection.** The metal top (Cut), the wood top (Keep) and the lateral box (L, R) are detected from the scan and placed on editable lines (Auto snap).
-- **Interactive review.** The Boundaries tab lets you drag or type the lines, scrub the sagittal, coronal and axial planes, and choose colour maps and density windows. Apply lines reprocesses the scan.
+- **Detection.** The metal top (Cut), the wood top (Keep) and the lateral box (L, R) are detected from the scan and placed on editable lines (Auto snap).
+- **Review.** The Boundaries tab: drag or type the lines, scrub the sagittal, coronal and axial planes, choose colour maps and density windows. Apply lines reprocesses the scan.
 - **Results.** Before and After axial and longitudinal views, a 3-D point cloud, and a marker when the processed run differs from the lines on screen.
 - **Inner-ROI export.** The delivered region is the kept slices between Keep and Cut, clipped to the L/R box. The DICOM and NIfTI outputs hold the same voxels.
 - **Verified bundles.** A bundle is staged, checked (UIDs, pixel values, geometry) and only then promoted. A failed check writes nothing.
 - **Checkpoints.** A preview with its lines and settings can be saved as `.ctcheckpoint.json` and reopened. Applied previews are kept as a history for the session.
 - **Compute.** NVIDIA GPU through CuPy (CUDA 12) when available; the validated CPU path otherwise, with the same algorithm.
+
+## Gallery
+
+| Overview and 3-D point cloud | Interactive cut boundaries |
+|---|---|
+| ![Overview and 3-D point cloud](assets/banner/Hero%20Banner%201_Overview%20%26%203D%20Point%20Cloud.jpeg) | ![Interactive cut boundaries](assets/banner/Hero%20Banner%202_Interactive%20Cut%20Boundaries.jpeg) |
+| Results view: axial and longitudinal panels with the delivered region, and the 3-D point cloud (amber wood, silver metal). | Boundaries tab: Keep (wood top), Cut (metal top) and the L/R lateral box, with 2-line and 4-line controls. |
+| **Wood micro-CT inspection** | **Portable workstation and export** |
+| ![Wood micro-CT inspection](assets/banner/Hero%20Banner%203_Wood%20Micro-CT%20Inspection.jpeg) | ![Portable workstation and export](assets/banner/Hero%20Banner%204_Portable%20Windows%20Workstation%20%26%20Export%20Pipeline.jpeg) |
+| Metal-first anchor detection on a wood scan; the wood region is preserved and the platform artefact removed. | Settings, export formats (DICOM, NIfTI), checkpoints and the activity log. Runs from a portable folder. |
 
 ## Installation
 
@@ -57,12 +75,6 @@ Both files are attached to the GitHub Release, with a SHA-256 sidecar for the ZI
 
 TIFF and NIfTI sources are exported as NIfTI only.
 
-## Screenshots
-
-| Results | Boundaries |
-|---|---|
-| ![Results view](assets/screenshots/cleanCT_main.png) | ![Boundaries tab](assets/screenshots/cleanCT_boundaries1.png) |
-
 ## Build from source
 
 The processing engine (`metal_remover`) is a separate project. It must sit next to this checkout, or be set with `CLEANCT_ENGINE`.
@@ -92,7 +104,7 @@ The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 |---|---|
 | `main.py` | Entry point. |
 | `src/` | Application: `core/` (logic), `widgets/`, `dialogs/`, `main_window.py`, `theme.py`. |
-| `assets/` | `banner/` and `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
+| `assets/` | `banner/` (gallery), `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
 | `installer/` | Build script, launcher source, Inno Setup script, environment setup. |
 | `tests/` | Regression suites and test tools. |
 | `docs/` | User guide, implementation details, release notes and change records. |
