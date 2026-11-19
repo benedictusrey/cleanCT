@@ -762,7 +762,7 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 4. The Results follow the Boundaries lines. The After shows the processed run, and the Lines changed marker says when the two differ.
 5. The export takes the on-screen lines, not a stored box. The box is not stored in the registry.
 6. Auto snap pauses after a manual edit and resumes on the next detection.
-7. The margin pulls the delivered cut back. The delivery stops the margin slices above the Cut line (Cut minus margin), in the processing run, the Results, the preview and the export. This reading follows the user guide's safety slices: the buffer sits between the Cut line and the metal. If the margin should add slices instead, say so.
+7. The margin pulls the delivered cut back. The delivery stops the margin slices above the Cut line (Cut minus margin), in the processing run, the Results, the preview and the export. This reading follows the user guide's safety slices: the buffer sits between the Cut line and the metal. The user confirmed this reading.
 8. The Results labels are drawn by the app, in front of the image, and are not baked into the Results frames.
 9. Process and export applies the lines on screen first, as Apply lines does. An auto cut that was never applied is applied and saved for the specimen, so the export is always the run it processed.
 
