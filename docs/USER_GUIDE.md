@@ -6,10 +6,9 @@ cleanCT reviews and processes micro-CT scans from DICOM, TIFF, or NIfTI sources,
 
 1. **Windows:** install with `cleanCT-1.0.0-setup.exe`, or extract the complete portable ZIP and open `cleanCT.exe` from the `cleanCT-1.0.0` folder. The files are not code-signed, so Windows SmartScreen may first say that it protected your PC: choose More info, then Run anyway.
 2. **Linux:** extract `cleanCT-1.0.0-linux-x86_64.tar.gz` and run `./cleanCT` in the extracted folder. For a per-user install with an application-menu entry, run `./install.sh` instead; it adds the `cleanct` command to `~/.local/bin`, so add that folder to your PATH if the shell reports `cleanct: not found`.
-3. **macOS:** open the DMG and drag cleanCT to Applications. The app is not notarized, so the first launch needs approval: Control-click cleanCT and choose Open. On macOS 15 and later, open System Settings › Privacy & Security and choose Open Anyway. If macOS says the app is damaged, run `xattr -dr com.apple.quarantine /Applications/cleanCT.app` in Terminal and open it again.
+3. **Python source:** extract `cleanCT-1.0.0-python-source.zip`, open a terminal in the extracted `cleanCT-1.0.0-python` folder, run `python -m pip install -r installer/requirements-core.txt` once, then `python main.py`. This needs Python 3.12.
 
-The first launch may take a little longer while the app prepares its runtime. No Python installation or administrator setup is needed. Use a local drive with enough free space for processing results and exports. An NVIDIA GPU is used automatically on Windows and Linux when a compatible driver is available; otherwise cleanCT uses the CPU, which may take longer. macOS always uses the CPU.
-
+The first launch may take a little longer while the app prepares its runtime. The Windows and Linux packages need no Python installation or administrator setup. Use a local drive with enough free space for processing results and exports. An NVIDIA GPU is used automatically on Windows and Linux when a compatible driver is available; otherwise cleanCT uses the CPU, which may take longer.
 ## 2. Choose a scan
 
 The sidebar lists specimens already available on this computer. A new portable install may start with an empty list; this is normal. Select **Load scan…** and choose one source:
@@ -67,7 +66,7 @@ The bundle is saved in a subfolder named for the specimen. It includes the reque
 
 - Windows: `%LOCALAPPDATA%\cleanCT\` (processing results in `pipeline_output`, default exports in `export`).
 - Linux: `~/.local/share/cleanCT/` (or `$XDG_DATA_HOME/cleanCT/` when that is set).
-- macOS: `~/Library/Application Support/cleanCT/`.
+- Python source: `data/` inside the extracted `cleanCT-1.0.0-python` folder.
 - If you change **Export to**, exports go to that folder instead.
 
 The original scan remains at its source location. DICOM exports retain source metadata; review that metadata and follow your organization’s data-handling rules before sharing an export. TIFF/NIfTI bundles include source format, intensity, geometry, and threshold notes; missing TIFF spacing is identified as assumed.

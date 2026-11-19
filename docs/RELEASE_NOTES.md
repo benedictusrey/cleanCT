@@ -1,6 +1,6 @@
 # cleanCT 1.0.0 — Release notes
 
-**Platforms:** Windows 10 or 11 (64-bit) · Linux x86_64 with glibc 2.28 or newer · macOS 12 or newer (Apple silicon and Intel)
+**Platforms:** Windows 10 or 11 (64-bit) · Linux x86_64 with glibc 2.28 or newer · Python 3.12 source for Windows and Linux. macOS is not part of this release.
 
 ## Packages
 
@@ -9,11 +9,10 @@
 | `cleanCT-1.0.0-setup.exe` | Windows: per-machine installer (Program Files; asks for administrator approval). |
 | `cleanCT-1.0.0-portable.zip` | Windows: extract the whole folder and run `cleanCT.exe`. No administrator rights needed. |
 | `cleanCT-1.0.0-linux-x86_64.tar.gz` | Linux x86_64: extract and run `./cleanCT`; `./install.sh` adds a per-user install and a menu entry. |
-| `cleanCT-1.0.0-macos-arm64.dmg` | macOS, Apple silicon: drag cleanCT to Applications. |
-| `cleanCT-1.0.0-macos-x86_64.dmg` | macOS, Intel: drag cleanCT to Applications. |
+| `cleanCT-1.0.0-python-source.zip` | Any Windows or Linux PC with Python 3.12: extract, run `python -m pip install -r installer/requirements-core.txt` in the folder, then `python main.py`. |
 | `SHA256SUMS` | SHA-256 of every file above. |
 
-Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS).
+Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256sum -c SHA256SUMS` (Linux).
 
 ## Highlights
 
@@ -48,8 +47,8 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - The processed axial view steps through 16 stored frames, not every slice.
 - A running pipeline cannot be stopped.
 - The longitudinal Results view reads the source folders; a moved source shows an error.
-- macOS builds are not notarized; Gatekeeper asks for approval on first launch.
-- The Linux and macOS GUIs run only headless (no screen) in CI. Nobody has run them on a physical Linux or Mac screen. CI does not exercise the Linux CUDA path.
+- macOS is not part of this release.
+- The Linux GUI runs only headless (no screen) in CI. Nobody has run it on a physical Linux screen. CI does not exercise the Linux CUDA path.
 - No NVIDIA GPU runs in CI, so the GPU path is verified on Windows only.
 
 ## Documentation

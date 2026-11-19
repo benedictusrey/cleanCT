@@ -1,11 +1,12 @@
 name: release
 
-# Linux and macOS are built here: a portable tarball, and a DMG for Apple silicon
-# and for Intel. Each build runs the regression gate and a self-check before it
-# packages. Windows is built on the maintainer's PC (installer and portable ZIP)
-# and added to the same release by hand. A tag push (v1.0.0) or a manual run with
-# "publish" creates a DRAFT release, and only after both platform builds pass.
-# Publishing is a separate, manual step.
+# Linux and the portable Python source are built here. The Linux job runs the
+# regression gate and a self-check, packages the tarball, checks it in clean
+# Ubuntu 22.04 and Debian 12 containers, and checks the Python source in a fresh
+# venv. Windows is built on the maintainer's PC (installer and portable ZIP) and
+# added to the same release by hand. macOS is not part of this release. A tag
+# push (v1.0.0) or a manual run with "publish" creates a DRAFT release, and only
+# after the Linux build passes. Publishing is a separate, manual step.
 on:
   push:
     tags:
@@ -26,7 +27,7 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux x86_64 (portable tarball)
+    name: Linux x86_64 (portable tarball and Python source)
     runs-on: ubuntu-22.04
     timeout-minutes: 150
     steps:
@@ -57,57 +58,34 @@ jobs:
               sh -c "apt-get update -qq && apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libfontconfig1 libglib2.0-0 >/dev/null && tar -xzf /pkg/$archive -C /tmp && /tmp/cleanCT-${version}-linux-x86_64/cleanCT --selfcheck"
           done
 
-      - name: Upload the Linux files
+      - name: Build the Python source and check it in a fresh venv
+        run: |
+          version=$(python3 -c "import sys; sys.path.insert(0, 'installer'); import build_installer; print(build_installer.APP_VERSION)")
+          name="cleanCT-${version}-python-source"
+          git archive --format=zip --prefix="$name/" -o "installer/out/$name.zip" HEAD
+          (cd installer/out && sha256sum "$name.zip" > "$name.zip.sha256")
+          work=$(mktemp -d)
+          python3 -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "installer/out/$name.zip" "$work"
+          python3 -m venv "$work/venv"
+          "$work/venv/bin/python" -m pip install -q -r "$work/$name/installer/requirements-core.txt"
+          cd "$work/$name"
+          QT_QPA_PLATFORM=offscreen "$work/venv/bin/python" main.py --selfcheck
+
+      - name: Upload the Linux and Python source files
         uses: actions/upload-artifact@v4
         with:
           name: cleanCT-linux-x86_64
           path: |
             installer/out/cleanCT-*-linux-x86_64.tar.gz
             installer/out/cleanCT-*-linux-x86_64.tar.gz.sha256
-          if-no-files-found: error
-          retention-days: 30
-
-  macos:
-    name: macOS ${{ matrix.target }} (DMG)
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [macos-arm64, macos-x86_64]
-    runs-on: macos-15
-    timeout-minutes: 150
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Rosetta 2 (runs the Intel build on Apple silicon)
-        if: matrix.target == 'macos-x86_64'
-        run: |
-          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
-            softwareupdate --install-rosetta --agree-to-license
-          fi
-          arch -x86_64 /usr/bin/true
-
-      - name: Build the macOS package (runtime, gate, self-check, DMG)
-        run: python3 installer/build_posix.py ${{ matrix.target }}
-
-      - name: Upload the macOS files
-        uses: actions/upload-artifact@v4
-        with:
-          name: cleanCT-${{ matrix.target }}
-          path: |
-            installer/out/cleanCT-*-${{ matrix.target }}.dmg
-            installer/out/cleanCT-*-${{ matrix.target }}.dmg.sha256
+            installer/out/cleanCT-*-python-source.zip
+            installer/out/cleanCT-*-python-source.zip.sha256
           if-no-files-found: error
           retention-days: 30
 
   release:
     name: Create the draft GitHub Release
-    needs: [linux, macos]
+    needs: linux
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -115,7 +93,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
-      - name: Download the Linux and macOS builds
+      - name: Download the Linux and Python source builds
         uses: actions/download-artifact@v4
         with:
           path: files
@@ -132,8 +110,7 @@ jobs:
           fi
           cd files
           for f in "cleanCT-${version}-linux-x86_64.tar.gz" \
-                   "cleanCT-${version}-macos-arm64.dmg" \
-                   "cleanCT-${version}-macos-x86_64.dmg"; do
+                   "cleanCT-${version}-python-source.zip"; do
             if [ ! -f "$f" ]; then echo "missing $f"; exit 1; fi
           done
           sha256sum * > SHA256SUMS

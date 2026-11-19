@@ -13,6 +13,12 @@ for p in (str(ROOT), str(SRC)):
         sys.path.insert(0, p)
 
 
+def _cupy_required() -> bool:
+    """CuPy must import in a packaged Windows or Linux build; macOS has none, and a
+    source checkout (no runtime/ beside app/) runs on the CPU without it."""
+    return sys.platform != "darwin" and (ROOT.parent / "runtime").is_dir()
+
+
 def _selfcheck() -> int:
     """Headless health check (cleanCT.exe --selfcheck).
 
@@ -58,7 +64,7 @@ def _selfcheck() -> int:
     modules = [("numpy", "numpy"), ("scipy", "scipy"),
                ("pydicom", "pydicom"), ("nibabel", "nibabel"),
                ("Pillow", "PIL"), ("tifffile", "tifffile")]
-    if sys.platform != "darwin":   # CuPy is not shipped on macOS: the CPU path runs there
+    if _cupy_required():
         modules.append(("cupy", "cupy"))
     modules.append(("PySide6", "PySide6.QtCore"))
     for name, imp in modules:
