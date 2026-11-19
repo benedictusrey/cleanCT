@@ -1,0 +1,29 @@
+# Citation File Format 1.2.0 (https://citation-file-format.github.io/)
+# Used by GitHub's "Cite this repository" button and by citation managers.
+cff-version: 1.2.0
+message: "If you use cleanCT in your research, please cite it using the metadata below."
+type: software
+title: "cleanCT: Non-destructive metal-base removal and inspection of micro-CT wood scans"
+abstract: >-
+  cleanCT is a native Windows application (PySide6 / Qt 6) for micro-CT scans of wood
+  specimens mounted on a metal base. It locates the metal base and the wood, shows four
+  guide lines for review, removes the base with a metal-removal engine, and exports the
+  inner wood region as DICOM and NIfTI with a verified bundle.
+version: 1.0.0
+date-released: 2026-11-19
+authors:
+  - family-names: Hartanto
+    given-names: Benedictus Reynaldo
+license: PolyForm-Noncommercial-1.0.0
+repository-code: "https://github.com/benedictusrey/cleanCT"
+url: "https://github.com/benedictusrey/cleanCT"
+keywords:
+  - micro-CT
+  - wood
+  - metal artefact removal
+  - DICOM
+  - NIfTI
+  - volumetric analysis
+  - non-destructive testing
+# preferred-citation: add the associated article here once it is published.
+# doi: add the Zenodo DOI here once the release is archived.

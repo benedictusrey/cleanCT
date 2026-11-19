@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Qt-PySide6%20%2F%20Qt%206-41cd52?style=flat-square&logo=qt&logoColor=white" alt="PySide6 / Qt 6">
   <img src="https://img.shields.io/badge/GPU-CUDA%2012%20%28optional%29-76b900?style=flat-square&logo=nvidia&logoColor=white" alt="CUDA 12, optional">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-ff6b35?style=flat-square" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
 
 <p align="center">
@@ -77,7 +78,7 @@ TIFF and NIfTI sources are exported as NIfTI only.
 
 ## Build from source
 
-The processing engine (`metal_remover`) is a separate project. It must sit next to this checkout, or be set with `CLEANCT_ENGINE`.
+The processing engine is the `engine/` folder of this repository. Outputs of a source run go to the engine's default output folder unless `CLEANCT_OUTPUT_ROOT` is set.
 
 ```powershell
 # environment (pinned packages)
@@ -105,6 +106,7 @@ The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 | `main.py` | Entry point. |
 | `src/` | Application: `core/` (logic), `widgets/`, `dialogs/`, `main_window.py`, `theme.py`. |
 | `assets/` | `banner/` (gallery), `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
+| `engine/` | Processing engine: the six modules the application imports. |
 | `installer/` | Build script, launcher source, Inno Setup script, environment setup. |
 | `tests/` | Regression suites and test tools. |
 | `docs/` | User guide, implementation details, release notes and change records. |
@@ -129,6 +131,28 @@ The release build needs PyInstaller 6.22.2 and Inno Setup 6.
 - Auto-crop trims the processing output only; bundles are cut to the lines on screen.
 - Windows only.
 
+## How to cite
+
+If cleanCT contributes to your research, please cite the software (version 1.0.0). The associated article is in preparation; cite it when it is published. GitHub's *Cite this repository* button reads [`CITATION.cff`](CITATION.cff).
+
+APA (7th edition):
+
+> Hartanto, B. R. (2026). *cleanCT* (Version 1.0.0) [Computer software]. https://github.com/benedictusrey/cleanCT
+
+BibTeX:
+
+```bibtex
+@software{hartanto2026cleanct,
+  author  = {Hartanto, Benedictus Reynaldo},
+  title   = {{cleanCT}: Non-destructive metal-base removal and inspection of micro-CT wood scans},
+  version = {1.0.0},
+  year    = {2026},
+  month   = nov,
+  url     = {https://github.com/benedictusrey/cleanCT},
+  license = {PolyForm Noncommercial 1.0.0}
+}
+```
+
 ## License
 
-Not yet specified. A `LICENSE` file must be added before public release.
+Copyright 2026 Benedictus Reynaldo Hartanto. Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Noncommercial use, including research, teaching and personal study, is permitted. Commercial use is not.

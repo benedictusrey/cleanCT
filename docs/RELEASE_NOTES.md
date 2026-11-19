@@ -1,6 +1,6 @@
 # cleanCT 1.0.0 — Release notes
 
-**Release date:** 2026-11-19 · **Platform:** Windows 10 or 11, 64-bit · **Engine:** metal_remover 2a53ba6
+**Release date:** 2026-11-19 · **Platform:** Windows 10 or 11, 64-bit · **Engine:** `engine/` at 2a53ba6
 
 ## Packages
 

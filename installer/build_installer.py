@@ -51,7 +51,7 @@ PY_EMBED_MD5 = "38cce2bf5b4de76db19a31f46a0720de"
 HERE = Path(__file__).resolve().parent          # installer/
 SRC = HERE.parent                               # cleanCT checkout root
 SRCDIR = SRC / "src"                            # application sources
-ENGINE = SRC.parent / "metal_remover"
+ENGINE = SRC / "engine"
 VENV = SRC / "tests" / "venv_notorch"
 PKG = HERE / "_pkg"
 CACHE = HERE / "_cache"
@@ -399,6 +399,10 @@ def step_docs() -> None:
     if not guide_src.is_file():
         raise RuntimeError(f"required user guide is missing: {guide_src}")
     shutil.copy2(guide_src, PKG / "USER_GUIDE.md")
+    license_src = SRC / "LICENSE"
+    if not license_src.is_file():
+        raise RuntimeError(f"required license file is missing: {license_src}")
+    shutil.copy2(license_src, PKG / "LICENSE.txt")
     (PKG / "README.txt").write_text(
         f"{APP_NAME} {APP_VERSION}\n"
         f"{'=' * 40}\n\n"
@@ -454,7 +458,7 @@ def step_docs() -> None:
         "application starts without modification using any conforming\n"
         "build of the listed versions.\n",
         encoding="utf-8")
-    log("docs: README.txt, USER_GUIDE.md, THIRD_PARTY_NOTICES.md")
+    log("docs: README.txt, USER_GUIDE.md, LICENSE.txt, THIRD_PARTY_NOTICES.md")
 
 
 def step_installer_readme(pyinstaller_version: str,

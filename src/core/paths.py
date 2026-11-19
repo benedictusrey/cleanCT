@@ -8,8 +8,8 @@ the development checkout:
     The frozen metal-remover pipeline (tomograph, roi_delivery, wood_track,
     gpu_backend).  Resolution order:
       1. ``CLEANCT_ENGINE`` environment variable (explicit override)
-      2. ``<app>/../engine``                      (installed layout)
-      3. ``<dev checkout>/../metal_remover``      (development layout)
+      2. ``<checkout>/engine``                    (checkout layout)
+      3. ``<app>/../engine``                      (installed layout)
 
 ``state_root()``
     Where per-user state is written (settings.json, logs/, custom registry,
@@ -64,12 +64,12 @@ def engine_root() -> Path:
     env = os.environ.get("CLEANCT_ENGINE")
     if env and Path(env).is_dir():
         return Path(env)
+    bundled = APP_ROOT / "engine"
+    if bundled.is_dir():
+        return bundled
     installed = APP_ROOT.parent / "engine"
     if installed.is_dir():
         return installed
-    dev = APP_ROOT.parent / "metal_remover"
-    if dev.is_dir():
-        return dev
     return APP_ROOT
 
 

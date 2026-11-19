@@ -10,7 +10,7 @@ import zipfile
 
 
 PROJECT = Path(__file__).resolve().parents[1]
-ENGINE = PROJECT.parent / "metal_remover"
+ENGINE = PROJECT / "engine"
 BACKUP_TAG = "20261118_audit_fix_plan_r15"
 BACKUP_DIR = PROJECT / "0BACKUP" / f"audit_{BACKUP_TAG}"
 ARCHIVE = BACKUP_DIR / f"cleanCT_full_system_audit_{BACKUP_TAG}.zip"
@@ -95,9 +95,9 @@ def collect_files() -> dict[str, Path]:
                     "roi_delivery.py", "tomograph.py", "volume_io.py",
                     "wood_track.py")
     for name in engine_files:
-        add(ENGINE / name, f"metal_remover/{name}")
+        add(ENGINE / name, f"engine/{name}")
     for folder in ("tests",):
-        files.update(collect_tree(ENGINE / folder, f"metal_remover/{folder}",
+        files.update(collect_tree(ENGINE / folder, f"engine/{folder}",
                                   suffixes=TEXT_SUFFIXES))
 
     backup_docs = PROJECT / "0BACKUP"
@@ -132,7 +132,7 @@ def main() -> int:
     readme = (
         "cleanCT full system audit snapshot\n"
         "Created: 2026-09-24 UTC\n\n"
-        "Extract this archive beside the metal_remover folder to restore the "
+        "Extract this archive into an empty folder to restore the "
         "captured project sources and release package. The portable installer "
         "ZIP and its SHA-256 are included. BACKUP_MANIFEST.json records a "
         "SHA-256 for each captured file.\n\n"

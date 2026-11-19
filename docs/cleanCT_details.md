@@ -42,7 +42,7 @@ How to read it: sections 1 to 4 give the big picture. Sections 5 to 9 cover spec
 
 ### 2.2 The engine
 
-The engine is a sibling folder, H:\Treated Kyodai samples\metal_remover. The app imports six of its modules. The installer copies the same six into the package.
+The engine is the `engine\` folder of the checkout. The app imports six of its modules. The installer copies the same six into the package.
 
 | Module | Role |
 |---|---|
@@ -69,7 +69,7 @@ In the checkout the app sources live under src\. In the package they sit directl
 | Item | Development checkout | Installed |
 |---|---|---|
 | App sources | checkout\src | app\ next to cleanCT.exe |
-| Engine | the sibling metal_remover folder (CLEANCT_ENGINE overrides it) | engine\ next to cleanCT.exe |
+| Engine | the checkout's engine\ folder (CLEANCT_ENGINE overrides it) | engine\ next to cleanCT.exe |
 | User state (settings, registry, cache, exports, logs) | checkout\data | %LOCALAPPDATA%\cleanCT |
 | Processing outputs | metal_remover\output (custom specimens: output\custom\<id>) | %LOCALAPPDATA%\cleanCT\pipeline_output |
 | Source scans | never changed | never changed |
@@ -746,7 +746,7 @@ Tools:
 
 The codebase\ folder keeps the code the app uses, so a later release can be compared with this one.
 
-- main.py; src\ (every module); assets\app.ico, assets\app_icon_256.png and assets\icons\ (the production icon pack, README excluded); engine\ (the six engine modules from metal_remover); installer\ (the build script, the launcher source, cleanct.iss, setup_env.ps1 and README_INSTALLER.txt); tests\ (every suite and tool at the top level of tests\, plus run_cleanct_regressions.ps1).
+- main.py; src\ (every module); assets\app.ico, assets\app_icon_256.png and assets\icons\ (the production icon pack, README excluded); engine\ (the six engine modules from engine\); installer\ (the build script, the launcher source, cleanct.iss, setup_env.ps1 and README_INSTALLER.txt); tests\ (every suite and tool at the top level of tests\, plus run_cleanct_regressions.ps1).
 - Not included: the release folders, the installer outputs, the test interpreter, screenshots, the data folder, the caches, and the documents.
 - The copy is the released 1.0.0 code at 221cccf. CHECKPOINT.txt records the commits and the release hashes. SHA256SUMS.txt lists the SHA-256 of every file in the copy.
 - The copy is not runnable as a whole. The gate and the build expect the checkout layout, with the engine in a folder beside the checkout. The self-check runs from the copy when CLEANCT_ENGINE points at engine\.
@@ -754,7 +754,7 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 ### 17.4 Verification of the copy
 
 - Every copied file was compared byte for byte with its source (SHA-256).
-- The application sources in the release package (installer\_pkg\app) were compared with src\ and main.py, and the engine modules in the package with metal_remover.
+- The application sources in the release package (installer\_pkg\app) were compared with src\ and main.py, and the engine modules in the package with engine\.
 - The code in the checkout was not changed by the copy (git reports no change to the copied paths).
 
 ## 18. Decisions made in this round of the design
@@ -794,10 +794,10 @@ The codebase\ folder keeps the code the app uses, so a later release can be comp
 | Single window | src\core\single_instance.py: acquire |
 | Theme and icons | src\theme.py: DARK, LIGHT, qss, apply; src\icon_utils.py: get_app_icon, apply_native_window_icon |
 | 3-D view | src\widgets\viewer_3d.py: setData, setVisualMode, setColorMap, _rebuild_colors; src\core\viewer_core.py: _scan, _metal_points |
-| Engine: pipeline | metal_remover\tomograph.py: load_dataset_volume, metal_counts, bottom_mean_profile, platform_cut_index, analyze, process_sample, drop_curtain |
-| Engine: ROI and delivery | metal_remover\roi_delivery.py: export_roi_dicom_series, write_roi_nifti, write_stripped_nifti, write_provenance |
-| Engine: wood tracking and air crop | metal_remover\wood_track.py: track_wood_by_slices, crop_by_footprints; metal_remover\air_crop.py: detect_air_envelope, apply_air_crop |
-| Engine: GPU and volume readers | metal_remover\gpu_backend.py: get_backend, GpuBackend; metal_remover\volume_io.py: inspect_source, load_volume, read_source_slices, adaptive_thresholds |
+| Engine: pipeline | engine\tomograph.py: load_dataset_volume, metal_counts, bottom_mean_profile, platform_cut_index, analyze, process_sample, drop_curtain |
+| Engine: ROI and delivery | engine\roi_delivery.py: export_roi_dicom_series, write_roi_nifti, write_stripped_nifti, write_provenance |
+| Engine: wood tracking and air crop | engine\wood_track.py: track_wood_by_slices, crop_by_footprints; engine\air_crop.py: detect_air_envelope, apply_air_crop |
+| Engine: GPU and volume readers | engine\gpu_backend.py: get_backend, GpuBackend; engine\volume_io.py: inspect_source, load_volume, read_source_slices, adaptive_thresholds |
 | Installer | installer\build_installer.py: main, step_app, step_engine, step_runtime, step_launcher, step_docs, step_launcher_smoke, step_portable, step_inno, step_regressions |
 | Launcher | installer\launcher_main.py: payload_dirs and the start-up logic |
 

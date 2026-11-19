@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Project = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$EngineSource = Join-Path (Split-Path -Parent $Project) 'metal_remover'
+$EngineSource = Join-Path $Project 'engine'
 $Python = Join-Path $Project 'tests\venv_notorch\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
     throw "cleanCT test interpreter not found: $Python"

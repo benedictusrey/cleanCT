@@ -20,7 +20,7 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
 sys.path.insert(0, str(APP / "src"))
-sys.path.insert(0, str(APP.parent / "metal_remover"))
+sys.path.insert(0, str(APP / "engine"))
 
 import numpy as np
 from PIL import Image, ImageDraw
