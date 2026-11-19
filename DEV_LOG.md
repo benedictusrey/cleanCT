@@ -579,6 +579,29 @@ Open items and deliberate deviations:
   `cleanCT-1.0.0-portable.zip` SHA-256 `75cf10628b3a85778619fa079d0c5fe3a9a2c4c21204030784fc0e906a19c6e4`.
   Earlier builds: arrows fix `416c89ab…`, 1280 px minimum `dba1773d…`.
 
+### 2.14 [2026-11-19] UI audit: transitions and closing; About redesign
+
+- **Audit harness** `tests/ui_audit.py` (new, manual, about eight minutes): drives every
+  connected control in three states (landing, unprocessed, processed) through real
+  clicks, value changes and shortcuts, and checks invariants after each step. Not in the
+  regression gate.
+- **Save checkpoint waited for the preview with no sign.** After processing, the preview
+  is refreshed for about 3 s (measured), and Save stays disabled. Fix: the status bar says
+  "Preparing the preview…", and the Save tooltip says "Available once the preview is
+  ready." Test: `tests/test_robustness_ui.py`.
+- **Closing during a job hid the window, then blocked.** Measured 7.4 s for a 60-slice job;
+  a real multi-minute job would look like a hang. Fix: the window stays on screen, shows
+  "Finishing the current step before closing", and is disabled while the step ends.
+- **Not fixed, needs a decision:** a running job cannot be stopped. The pipeline lives in
+  the engine (`metal_remover`), which has no cooperative stop point. A Cancel button would
+  need that change first.
+- **Measured and acceptable:** registering the real 428-slice scan takes 0.31 s on the GUI
+  thread.
+- **About dialog redesigned:** header with the icon, wordmark and version pill; three
+  numbered steps; live facts (processing mode, outputs, source safety); links to the guide,
+  activity log and data folder. Its steps wrap to their real height.
+- **Copy rule:** the dialog test now allows the acronyms CPU and CUDA.
+
 ### 2.13 [2026-11-19] Polish round: state pill, status bar, colour keys
 
 - Header states the specimen's state (Not processed, Processed, Exported) beside the name.

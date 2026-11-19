@@ -118,6 +118,7 @@ QLabel[role="kpi-value"] { font-family: $font_display; font-size: 17px; font-wei
 QLabel[role="kpi-ok"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $ok; }
 QLabel[role="kpi-warn"] { font-family: $font_display; font-size: 17px; font-weight: 600; color: $warn; }
 QLabel[role="kpi-hero"] { font-family: $font_display; font-size: 22px; font-weight: 600; color: $accent; }
+QLabel[role="about-title"] { font-family: $font_display; font-size: 28px; font-weight: 600; color: $text; }
 /* state pills in the header: the outline carries the colour, the fill stays quiet */
 QLabel[role="pill-ok"], QLabel[role="pill-warn"], QLabel[role="pill-accent"] {
     font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px;

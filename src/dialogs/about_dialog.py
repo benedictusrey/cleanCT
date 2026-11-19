@@ -1,103 +1,197 @@
-"""About cleanCT dialog with enlarged HD brand icon."""
+"""About cleanCT: what it does, how a scan is cleaned, and where its record lives.
+
+The processing line reads the live GPU status from the main window, so the dialog
+says what this PC is actually doing, not a generic claim.
+"""
 from __future__ import annotations
 
 import theme
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QFont
+from core import bundle_export, paths
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QFont, QPixmap
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+    QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout,
 )
 
-try:
-    from core.paths import APP_ROOT as ROOT
-    from icon_utils import icons_dir
-except ImportError:  # direct import (no package context)
-    from paths import APP_ROOT as ROOT
-    from icon_utils import icons_dir
+from icon_utils import icons_dir
+
+
+def _document(name: str):
+    """A bundled document, found in the development or the installed layout."""
+    for folder in (paths.APP_ROOT, paths.APP_ROOT.parent):
+        candidate = folder / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _open_path(path) -> None:
+    if path is not None and path.exists():
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
 
 class AboutDialog(QDialog):
+    STEPS = (
+        ("Load a scan", "A DICOM series, a TIFF stack or a NIfTI volume. The source "
+                        "files stay where they are."),
+        ("Check the lines", "Detection draws the keep and cut lines. Drag any line "
+                            "on the preview to correct it."),
+        ("Process and export", "The bundle holds the DICOM series, the NIfTI volume "
+                               "and the extraction record."),
+    )
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("About cleanCT")
-        self.setFixedSize(540, 520)
+        self.setFixedWidth(600)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(16)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(30, 26, 30, 22)
+        root.setSpacing(18)
 
-        # Enlarged HD CleanCT Icon (128x128)
-        icon_label = QLabel()
-        icon_label.setAlignment(Qt.AlignCenter)
-        _icons = icons_dir(ROOT) or ROOT
-        icon_path = _icons / "icon_1024x1024.png"
-        if not icon_path.exists():
-            icon_path = _icons / "icon_256x256.png"
-        if icon_path.exists():
-            pm = QPixmap(str(icon_path)).scaled(
-                128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            icon_label.setPixmap(pm)
-        icon_label.setObjectName("app_icon")
-        layout.addWidget(icon_label)
+        root.addLayout(self._header())
+        root.addWidget(self._divider())
+        root.addWidget(self._lead())
+        root.addLayout(self._steps())
+        root.addLayout(self._facts(parent))
+        root.addLayout(self._links())
+        root.addWidget(self._divider())
+        root.addLayout(self._footer())
+        # the wrapped steps need their real height: size to the contents at the fixed width
+        root.activate()
+        self.resize(600, self.heightForWidth(600) if self.hasHeightForWidth()
+                    else self.sizeHint().height())
 
-        # Brand Title
-        title_label = QLabel(f"clean<span style='color:{theme.color('accent')};'>CT</span>")
-        title_label.setTextFormat(Qt.RichText)
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
-        layout.addWidget(title_label)
+    # ----------------------------------------------------------------- pieces
+    @staticmethod
+    def _divider() -> QFrame:
+        line = QFrame()
+        line.setObjectName("divider")
+        return line
 
-        # Descriptor
-        desc_sub = QLabel("Non-Destructive Wood CT Metal-Base Removal & Inspection")
-        desc_sub.setAlignment(Qt.AlignCenter)
-        theme.set_role(desc_sub, "secondary")
-        layout.addWidget(desc_sub)
+    def _header(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(18)
+        icon = QLabel()
+        icon.setObjectName("app_icon")
+        icon.setFixedSize(72, 72)
+        icons = icons_dir(paths.APP_ROOT) or paths.APP_ROOT
+        for name in ("icon_256x256.png", "icon_1024x1024.png"):
+            if (icons / name).exists():
+                icon.setPixmap(QPixmap(str(icons / name)).scaled(
+                    72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                break
+        row.addWidget(icon)
 
-        # Divider
-        div = QFrame()
-        div.setFrameShape(QFrame.HLine)
-        div.setObjectName("divider")
-        layout.addWidget(div)
+        names = QVBoxLayout()
+        names.setSpacing(3)
+        title = QLabel(f"clean<span style='color:{theme.color('accent')};'>CT</span>")
+        title.setTextFormat(Qt.RichText)
+        theme.set_role(title, "about-title")
+        names.addWidget(title)
+        tagline = QLabel("Wood CT metal-base removal")
+        theme.set_role(tagline, "secondary")
+        names.addWidget(tagline)
+        row.addLayout(names, 1)
 
-        # Description text
-        desc_text = QLabel(
-            "<b>cleanCT</b> is a native workstation tool for micro-CT wood specimens. "
-            "It detects the high-attenuation metal platform beneath the wood block, "
-            "removes it at the validated cut boundary, and delivers verified clean DICOM series, "
-            "NIfTI-1 volumes, and complete extraction provenance.<br><br>"
-            "<b>Workflow:</b> first select a dataset or load a scan folder; then inspect "
-            "the unstripped reconstruction with draggable guides and scientific colour maps; "
-            "last apply the cut and export the bundle.<br><br>"
-            "Validated against high-resolution manual ground truth. Original scan data remain untouched in-place."
+        version = QLabel(f"Version {bundle_export.CLEANCT_VERSION}")
+        theme.set_role(version, "pill-accent")
+        row.addWidget(version, 0, Qt.AlignTop)
+        return row
+
+    @staticmethod
+    def _lead() -> QLabel:
+        lead = QLabel(
+            "cleanCT finds the metal platform beneath a wood block, removes it at the "
+            "validated cut, and delivers verified clean DICOM series and NIfTI-1 "
+            "volumes with the full extraction record. Validated against high-resolution "
+            "manual ground truth.")
+        lead.setWordWrap(True)
+        theme.set_role(lead, "label")
+        return lead
+
+    def _steps(self) -> QVBoxLayout:
+        block = QVBoxLayout()
+        block.setSpacing(10)
+        heading = QLabel("How a scan is cleaned")
+        theme.set_role(heading, "section")
+        block.addWidget(heading)
+        # one row per step: a number, then its text, wrapped to the dialog width
+        for index, (title, body) in enumerate(self.STEPS):
+            row = QHBoxLayout()
+            row.setSpacing(14)
+            number = QLabel(str(index + 1))
+            theme.set_role(number, "accent")
+            number.setFont(QFont("Bahnschrift", 15, QFont.DemiBold))
+            number.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+            number.setFixedWidth(14)
+            text = QLabel(f"<b>{title}.</b> {body}")
+            text.setTextFormat(Qt.RichText)
+            text.setWordWrap(True)
+            theme.set_role(text, "label")
+            row.addWidget(number, 0, Qt.AlignTop)
+            row.addWidget(text, 1)
+            block.addLayout(row)
+        return block
+
+    def _facts(self, parent) -> QGridLayout:
+        """Three facts about this install: the processing mode, the outputs, the source."""
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        gpu = parent.lbl_gpu.text() if parent is not None and hasattr(parent, "lbl_gpu") else ""
+        processing = "GPU (CuPy CUDA)" if "CuPy CUDA" in gpu else "CPU"
+        facts = (
+            ("Processing", processing),
+            ("Outputs", "DICOM, NIfTI, provenance"),
+            ("Source scans", "Never modified"),
         )
-        desc_text.setWordWrap(True)
-        desc_text.setTextFormat(Qt.RichText)
-        theme.set_role(desc_text, "label")
-        layout.addWidget(desc_text)
+        for column, (label, value) in enumerate(facts):
+            card = QFrame()
+            card.setProperty("class", "panel")
+            col = QVBoxLayout(card)
+            col.setContentsMargins(14, 10, 14, 10)
+            col.setSpacing(2)
+            caption = QLabel(label)
+            theme.set_role(caption, "kpi-title")
+            body = QLabel(value)
+            theme.set_role(body, "section")
+            col.addWidget(caption)
+            col.addWidget(body)
+            grid.addWidget(card, 0, column)
+        return grid
 
-        # Prepared by section
-        author_box = QVBoxLayout()
-        author_box.setSpacing(2)
-        author_hdr = QLabel("Prepared by")
-        theme.set_role(author_hdr, "hint")
-        author_name = QLabel("Benedictus Reynaldo Hartanto")
-        theme.set_role(author_name, "accent")
-        author_box.addWidget(author_hdr)
-        author_box.addWidget(author_name)
-        layout.addLayout(author_box)
+    def _links(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(18)
+        for label, target in (
+            ("User guide", lambda: _open_path(_document("USER_GUIDE.md"))),
+            ("Activity log", lambda: _open_path(paths.state_root() / "logs" / "cleanCT.log")),
+            ("Data folder", lambda: _open_path(paths.state_root())),
+        ):
+            link = QPushButton(label)
+            link.setObjectName("btn_about_link")
+            link.setCursor(Qt.PointingHandCursor)
+            theme.set_role(link, "link")
+            link.clicked.connect(target)
+            row.addWidget(link)
+        row.addStretch()
+        return row
 
-        layout.addStretch()
-
-        # Close button
-        btn_close = QPushButton("Close")
-        btn_close.setObjectName("btn_about_close")
-        btn_close.setProperty("class", "btn-primary")
-        btn_close.setFixedWidth(110)
-        btn_close.clicked.connect(self.accept)
-
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_row.addWidget(btn_close)
-        layout.addLayout(btn_row)
+    def _footer(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        prepared = QLabel("Prepared by")
+        theme.set_role(prepared, "hint")
+        name = QLabel("Benedictus Reynaldo Hartanto")
+        theme.set_role(name, "accent")
+        row.addWidget(prepared)
+        row.addWidget(name)
+        row.addStretch()
+        close = QPushButton("Close")
+        close.setObjectName("btn_about_close")
+        close.setProperty("class", "btn-primary")
+        close.setMinimumWidth(110)
+        close.clicked.connect(self.accept)
+        row.addWidget(close)
+        return row

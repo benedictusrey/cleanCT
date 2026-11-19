@@ -660,6 +660,7 @@ class MainWindow(QMainWindow):
     def _set_job_gates(self, process_ready: bool):
         """Apply action availability from payload, processing, and load state."""
         has_payload = self.payload is not None
+        unprocessed = bool((self.payload or {}).get("unprocessed"))
         busy = bool(self._loading or
                     (self._active_worker is not None and self._active_worker.isRunning()))
         can_process = has_payload and not busy
@@ -682,6 +683,13 @@ class MainWindow(QMainWindow):
             self.btn_save_checkpoint.setEnabled(
                 not busy and (self._last_pref_preview is not None or
                               self._checkpoint_snapshot_only))
+        # the preview of a freshly processed specimen is prepared after its load:
+        # say so, and say why Save checkpoint waits for it
+        preparing = bool(has_payload and not busy and not unprocessed
+                         and self._last_pref_preview is None
+                         and not self._checkpoint_snapshot_only)
+        if hasattr(self, "lbl_preview_status"):
+            self.lbl_preview_status.setText("Preparing the preview…" if preparing else "")
         self.btn_export.setEnabled(bool(process_ready and has_payload and not busy))
         self.btn_export.setToolTip(
             BUSY_NOTE if busy else
@@ -703,6 +711,12 @@ class MainWindow(QMainWindow):
             if btn is not None:
                 self._gate_tip(btn, busy)
         self._set_boundary_enabled(not busy)
+        if hasattr(self, "btn_save_checkpoint") and not busy and has_payload \
+                and not self.btn_save_checkpoint.isEnabled():
+            # after the busy tips above: the note says why Save waits
+            base = self.__dict__.get("_base_tips", {}).get(
+                id(self.btn_save_checkpoint), self.btn_save_checkpoint.toolTip())
+            self.btn_save_checkpoint.setToolTip(f"{base}\nAvailable once the preview is ready.")
         if process_ready:
             self._update_range_summary()          # restores the enabled state
 
@@ -1137,6 +1151,11 @@ class MainWindow(QMainWindow):
         status_row.setContentsMargins(4, 4, 4, 0)
         status_row.setSpacing(12)
         status_row.addWidget(self.lbl_export_status, 1)
+        # shown while the preview of a freshly processed specimen is prepared
+        self.lbl_preview_status = QLabel("")
+        self.lbl_preview_status.setObjectName("lbl_preview_status")
+        theme.set_role(self.lbl_preview_status, "hint")
+        status_row.addWidget(self.lbl_preview_status)
         status_row.addWidget(self.job_box)
         main_area_layout.addWidget(statusbar)
 
@@ -4400,9 +4419,14 @@ class MainWindow(QMainWindow):
         running.extend(w for w in getattr(self, "_specimen_meta_workers", [])
                        if w is not None and w.isRunning())
         if running:
-            self.hide()
+            # the window stays on screen and says what it waits for: a processing
+            # step cannot be stopped midway, so closing waits for the step to end
+            self.job_box.setVisible(True)
+            self.lbl_job_phase.setText("Finishing the current step before closing")
+            self.lbl_job_eta.setText("")
+            self.job_progress.setRange(0, 0)
+            self.setEnabled(False)
             while any(w.isRunning() for w in running):
-                from PySide6.QtWidgets import QApplication
                 QApplication.processEvents()
                 time.sleep(0.02)
         self._specimen_meta_workers.clear()

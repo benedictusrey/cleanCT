@@ -455,7 +455,9 @@ def probe_sizes(window: QWidget, app, shots: bool) -> None:
             window._switch_tab(tab, schedule=False)
             for w, h in SIZES:
                 window.resize(w, h)
-                QApplication.processEvents()
+                # a resize lays out over more than one event pass: settle before measuring
+                for _ in range(4):
+                    QApplication.processEvents()
                 tag = f"[{theme_name} {tab} {window.width()}x{window.height()}]"
                 if (window.width(), window.height()) != (w, h):
                     stats.setdefault("clamped", []).append(

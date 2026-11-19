@@ -27,7 +27,7 @@ from dialogs.about_dialog import AboutDialog  # noqa: E402
 from dialogs.properties_dialog import SpecimenPropertiesDialog  # noqa: E402
 
 failures: list[str] = []
-ACRONYMS = {"XCT", "DICOM", "TIFF", "NIFTI", "GPU", "ROI", "CT", "HU", "KPI"}
+ACRONYMS = {"XCT", "DICOM", "TIFF", "NIFTI", "GPU", "CPU", "CUDA", "ROI", "CT", "HU", "KPI"}
 PICTOGRAPHS = re.compile("[\u2014\u2713\u2717\u2460-\u2473\u2192\u2190]")
 
 

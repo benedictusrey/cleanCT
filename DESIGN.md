@@ -73,6 +73,9 @@ the viewers draw them. They are data, not chrome.
   `key_keep`, `key_lateral`). The light palette darkens them so every swatch reads at
   3:1 on the panel (WCAG 1.4.11). `main_window.key_swatch` builds them; `_keyed`
   re-renders them on a theme change.
+- **About.** A fixed-width dialog: icon, wordmark (`role="about-title"`), version
+  pill, one lead paragraph, three numbered steps, three fact cards, three links. It
+  sizes to its wrapped text. Its facts come from the live window (processing mode).
 - **Workspace tabs.** `role="tab"`: text tabs on one baseline. The active tab is
   `text` colour with a 2 px accent underline. Settings sits at the right end.
 - **Segments.** `role="segment"`: a compact group of choices inside a panel
