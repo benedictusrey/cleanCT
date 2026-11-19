@@ -601,6 +601,8 @@ Open items and deliberate deviations:
   numbered steps; live facts (processing mode, outputs, source safety); links to the guide,
   activity log and data folder. Its steps wrap to their real height.
 - **Copy rule:** the dialog test now allows the acronyms CPU and CUDA.
+- Commit `8604b6d`. Release SHA-256: setup `5bdba748f31a16f46645f601817150d1323646fd640f5b552dce6e9fd777cb06`,
+  portable `afb4453f69ee54d39a882d6712229a85f4b7555eb0f39c4f900270c26f658dfd`.
 
 ### 2.13 [2026-11-19] Polish round: state pill, status bar, colour keys
 
