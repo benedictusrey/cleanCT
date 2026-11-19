@@ -34,12 +34,13 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - Results: a render started before a slider move no longer overwrites the slider position.
 - The quick-look pictures (`*_qa_removal.png`, `*_qa_roi.png`) are drawn without matplotlib. The same slices and colours are shown; the font and spacing differ from earlier builds.
 - The Linux `install.sh` refuses to run from the installed copy in every spelling of its path, so it cannot delete the installed app.
+- The self-check no longer needs CuPy in a source checkout. The packaged Windows and Linux builds still require it.
 
 ## Verification
 
-- Windows (built on the maintainer's PC from this source): regression gate 40 of 40 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); the ZIP matches its SHA-256 sidecar.
-- Linux and macOS: the regression gate, self-check and DMG steps run in CI. This build has not yet passed CI on both platforms; the release is not published until a CI run passes both.
-- The Linux package self-checks in clean Ubuntu 22.04 and Debian 12 containers in CI.
+- Linux (CI, commit 70d8869): regression gate, package self-check, self-checks in clean Ubuntu 22.04 and Debian 12 containers, and the Python source self-check in a fresh venv all passed.
+- Windows (built on the maintainer's PC from commit 70d8869): regression gate 41 of 41 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); both files match their SHA-256 sidecars.
+- Python source: exported from commit 70d8869 and checked in a fresh venv on Windows, and in CI on Linux. Its self-check passes without CuPy.
 - The packaged app and engine files match the source tree.
 
 ## Known limitations
