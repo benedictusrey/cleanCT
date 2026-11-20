@@ -41,9 +41,9 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 
 ## Verification
 
-- Linux (CI run 44647496731, commit 86bb0e3): regression gate, package self-check, self-checks in clean Ubuntu 22.04 and Debian 12 containers, and the Python source self-check in a fresh venv all passed.
-- Windows (built from commit 86bb0e3): regression gate 45 of 45 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); both files match their SHA-256 sidecars.
-- Python source: exported from commit 86bb0e3. Its output-folder and rename tests pass with no environment overrides. Its self-check passes without CuPy.
+- Linux (CI run 44656346619, commit a45e4c2): regression gate, package self-check, self-checks in clean Ubuntu 22.04 and Debian 12 containers, and the Python source self-check in a fresh venv all passed.
+- Windows (built from commit a45e4c2): regression gate 45 of 45 suites PASS; packaged launcher self-check PASS; the portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy) and with the GPU hidden (CPU); both files match their SHA-256 sidecars.
+- Python source: exported from commit a45e4c2 and checked in a fresh venv in CI. Its self-check passes without CuPy.
 - The packaged app and engine files match the source tree.
 
 ## Known limitations
