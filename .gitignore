@@ -21,7 +21,7 @@ dist/
 cache/
 data/cache/
 
-# Debug overlay artifacts (regenerable via tests/debug_lines_overlay.py)
+# Debug overlay artifacts (regenerable via tools/debug_lines_overlay.py)
 debug/
 
 # Installer build artifacts (regenerable via installer/build_installer.py)

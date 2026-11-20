@@ -134,7 +134,12 @@ DICOM_LOAD_HOST_VOLUME_MULTIPLIER = 3  # input, stripped copy, ROI headroom
 
 def output_root(ds: DatasetSpec) -> Path:
     override = os.environ.get("CLEANCT_OUTPUT_ROOT")
-    root = Path(override) if override else OUT_ROOT
+    if override:
+        root = Path(override)
+    elif OUT_ROOT.is_dir():                 # the build PC's existing results
+        root = OUT_ROOT
+    else:                                   # a checkout elsewhere: keep results inside it
+        root = Path(__file__).resolve().parents[1] / "data" / "pipeline_output"
     return root / ds.out_sub if ds.out_sub else root
 
 

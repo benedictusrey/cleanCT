@@ -218,9 +218,9 @@ Naming and consistency:
   fallback keeps the wood top, manual edit suspends, next detection
   re-snaps, toggle off resets pairs, checkpoint restore suspends, snap
   button applies).
-- `tests/debug_lines_overlay.py` - detection overlay (blue box) on a real
+- `tools/debug_lines_overlay.py` - detection overlay (blue box) on a real
   axial slice -> `debug_roi_fix/`.
-- `tests/debug_snap_overlay.py` - detection vs snapped-lines overlay
+- `tools/debug_snap_overlay.py` - detection vs snapped-lines overlay
   (dotted detection guides, solid snapped cut lines) for
   `24um/1-1`, `24um/1-15`, `66um/1-1` -> `debug_snap/`.
 - Full gate: `tests/run_cleanct_regressions.ps1` (13 suites after 0AG).

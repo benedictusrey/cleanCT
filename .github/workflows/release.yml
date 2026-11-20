@@ -19,7 +19,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read                  # the build jobs only read the repository and upload artifacts
 
 concurrency:
   group: release-${{ github.ref }}
@@ -89,6 +89,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    permissions:
+      contents: write             # only this job creates the release
     steps:
       - name: Check out
         uses: actions/checkout@v4

@@ -112,10 +112,11 @@ The Windows release build needs PyInstaller 6.22.2 and Inno Setup 6. The Linux b
 |---|---|
 | `main.py` | Entry point. |
 | `src/` | Application: `core/` (logic), `widgets/`, `dialogs/`, `main_window.py`, `theme.py`. |
-| `assets/` | `banner/` (gallery), `screenshots/` (documentation), `icons/` (application icon pack), `design/` (source archive). |
+| `assets/` | `banner/` (gallery), `screenshots/` (documentation), `icons/` (application icon pack). |
 | `engine/` | Processing engine: the six modules the application imports. |
 | `installer/` | Windows build (`build_installer.py`, launcher source, Inno Setup script); Linux and macOS build (`build_posix.py`, `posix/install.sh`); pinned requirements. |
-| `tests/` | Regression suites and test tools. |
+| `tests/` | Regression suites (run by `tests/run_cleanct_regressions.ps1`) and their helpers. |
+| `tools/` | Developer tools: debug overlays and the audit snapshot script. Not run in CI. |
 | `docs/` | User guide, implementation details, release notes and change records. |
 | `version/` | Release folders (not versioned). |
 | `PRODUCT.md`, `DESIGN.md` | Design context. |

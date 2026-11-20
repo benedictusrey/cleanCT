@@ -84,7 +84,10 @@ def _read_registry() -> list[dict]:
 def _write_registry(entries: list[dict]) -> None:
     CUSTOM_DIR.mkdir(parents=True, exist_ok=True)
     tmp = REGISTRY.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    with tmp.open("w", encoding="utf-8") as handle:
+        handle.write(json.dumps(entries, indent=2))
+        handle.flush()
+        os.fsync(handle.fileno())         # on disk before the rename: no empty registry after a power cut
     tmp.replace(REGISTRY)
 
 
@@ -461,11 +464,16 @@ def rename_specimen(old: str, new_id: str) -> str:
     new = unique_specimen_id(new_id, ignore=old)
     if new == old:
         return old
-    entry["specimen"] = new
     link_parent = DATA_DIR / old
+    entry["specimen"] = new
+    _write_registry(entries)              # first: a failed write leaves the folder where it was
     if link_parent.is_dir():
-        link_parent.rename(DATA_DIR / new)
-    _write_registry(entries)
+        try:
+            link_parent.rename(DATA_DIR / new)
+        except OSError:
+            entry["specimen"] = old
+            _write_registry(entries)      # undo the new ID so registry and folder agree
+            raise
     return new
 
 

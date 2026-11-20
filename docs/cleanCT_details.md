@@ -71,7 +71,7 @@ In the checkout the app sources live under src\. In the package they sit directl
 | App sources | checkout\src | app\ next to cleanCT.exe |
 | Engine | the checkout's engine\ folder (CLEANCT_ENGINE overrides it) | engine\ next to cleanCT.exe |
 | User state (settings, registry, cache, exports, logs) | checkout\data | %LOCALAPPDATA%\cleanCT |
-| Processing outputs | metal_remover\output (custom specimens: output\custom\<id>) | %LOCALAPPDATA%\cleanCT\pipeline_output |
+| Processing outputs | metal_remover\output where that folder exists (custom specimens: output\custom\<id>); otherwise data\pipeline_output inside the checkout | %LOCALAPPDATA%\cleanCT\pipeline_output |
 | Source scans | never changed | never changed |
 
 The environment variables that change these roots are CLEANCT_ENGINE (engine folder), CLEANCT_DATA (state folder) and CLEANCT_OUTPUT_ROOT (processing outputs). The regression gate sets all three to a scratch folder.

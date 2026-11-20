@@ -17,15 +17,16 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import os  # noqa: E402
 
-# Not a gate test: it runs the real engine, so it runs only when asked, and
-# only into scratch folders under the temp directory.
-if os.environ.get("CLEANCT_REAL_DATA") != "1":
-    print("SKIP: needs real specimen data (set CLEANCT_REAL_DATA=1)")
-    sys.exit(0)
+# A gate test on a synthetic scan. It runs the real engine, so it writes only
+# into scratch folders. The gate points TEMP at its own tmp folder, so the
+# scratch folder is that folder's parent as well as the system temp folder.
+_scratch_roots = [Path(tempfile.gettempdir()).resolve()]
+if os.environ.get("CLEANCT_TEST_TMP_DIR"):
+    _scratch_roots.append(Path(os.environ["CLEANCT_TEST_TMP_DIR"]).resolve().parent)
 for _var in ("CLEANCT_DATA", "CLEANCT_OUTPUT_ROOT"):
     _value = os.environ.get(_var, "")
-    if not _value or not Path(_value).resolve().is_relative_to(
-            Path(tempfile.gettempdir()).resolve()):
+    if not _value or not any(Path(_value).resolve().is_relative_to(root)
+                             for root in _scratch_roots):
         print(f"FAIL: {_var} must point at a scratch folder under the temp directory")
         sys.exit(1)
 
@@ -131,9 +132,10 @@ check("delivery cut = n (whole scan kept, ROI limits delivery)",
       plat.get("cut_from") == N, f"cut_from={plat.get('cut_from')}")
 check("wood ROI delivered non-empty",
       (rep.get("wood_roi", {}).get("bbox_zyx") or [None])[0] is not None)
+out_dir = tg.output_root(ds) / NAME
 check("delivery files written on disk",
-      any((p.name.startswith("wood_roi")) for p in (Path('../metal_remover/output/custom') / NAME).glob('*')),
-      str(sorted(p.name for p in (Path('../metal_remover/output/custom') / NAME).glob('*'))[:4]))
+      any(p.name.startswith("wood_roi") for p in out_dir.glob("*")),
+      str(sorted(p.name for p in out_dir.glob("*"))[:4]))
 
 print("[4] user-defined lines are honored (keep + cut override)")
 cfg_dict2 = dict(cfg_dict)
