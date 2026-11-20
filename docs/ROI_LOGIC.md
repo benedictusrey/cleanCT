@@ -1,7 +1,6 @@
 # ROI Detection & Cut Lines - Technical Documentation
 
 > Partly superseded on 2026-11-19: the Keep line is the wood top and the Cut line is the metal top.
-> See `docs/cleanCT_details.md`, sections 4 and 8.
 
 How cleanCT 1.0.0 determines the wood ROI and how the detected lines become
 the user-facing cut lines.  Written against the current source (audits 0AF +

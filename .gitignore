@@ -41,3 +41,7 @@ version/
 # Reference checkpoint of the code (a copy of src/, tests/, installer/)
 codebase/
 tests/screenshots/
+
+# Implementation details document: kept on the maintainer's PC, not in the repository
+docs/cleanCT_details.md
+docs/cleanCT_details.docx

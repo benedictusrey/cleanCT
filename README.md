@@ -144,7 +144,6 @@ The Windows release build needs PyInstaller 6.22.2 and Inno Setup 6. The Linux b
 | Document | Content |
 |---|---|
 | [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | Step-by-step guide. Ships with the application. |
-| [`docs/cleanCT_details.md`](docs/cleanCT_details.md) | Implementation details of v1.0.0 (also as `.docx`). |
 | [`docs/ROI_LOGIC.md`](docs/ROI_LOGIC.md) | Detection formulas and coordinate systems (earlier design; see the implementation details). |
 | [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | Release notes for v1.0.0. |
 | [`docs/REVISION_HISTORY.md`](docs/REVISION_HISTORY.md), [`docs/DEV_LOG.md`](docs/DEV_LOG.md), [`docs/AUDIT.md`](docs/AUDIT.md) | Change and audit records. |

@@ -57,4 +57,4 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 
 ## Documentation
 
-See [`README.md`](../README.md), [`docs/USER_GUIDE.md`](USER_GUIDE.md) and [`docs/cleanCT_details.md`](cleanCT_details.md).
+See [`README.md`](../README.md) and [`docs/USER_GUIDE.md`](USER_GUIDE.md).
