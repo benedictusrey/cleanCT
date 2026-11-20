@@ -34,7 +34,7 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - Results: a render started before a slider move no longer overwrites the slider position.
 - The quick-look pictures (`*_qa_removal.png`, `*_qa_roi.png`) are drawn without matplotlib. The same slices and colours are shown; the font and spacing differ from earlier builds.
 - The Linux `install.sh` refuses to run from the installed copy in every spelling of its path, so it cannot delete the installed app.
-- The self-check no longer needs CuPy in a source checkout. The packaged Windows and Linux builds still require it.
+- The NVIDIA GPU is optional. The app uses CuPy on an NVIDIA GPU when one is found, and runs on the CPU otherwise. The self-check passes on a PC without a GPU and reports which one is in use.
 - The Python source keeps its results in `data/pipeline_output` inside its folder. Earlier source builds wrote to a fixed folder on the developer's H: drive, which other PCs do not have.
 - Renaming a loaded specimen is consistent when the save fails: the registry and the specimen's folder keep the old name.
 - The specimen registry is written to disk before it is renamed, so a power cut cannot empty it.

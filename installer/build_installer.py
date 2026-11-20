@@ -24,7 +24,7 @@ The payload is torch-free: GPU acceleration is delivered through CuPy
 an NVIDIA GPU run the validated CPU backend. The pinned environment is copied
 from tests/venv_notorch (audit 0Q); packaging removes only verified test/docs,
 Qt authoring/QML assets, and the duplicate CuPy NVRTC DLLs. The resulting
-payload was checked with the packaged GUI smoke and active CuPy GPU selfcheck.
+payload was checked with the packaged GUI smoke; the self-check's gpu line shows whether CuPy is active.
 """
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ def copy_runtime_tree(src: Path, dst: Path) -> int:
     Keep Python examples: pydicom imports its examples package at startup.
     Keep the pinned NVIDIA NVRTC 12.8.93 wheel. CuPy's bundled 12.9 NVRTC
     duplicate is not needed because gpu_backend preloads the tested wheel;
-    this exact trimmed payload is validated by --selfcheck on CUDA hardware.
+    this exact trimmed payload is checked by --selfcheck, whose gpu line reads ACTIVE on CUDA hardware.
     """
     copied = 0
     for root, dirs, files in os.walk(src):
