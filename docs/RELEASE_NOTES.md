@@ -35,12 +35,15 @@ Check a download with `Get-FileHash <file> -Algorithm SHA256` (Windows), `sha256
 - The quick-look pictures (`*_qa_removal.png`, `*_qa_roi.png`) are drawn without matplotlib. The same slices and colours are shown; the font and spacing differ from earlier builds.
 - The Linux `install.sh` refuses to run from the installed copy in every spelling of its path, so it cannot delete the installed app.
 - The self-check no longer needs CuPy in a source checkout. The packaged Windows and Linux builds still require it.
+- The Python source keeps its results in `data/pipeline_output` inside its folder. Earlier source builds wrote to a fixed folder on the developer's H: drive, which other PCs do not have.
+- Renaming a loaded specimen is consistent when the save fails: the registry and the specimen's folder keep the old name.
+- The specimen registry is written to disk before it is renamed, so a power cut cannot empty it.
 
 ## Verification
 
-- Linux (CI, commit 70d8869): regression gate, package self-check, self-checks in clean Ubuntu 22.04 and Debian 12 containers, and the Python source self-check in a fresh venv all passed.
-- Windows (built on the maintainer's PC from commit 70d8869): regression gate 41 of 41 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); both files match their SHA-256 sidecars.
-- Python source: exported from commit 70d8869 and checked in a fresh venv on Windows, and in CI on Linux. Its self-check passes without CuPy.
+- Linux (CI run 44647496731, commit 86bb0e3): regression gate, package self-check, self-checks in clean Ubuntu 22.04 and Debian 12 containers, and the Python source self-check in a fresh venv all passed.
+- Windows (built from commit 86bb0e3): regression gate 45 of 45 suites PASS; packaged launcher self-check PASS; extracted portable self-check PASS with the GPU active (NVIDIA GeForce RTX 4080 SUPER through CuPy); both files match their SHA-256 sidecars.
+- Python source: exported from commit 86bb0e3. Its output-folder and rename tests pass with no environment overrides. Its self-check passes without CuPy.
 - The packaged app and engine files match the source tree.
 
 ## Known limitations
