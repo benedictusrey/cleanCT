@@ -78,6 +78,24 @@ Every file is attached to the GitHub Release with a SHA-256 sidecar; `SHA256SUMS
 
 TIFF and NIfTI sources are exported as NIfTI only.
 
+## GPU or CPU: measured comparison
+
+cleanCT uses an NVIDIA GPU (CuPy) when one is found, and the CPU otherwise. The two paths write the same output files.
+
+**Setup.** Windows 11; Intel Core Ultra 7 265K (20 cores); 63 GB RAM; NVIDIA GeForce RTX 4080 SUPER (16 GB, driver 621.01). cleanCT v1.0.0 (commit `a45e4c2`), default 66 µm settings, three 66 µm scans. Each scan ran three times per backend. CPU runs hid the GPU with `CUDA_VISIBLE_DEVICES=-1`.
+
+| Scan (slices) | GPU processing (s, mean ± sd) | CPU processing (s, mean ± sd) | GPU speed-up | Output |
+|---|---|---|---|---|
+| 1-1 (445) | 4.60 ± 0.08 | 5.27 ± 0.09 | 1.15× | identical |
+| 1-12 (405) | 5.13 ± 0.45 | 5.63 ± 0.54 | 1.10× | identical |
+| 1-13 (405) | 4.83 ± 0.45 | 5.30 ± 0.36 | 1.10× | identical |
+
+"Identical" means the SHA-256 hashes of the two NIfTI outputs (`stripped.nii`, `wood_roi.nii`) match across all runs, and the cut and keep slices match.
+
+- **Where the GPU helps.** ROI tracking is the largest stage (about 2 s). It takes 2.03 s on the GPU and 2.47 s on the CPU. Reading and writing the scan takes about 2 s on both. The speed-up is therefore limited to about 10–15% of the run.
+- **Start-up.** Selecting the backend takes 1.1 s with a GPU. Without one, the GPU check fails first, and the CPU start takes 4.3 s. For scan 1-1, the total including start-up is about 5.7 s on the GPU and 9.5 s on the CPU.
+- **Scope.** One PC and three scans. Other scan sizes or GPUs may change the ratio. Identical output was observed here; it is not a general guarantee.
+
 ## Build from source
 
 The processing engine is the `engine/` folder of this repository. Outputs of a source run go to the engine's default output folder unless `CLEANCT_OUTPUT_ROOT` is set.
