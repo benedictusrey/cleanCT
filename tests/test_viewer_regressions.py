@@ -111,8 +111,11 @@ def main() -> int:
             legacy_root = vc.output_root(ds)
         finally:
             os.environ["CLEANCT_OUTPUT_ROOT"] = str(output_override)
-        check("development output fallback remains unchanged",
-              legacy_root == tg.OUT_ROOT / "custom", str(legacy_root))
+        # without CLEANCT_OUTPUT_ROOT: the build PC's folder when it exists, else data/ in the checkout
+        fallback = (tg.OUT_ROOT if tg.OUT_ROOT.is_dir()
+                    else Path(tg.__file__).resolve().parents[1] / "data" / "pipeline_output")
+        check("development output fallback follows the build-folder rule",
+              legacy_root == fallback / "custom", str(legacy_root))
         sag, cor, sagc, corc = vc._orig_ortho_columns(
             ds, name, include_midlines=True)
         old_sag, old_cor = vc._orig_ortho_lines(ds, name)
